@@ -1,6 +1,6 @@
-import { RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface StatItem {
@@ -12,18 +12,20 @@ interface StatisticsPanelProps {
   title: string;
   items: StatItem[];
   showRefresh?: boolean;
+  theme: 'light' | 'dark'; // Add theme prop
 }
 
-export function StatisticsPanel({ title, items, showRefresh = false }: StatisticsPanelProps) {
+export function StatisticsPanel({ title, items, showRefresh = false, theme }: StatisticsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const isDark = theme === 'dark'; // Use theme prop
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    toast.success('Refreshing data...');
+    toast.info(`Refreshing ${title}...`);
     setTimeout(() => {
       setIsRefreshing(false);
-      toast.success('Data refreshed successfully');
+      toast.success(`${title} updated!`);
     }, 1500);
   };
 
@@ -31,31 +33,46 @@ export function StatisticsPanel({ title, items, showRefresh = false }: Statistic
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-[#1e293b] dark:bg-slate-800 border border-slate-700 rounded-lg overflow-hidden hover:border-cyan-500/50 transition-colors shadow-lg"
+      className={`border rounded-lg overflow-hidden transition-colors shadow-lg ${
+        isDark
+          ? 'bg-[#1e293b] border-slate-700 hover:border-cyan-500/50'
+          : 'bg-white border-gray-200 hover:border-cyan-500/50'
+      }`}
     >
-      <div className="px-4 py-3 bg-[#1e293b]/80 dark:bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
-        <h3 className="text-sm text-slate-200 font-medium">{title}</h3>
-        <div className="flex items-center gap-2">
+      <div className={`px-4 py-3 border-b flex items-center justify-between ${
+        isDark
+          ? 'bg-[#1e293b]/80 border-slate-700'
+          : 'bg-gray-50 border-gray-200'
+      }`}>
+        <h3 className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-gray-800'}`}>{title}</h3>
+        <div className="flex items-center gap-1">
           {showRefresh && (
             <motion.button
               whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9, rotate: 180 }}
+              whileTap={{ scale: 0.9 }}
               onClick={handleRefresh}
-              animate={{ rotate: isRefreshing ? 360 : 0 }}
-              transition={{ duration: 0.5 }}
+              disabled={isRefreshing}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isDark ? 'text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10' : 'text-gray-500 hover:text-cyan-600 hover:bg-cyan-50'
+              }`}
             >
-              <RefreshCw className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors" />
+              <motion.div animate={{ rotate: isRefreshing ? 360 : 0 }} transition={{ duration: 0.5, repeat: isRefreshing ? Infinity : 0, ease: 'linear' }}>
+                <RefreshCw className="w-4 h-4" />
+              </motion.div>
             </motion.button>
           )}
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setIsExpanded(!isExpanded)}
+            className={`p-1.5 rounded-lg transition-colors ${
+              isDark ? 'text-slate-400 hover:text-blue-400 hover:bg-blue-500/10' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+            }`}
           >
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors" />
+              <ChevronUp className="w-4 h-4" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-slate-400 hover:text-blue-400 transition-colors" />
+              <ChevronDown className="w-4 h-4" />
             )}
           </motion.button>
         </div>
@@ -64,24 +81,24 @@ export function StatisticsPanel({ title, items, showRefresh = false }: Statistic
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className="overflow-hidden"
           >
             <div className="p-4">
               <div className="space-y-2.5">
                 {items.map((item, index) => (
                   <motion.div
                     key={index}
-                    initial={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    whileHover={{ scale: 1.02, x: 5 }}
-                    className="flex items-center justify-between py-1.5 hover:bg-slate-700/30 px-2 rounded transition-all cursor-pointer"
+                    className={`flex items-center justify-between py-1.5 px-2 rounded transition-all cursor-pointer ${
+                      isDark ? 'hover:bg-slate-700/30' : 'hover:bg-gray-50'
+                    }`}
                   >
-                    <span className="text-sm text-slate-400">{item.label}</span>
+                    <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{item.label}</span>
                     <motion.span
                       whileHover={{ scale: 1.1 }}
                       className="text-sm text-blue-400"

@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { useState } from 'react';
 
@@ -6,11 +6,13 @@ interface StatCardProps {
   title: string;
   value: string | number;
   color: string;
+  theme: 'light' | 'dark'; // Add theme prop
   details?: Array<{ label: string; value: string | number }>;
 }
 
-export function StatCard({ title, value, color, details }: StatCardProps) {
+export function StatCard({ title, value, color, theme, details }: StatCardProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const isDark = theme === 'dark';
 
   return (
     <>
@@ -18,8 +20,12 @@ export function StatCard({ title, value, color, details }: StatCardProps) {
         whileHover={{ scale: 1.05, y: -5 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => details && setShowDetails(true)}
-        className={`bg-[#1e293b] dark:bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-cyan-500/50 transition-all cursor-pointer shadow-lg hover:shadow-xl ${
-          details ? 'hover:shadow-cyan-500/20' : ''
+        className={`rounded-lg p-6 border transition-all cursor-pointer shadow-lg hover:shadow-xl ${
+          isDark
+            ? 'bg-[#1e293b] border-slate-700 hover:border-cyan-500/50'
+            : 'bg-white border-gray-200 hover:border-cyan-500/50'
+        } ${
+          details ? (isDark ? 'hover:shadow-cyan-500/20' : 'hover:shadow-cyan-500/10') : ''
         }`}
       >
         <motion.div
@@ -30,15 +36,15 @@ export function StatCard({ title, value, color, details }: StatCardProps) {
         >
           {value}
         </motion.div>
-        <div className="text-xs uppercase tracking-wide text-slate-400">{title}</div>
+        <div className={`text-xs uppercase tracking-wide ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{title}</div>
       </motion.div>
 
       {details && (
         <Dialog open={showDetails} onOpenChange={setShowDetails}>
-          <DialogContent className="bg-slate-800 border-slate-700 text-slate-300">
+          <DialogContent className={isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-gray-200 text-gray-900'}>
             <DialogHeader>
               <DialogTitle className={color}>{title} Details</DialogTitle>
-              <DialogDescription className="text-slate-400">
+              <DialogDescription className={isDark ? 'text-slate-400' : 'text-gray-500'}>
                 Detailed breakdown of {title.toLowerCase()} statistics
               </DialogDescription>
             </DialogHeader>
@@ -46,9 +52,9 @@ export function StatCard({ title, value, color, details }: StatCardProps) {
               {details.map((detail, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-slate-900 rounded-lg"
+                  className={`flex items-center justify-between p-3 rounded-lg ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}
                 >
-                  <span className="text-sm text-slate-400">{detail.label}</span>
+                  <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{detail.label}</span>
                   <span className={`text-lg ${color}`}>{detail.value}</span>
                 </div>
               ))}

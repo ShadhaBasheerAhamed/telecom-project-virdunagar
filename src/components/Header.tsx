@@ -1,4 +1,4 @@
-import { Sun, Moon, User, Search, Bell, Menu, Video, Download, Settings, LogOut } from 'lucide-react';
+import { Sun, Moon, User, Search, Bell, Menu, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -104,29 +104,6 @@ export function Header({ theme, dataSource, onThemeToggle, onDataSourceChange, o
               }`}
             >
               <Search className="w-5 h-5" />
-            </motion.button>
-            
-            {/* Quick Actions */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`hidden sm:flex items-center gap-2 px-3 py-2 text-sm transition-colors rounded-lg ${
-                isDark ? 'text-gray-300 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              <Video className="w-4 h-4" />
-              <span className="hidden md:inline">Tutorials</span>
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`hidden sm:flex items-center gap-2 px-3 py-2 text-sm transition-colors rounded-lg ${
-                isDark ? 'text-gray-300 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden md:inline">Download</span>
             </motion.button>
 
             {/* Notifications */}

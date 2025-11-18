@@ -4,123 +4,163 @@ import { ChartPanel } from '../ChartPanel';
 import { StatisticsPanel } from '../StatisticsPanel';
 import { motion } from 'framer-motion';
 import { DashboardDataService } from '../../services/dashboardDataService';
+import type { DataSource } from '../../App';
+import { SubHeader } from '../SubHeader'; // Import SubHeader
 
-// Chart imports
 import {
-  BarChart, Bar, LineChart, Line, AreaChart, Area,
-  PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
 } from 'recharts';
 
-interface DashboardProps {
-  dataSource: string;
-  theme: 'light' | 'dark';
+// Interfaces
+interface ChartData {
+  name: string;
+  value: number;
 }
 
-interface CustomerStats {
+interface TimeSeriesData {
+  name: string;
+  uv: number;
+  pv: number;
+  amt: number;
+}
+
+interface DashboardStats {
   total: number;
   active: number;
+  online: number;
   expired: number;
   suspended: number;
   disabled: number;
 }
 
-interface FinanceData {
-  pendingInvoices: number;
-  todayCollected: number;
-  yesterdayCollected: number;
-  renewedToday: number;
-  renewedYesterday: number | string;
-  renewedThisMonth: number | string;
+interface DashboardProps {
+  dataSource: DataSource;
+  theme: 'light' | 'dark';
 }
 
-interface ChartData {
-  day?: string;
-  hour?: string;
-  month?: string;
-  value?: number;
-  amount?: number;
-  users?: number;
-  online?: number;
-  offline?: number;
-  name?: string;
-}
-
-interface DashboardState {
-  customerStats: CustomerStats | null;
-  registrationsData: ChartData[];
-  renewalsData: ChartData[];
-  expiredData: ChartData[];
-  complaintsData: ChartData[];
-  onlineUsersData: ChartData[];
-  invoicePaymentsData: ChartData[];
-  onlinePaymentsData: ChartData[];
-  financeData: FinanceData | null;
-}
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+// Chart Colors
+const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+const LINE_COLOR_1 = '#8884d8';
+const LINE_COLOR_2 = '#82ca9d';
+const AREA_COLOR_1 = '#8884d8';
+const BAR_COLOR_1 = '#8884d8';
+const BAR_COLOR_2 = '#82ca9d';
 
 export function Dashboard({ dataSource, theme }: DashboardProps) {
-  const [dashboardData, setDashboardData] = useState<DashboardState>({
-    customerStats: {
-      total: 179,
-      active: 112,
-      expired: 67,
-      suspended: 0,
-      disabled: 0
-    },
-    registrationsData: [],
-    renewalsData: [],
-    expiredData: [],
-    complaintsData: [],
-    onlineUsersData: [],
-    invoicePaymentsData: [],
-    onlinePaymentsData: [],
-    financeData: {
-      pendingInvoices: 96,
-      todayCollected: 542,
-      yesterdayCollected: 1500,
-      renewedToday: 5,
-      renewedYesterday: 1203,
-      renewedThisMonth: 50000
-    }
-  });
-
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [pieData, setPieData] = useState<ChartData[]>([]);
+  const [lineData, setLineData] = useState<TimeSeriesData[]>([]);
+  const [areaData, setAreaData] = useState<TimeSeriesData[]>([]);
+  const [barData, setBarData] = useState<TimeSeriesData[]>([]);
   const isDark = theme === 'dark';
 
   useEffect(() => {
-    loadDashboardData();
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const data = await DashboardDataService.generateChartData();
+        
+        // Use exact values as specified
+        const exactStats = {
+          total: 179,
+          active: 112,
+          online: 104,
+          expired: 67,
+          suspended: 0,
+          disabled: 0
+        };
+        
+        setStats(exactStats);
+        setPieData(data.complaintsData);
+        
+        // Transform registration data to line data format
+        const lineData = data.renewalsData.map(item => ({
+          name: item.day,
+          uv: item.value,
+          pv: Math.floor(Math.random() * 10) + 1,
+          amt: Math.floor(Math.random() * 20) + 1
+        }));
+        
+        // Transform registration data to area data format
+        const areaData = data.registrationsData.map(item => ({
+          name: item.day,
+          uv: item.value,
+          pv: Math.floor(Math.random() * 10) + 1,
+          amt: Math.floor(Math.random() * 20) + 1
+        }));
+        
+        // Transform expired data to bar data format
+        const barData = data.expiredData.map(item => ({
+          name: item.day,
+          uv: item.value,
+          pv: Math.floor(Math.random() * 10) + 1,
+          amt: Math.floor(Math.random() * 20) + 1
+        }));
+        
+        setLineData(lineData);
+        setAreaData(areaData);
+        setBarData(barData);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+        // Set exact fallback data as specified
+        const exactStats = {
+          total: 179,
+          active: 112,
+          online: 104,
+          expired: 67,
+          suspended: 0,
+          disabled: 0
+        };
+        setStats(exactStats);
+        setPieData([
+          { name: 'Open', value: 18 },
+          { name: 'Reopened', value: 9 },
+          { name: 'Progress', value: 14 },
+          { name: 'Resolved', value: 125 },
+          { name: 'Closed', value: 13 }
+        ]);
+        const fallbackLineData = Array.from({ length: 7 }, (_, i) => ({
+          name: (21 + i).toString(),
+          uv: Math.floor(Math.random() * 10) + 1,
+          pv: Math.floor(Math.random() * 10) + 1,
+          amt: Math.floor(Math.random() * 20) + 1
+        }));
+        setLineData(fallbackLineData);
+        setAreaData(fallbackLineData);
+        setBarData(fallbackLineData);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [dataSource]);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      const data = await DashboardDataService.generateChartData();
-      setDashboardData(data);
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Use dashboardData.customerStats or fallback values
-  const stats = dashboardData.customerStats || {
-    total: 179,
-    active: 112,
-    expired: 67,
-    suspended: 0,
-    disabled: 0
-  };
-
-  if (loading) {
+  if (loading || !stats) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      <div className="flex justify-center items-center h-96">
+        <div className={`w-12 h-12 border-4 border-t-cyan-500 border-gray-200 rounded-full animate-spin ${isDark ? 'border-gray-700' : 'border-gray-200'} `}></div>
       </div>
     );
   }
+  
+  const tickFill = isDark ? '#94a3b8' : '#334155';
+  const strokeColor = isDark ? '#334155' : '#e2e8f0';
 
   return (
     <motion.div
@@ -129,12 +169,15 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
       transition={{ duration: 0.5 }}
       className="space-y-6"
     >
+      <SubHeader theme={theme} />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           title="TOTAL"
           value={stats.total}
           color="text-blue-400"
+          theme={theme}
           details={[
             { label: 'Today', value: 5 },
             { label: 'This Week', value: 23 },
@@ -145,141 +188,144 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
           title="ACTIVE"
           value={stats.active}
           color="text-cyan-400"
+          theme={theme}
           details={[
-            { label: 'Premium', value: 67 },
-            { label: 'Standard', value: 45 },
+            { label: 'Today', value: 2 },
+            { label: 'This Week', value: 15 },
+            { label: 'This Month', value: 62 },
           ]}
         />
         <StatCard
           title="ONLINE"
-          value="104"
+          value={stats.online}
           color="text-green-400"
+          theme={theme}
           details={[
-            { label: 'Peak Hours', value: 120 },
-            { label: 'Off-Peak', value: 50 },
+            { label: 'BSNL', value: 60 },
+            { label: 'RMAX', value: 44 },
           ]}
         />
         <StatCard
           title="EXPIRED"
           value={stats.expired}
           color="text-yellow-400"
+          theme={theme}
           details={[
-            { label: 'Last 7 Days', value: 12 },
-            { label: 'Last 30 Days', value: stats.expired },
+            { label: 'Today', value: 1 },
+            { label: 'This Week', value: 8 },
+            { label: 'This Month', value: 27 },
           ]}
         />
-        <StatCard title="SUSPENDED" value={stats.suspended} color="text-red-500" />
-        <StatCard title="DISABLED" value={stats.disabled} color="text-slate-500" />
+        <StatCard title="SUSPENDED" value={stats.suspended} color="text-red-500" theme={theme} />
+        <StatCard title="DISABLED" value={stats.disabled} color="text-slate-500" theme={theme} />
       </div>
 
       {/* Statistics Panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatisticsPanel
           title="Customer Statistics"
+          theme={theme}
           items={[
-            { label: 'New Customers', value: 7 },
-            { label: 'FDP Crossed Users', value: 1 },
-            { label: 'Registered Today', value: 0 },
-            { label: 'Registered Yesterday', value: 4 },
-            { label: 'Registered This Month', value: 5 },
-            { label: 'Registered Last Month', value: 6 },
+            { label: 'New Customers', value: '7' },
+            { label: 'FDP Crossed Users', value: '1' },
+            { label: 'Registered Today', value: '0' },
+            { label: 'Registered Yesterday', value: '4' },
+            { label: 'Registered This Month', value: '5' },
+            { label: 'Registered Last Month', value: '6' },
           ]}
         />
-        
         <StatisticsPanel
-          title="Customer Statistics"
+          title="Customer Statistics (Expiry)"
           showRefresh={true}
+          theme={theme}
           items={[
-            { label: 'Tomorrow Expired', value: 0 },
-            { label: 'Expiring in next 7 days', value: 54 },
-            { label: 'Expiring prev 7 days', value: 0 },
-            { label: 'Net Verified Customers', value: 1 },
+            { label: 'Tomorrow Expired', value: '0' },
+            { label: 'Expiring in next 7 days', value: '54' },
+            { label: 'Expiring prev 7 days', value: '0' },
+            { label: 'Net Verified Customers', value: '1' },
           ]}
         />
-        
         <StatisticsPanel
           title="Finance Statistics"
+          theme={theme}
           items={[
-            { label: 'Pending Invoices', value: dashboardData.financeData?.pendingInvoices || 96 },
-            { label: "Today's Collected", value: dashboardData.financeData?.todayCollected || '542' },
-            { label: 'Yesterday Collected', value: dashboardData.financeData?.yesterdayCollected || '1,500' },
-            { label: 'Renewed Today', value: dashboardData.financeData?.renewedToday || 5 },
-            { label: 'Renewed Yesterday', value: dashboardData.financeData?.renewedYesterday || '1,203' },
-            { label: 'Renewed This Month', value: dashboardData.financeData?.renewedThisMonth || '50,000' },
+            { label: 'Pending Invoices', value: '96' },
+            { label: 'Today\'s Collected', value: '542' },
+            { label: 'Yesterday Collected', value: '1,500' },
+            { label: 'Renewed Today', value: '5' },
+            { label: 'Renewed Yesterday', value: '1,203' },
+            { label: 'Renewed This Month', value: '50,000' },
           ]}
         />
-        
         <StatisticsPanel
           title="Complaint Statistics"
+          theme={theme}
           items={[
-            { label: 'Open', value: dashboardData.complaintsData[0]?.value || 0 },
-            { label: 'Reopened', value: dashboardData.complaintsData[1]?.value || 0 },
-            { label: 'Progress', value: dashboardData.complaintsData[2]?.value || 0 },
-            { label: 'Resolved', value: dashboardData.complaintsData[3]?.value || 0 },
-            { label: 'Closed', value: dashboardData.complaintsData[4]?.value || 0 },
-            { label: 'Mine', value: 0 },
+            { label: 'Open', value: '0' },
+            { label: 'Reopened', value: '0' },
+            { label: 'Progress', value: '0' },
+            { label: 'Resolved', value: '0' },
+            { label: 'Closed', value: '0' },
+            { label: 'Mine', value: '0' },
           ]}
         />
       </div>
 
       {/* Charts Grid - First Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Registrations - Line Chart */}
-        <ChartPanel title="Registrations">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={dashboardData.registrationsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
-              <XAxis dataKey="day" stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <YAxis stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#000000'
-                }} 
+        <ChartPanel title="Registrations" theme={theme}>
+          <ResponsiveContainer width="100%" height={250}>
+            <AreaChart data={areaData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={strokeColor} />
+              <XAxis dataKey="name" tick={{ fill: tickFill }} />
+              <YAxis tick={{ fill: tickFill }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                }}
               />
-              <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6' }} />
+              <Legend />
+              <Area type="monotone" dataKey="uv" stackId="1" stroke={AREA_COLOR_1} fill={AREA_COLOR_1} opacity={0.6} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+        <ChartPanel title="Renewals" theme={theme}>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={lineData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={strokeColor} />
+              <XAxis dataKey="name" tick={{ fill: tickFill }} />
+              <YAxis tick={{ fill: tickFill }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="pv" stroke={LINE_COLOR_1} activeDot={{ r: 8 }} />
+              <Line type="monotone" dataKey="uv" stroke={LINE_COLOR_2} />
             </LineChart>
           </ResponsiveContainer>
         </ChartPanel>
-        
-        {/* Renewals - Bar Chart */}
-        <ChartPanel title="Renewals">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={dashboardData.renewalsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
-              <XAxis dataKey="day" stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <YAxis stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#000000'
-                }} 
+        <ChartPanel title="Expired" theme={theme}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={barData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={strokeColor} />
+              <XAxis dataKey="name" tick={{ fill: tickFill }} />
+              <YAxis tick={{ fill: tickFill }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                }}
               />
-              <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartPanel>
-        
-        {/* Expired - Bar Chart */}
-        <ChartPanel title="Expired">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={dashboardData.expiredData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
-              <XAxis dataKey="day" stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <YAxis stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#000000'
-                }} 
-              />
-              <Bar dataKey="value" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              <Legend />
+              <Bar dataKey="pv" stackId="a" fill={BAR_COLOR_1} />
+              <Bar dataKey="uv" stackId="a" fill={BAR_COLOR_2} />
             </BarChart>
           </ResponsiveContainer>
         </ChartPanel>
@@ -287,65 +333,49 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
 
       {/* Charts Grid - Second Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Complaints - Doughnut Chart */}
-        <ChartPanel title="Complaints">
-          <ResponsiveContainer width="100%" height={200}>
+        <ChartPanel title="Complaints" theme={theme}>
+          <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={dashboardData.complaintsData}
+                data={pieData}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
+                labelLine={false}
+                outerRadius={100}
+                fill="#8884d8"
                 dataKey="value"
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
               >
-                {dashboardData.complaintsData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#000000'
-                }} 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                }}
               />
+              <Legend />
             </PieChart>
           </ResponsiveContainer>
-          <div className="flex flex-wrap gap-2 justify-center mt-4">
-            {dashboardData.complaintsData.map((item, index) => (
-              <div key={index} className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-                <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>{item.name}</span>
-              </div>
-            ))}
-          </div>
         </ChartPanel>
-        
-        {/* Online Users - Area Chart (spanning 2 columns) */}
-        <ChartPanel title="Online Users" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={dashboardData.onlineUsersData}>
-              <defs>
-                <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
-              <XAxis dataKey="hour" stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <YAxis stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#000000'
-                }} 
+        <ChartPanel title="Online Users" className="lg:col-span-2" theme={theme}>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={areaData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={strokeColor} />
+              <XAxis dataKey="name" tick={{ fill: tickFill }} />
+              <YAxis tick={{ fill: tickFill }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                }}
               />
-              <Area type="monotone" dataKey="users" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorUsers)" />
+              <Legend />
+              <Area type="monotone" dataKey="uv" stroke={AREA_COLOR_1} fill={AREA_COLOR_1} opacity={0.6} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartPanel>
@@ -353,48 +383,42 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
 
       {/* Charts Grid - Third Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Invoice Payments - Bar Chart */}
-        <ChartPanel title="Invoice Payments">
+        <ChartPanel title="Invoice Payments" theme={theme}>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={dashboardData.invoicePaymentsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
-              <XAxis dataKey="month" stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <YAxis stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#000000'
-                }} 
+            <BarChart data={barData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={strokeColor} />
+              <XAxis dataKey="name" tick={{ fill: tickFill }} />
+              <YAxis tick={{ fill: tickFill }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                }}
               />
-              <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Legend />
+              <Bar dataKey="pv" stackId="a" fill={BAR_COLOR_1} />
+              <Bar dataKey="uv" stackId="a" fill={BAR_COLOR_2} />
             </BarChart>
           </ResponsiveContainer>
         </ChartPanel>
-        
-        {/* Online Payments - Stacked Bar Chart */}
-        <ChartPanel title="Online Payments">
+        <ChartPanel title="Online Payments" theme={theme}>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={dashboardData.onlinePaymentsData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#334155" : "#e5e7eb"} />
-              <XAxis dataKey="month" stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <YAxis stroke={isDark ? "#94a3b8" : "#6b7280"} fontSize={12} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                  border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#cbd5e1' : '#000000'
-                }} 
+            <LineChart data={lineData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={strokeColor} />
+              <XAxis dataKey="name" tick={{ fill: tickFill }} />
+              <YAxis tick={{ fill: tickFill }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                  borderColor: isDark ? '#334155' : '#e2e8f0',
+                  color: isDark ? '#ffffff' : '#0f172a',
+                }}
               />
-              <Legend 
-                wrapperStyle={{ color: isDark ? '#cbd5e1' : '#000000' }}
-                iconType="rect"
-              />
-              <Bar dataKey="online" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="offline" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Legend />
+              <Line type="monotone" dataKey="pv" stroke={LINE_COLOR_1} activeDot={{ r: 8 }} />
+              <Line type="monotone" dataKey="uv" stroke={LINE_COLOR_2} />
+            </LineChart>
           </ResponsiveContainer>
         </ChartPanel>
       </div>
