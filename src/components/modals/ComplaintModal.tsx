@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Paperclip } from 'lucide-react';
 import type { Complaint } from '../pages/Complaints';
+import { isValidComplaintPriority, isValidComplaintStatus, isValidComplaintSource } from '../../utils/typeGuards';
 
 interface ComplaintModalProps {
   mode: 'add' | 'edit';
@@ -162,7 +163,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
               <select
                 required
                 value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+onChange={(e) => isValidComplaintPriority(e.target.value) && setFormData({ ...formData, priority: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -184,7 +185,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
               <select
                 required
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+onChange={(e) => isValidComplaintStatus(e.target.value) && setFormData({ ...formData, status: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -206,7 +207,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
               <select
                 required
                 value={formData.source}
-                onChange={(e) => setFormData({ ...formData, source: e.target.value as any })}
+onChange={(e) => isValidComplaintSource(e.target.value) && setFormData({ ...formData, source: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'

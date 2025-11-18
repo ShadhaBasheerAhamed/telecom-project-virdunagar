@@ -18,8 +18,8 @@ export function StatCard({ title, value, color, details }: StatCardProps) {
         whileHover={{ scale: 1.05, y: -5 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => details && setShowDetails(true)}
-        className={`bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-all cursor-pointer shadow-lg hover:shadow-xl ${
-          details ? 'hover:shadow-blue-500/20' : ''
+        className={`bg-[#1e293b] dark:bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-cyan-500/50 transition-all cursor-pointer shadow-lg hover:shadow-xl ${
+          details ? 'hover:shadow-cyan-500/20' : ''
         }`}
       >
         <motion.div

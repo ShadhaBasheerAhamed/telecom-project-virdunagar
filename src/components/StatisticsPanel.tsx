@@ -31,10 +31,10 @@ export function StatisticsPanel({ title, items, showRefresh = false }: Statistic
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden hover:border-slate-600 transition-colors"
+      className="bg-[#1e293b] dark:bg-slate-800 border border-slate-700 rounded-lg overflow-hidden hover:border-cyan-500/50 transition-colors shadow-lg"
     >
-      <div className="px-4 py-3 bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
-        <h3 className="text-sm text-slate-200">{title}</h3>
+      <div className="px-4 py-3 bg-[#1e293b]/80 dark:bg-slate-800/80 border-b border-slate-700 flex items-center justify-between">
+        <h3 className="text-sm text-slate-200 font-medium">{title}</h3>
         <div className="flex items-center gap-2">
           {showRefresh && (
             <motion.button

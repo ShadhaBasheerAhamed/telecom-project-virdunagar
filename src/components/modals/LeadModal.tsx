@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Lead } from '../pages/Leads';
+import { isValidLeadFunnel, isValidLeadStatus, isValidLeadSource } from '../../utils/typeGuards';
 
 interface LeadModalProps {
   mode: 'add' | 'edit';
@@ -157,7 +158,7 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
               <select
                 required
                 value={formData.funnel}
-                onChange={(e) => setFormData({ ...formData, funnel: e.target.value as any })}
+onChange={(e) => isValidLeadFunnel(e.target.value) && setFormData({ ...formData, funnel: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -179,7 +180,7 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
               <select
                 required
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+onChange={(e) => isValidLeadStatus(e.target.value) && setFormData({ ...formData, status: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -200,7 +201,7 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
               <select
                 required
                 value={formData.source}
-                onChange={(e) => setFormData({ ...formData, source: e.target.value as any })}
+onChange={(e) => isValidLeadSource(e.target.value) && setFormData({ ...formData, source: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'

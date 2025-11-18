@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Customer } from '../pages/Customers';
+import { isValidCustomerStatus, isValidCustomerSource } from '../../utils/typeGuards';
 
 interface CustomerModalProps {
   mode: 'add' | 'edit';
@@ -157,7 +158,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
               <select
                 required
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+onChange={(e) => isValidCustomerStatus(e.target.value) && setFormData({ ...formData, status: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -178,7 +179,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
               <select
                 required
                 value={formData.source}
-                onChange={(e) => setFormData({ ...formData, source: e.target.value as any })}
+onChange={(e) => isValidCustomerSource(e.target.value) && setFormData({ ...formData, source: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'

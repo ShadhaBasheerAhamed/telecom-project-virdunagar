@@ -43,7 +43,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0F172A]' : 'bg-[#F1F5F9]'} transition-colors duration-300`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0F172A] dark-theme' : 'bg-[#F1F5F9] light-theme'} transition-colors duration-300`}>
       <div className="flex">
         <Sidebar 
           theme={theme} 
