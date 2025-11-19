@@ -23,6 +23,15 @@ interface DashboardHeaderProps {
 
 const dataSources = ['All Sources', 'BSNL', 'RMAX'];
 
+// Pill-shaped button style generator
+const getPillButtonStyles = (isDark: boolean) => ({
+  borderRadius: '9999px !important',
+  border: isDark ? '1px solid rgb(51 65 85)' : '1px solid rgb(226 232 240)',
+  transition: 'all 0.2s ease',
+  outline: 'none',
+  cursor: 'pointer',
+});
+
 export function DashboardHeader({ 
   onMenuClick, 
   onSearch, 
@@ -68,35 +77,29 @@ export function DashboardHeader({
             
             <h1 className={`lg:hidden text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>SPT TELECOM</h1>
 
-            {/* Data Source Selector */}
+            {/* Data Source Selector - FORCED PILL SHAPE */}
             <div className="hidden md:flex items-center gap-3">
               <span className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Data:</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                   {/* Using a standard button to ensure ref passing works perfectly with Radix */}
-                   <button 
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-full border outline-none transition-all shadow-sm hover:shadow-md ${
-                      isDark 
-                        ? 'bg-slate-900 border-slate-700 text-slate-200 hover:border-slate-500' 
-                        : 'bg-white border-gray-200 text-slate-700 hover:border-gray-300'
-                    }`}
+                  <button 
+                    className={`flex items-center gap-2 px-6 py-2.5 font-semibold text-sm select-none overflow-hidden group ${
+                      isDark
+                        ? 'bg-slate-900 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
+                        : 'bg-white text-slate-700 hover:border-gray-300 hover:bg-gray-50'
+                    } !rounded-full shadow-sm hover:shadow-md transition-all outline-none`}
+                    style={getPillButtonStyles(isDark)}
                   >
                     <Filter className="w-3.5 h-3.5" />
-                    <span className="text-sm font-semibold">{dataSource}</span>
-                    <ChevronDown className="w-3.5 h-3.5 opacity-50 ml-2" />
+                    <span className="font-semibold">{dataSource}</span>
+                    <ChevronDown className="w-3.5 h-3.5 opacity-50 ml-2 group-hover:opacity-70 transition-opacity" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  className={`rounded-2xl mt-2 w-48 p-2 border shadow-xl ${
-                    isDark ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-700'
-                  }`}
-                >
+                <DropdownMenuContent className={`rounded-2xl mt-2 w-48 p-2 border shadow-xl ${isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-gray-200 text-gray-700'}`}>
                    {dataSources.map(source => (
                      <DropdownMenuItem 
                         key={source} 
-                        className={`rounded-xl px-3 py-2 cursor-pointer font-medium transition-colors ${
-                          isDark ? 'hover:bg-slate-800 focus:bg-slate-800' : 'hover:bg-gray-100 focus:bg-gray-100'
-                        }`}
+                        className={`rounded-xl mx-1 my-1 cursor-pointer font-medium transition-colors ${isDark ? 'hover:bg-slate-800 focus:bg-slate-800' : 'hover:bg-gray-100 focus:bg-gray-100'}`}
                         onClick={() => onDataSourceChange(source)}
                       >
                         {source}
@@ -108,40 +111,43 @@ export function DashboardHeader({
           </div>
           
           <div className="flex items-center gap-4">
-            {/* Video Tutorials Button */}
+            {/* Video Tutorials Button - PILL SHAPED */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full text-sm border transition-all ${
+              style={getPillButtonStyles(isDark)}
+              className={`hidden md:flex items-center gap-2 px-5 py-2.5 text-sm font-medium ${
                 isDark 
-                  ? 'border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800' 
-                  : 'border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'text-slate-300 hover:text-white hover:bg-slate-800' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               <Video className="w-4 h-4" />
               <span>Tutorials</span>
             </motion.button>
 
-            {/* Search Icon */}
+            {/* Search Icon - PILL SHAPED */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setSearchOpen(true)}
-              className={`p-3 rounded-full border transition-all shadow-sm ${
-                isDark ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-600' : 'bg-white border-gray-200 text-slate-500 hover:text-slate-900 hover:border-gray-300'
+              style={getPillButtonStyles(isDark)}
+              className={`p-3 shadow-sm ${
+                isDark ? 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800' : 'bg-white text-slate-500 hover:text-slate-900 hover:bg-gray-50'
               }`}
             >
               <Search className="w-5 h-5" />
             </motion.button>
             
-            {/* Notifications */}
+            {/* Notifications - PILL SHAPED */}
             <div className="relative">
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-3 rounded-full border relative transition-all shadow-sm ${
-                   isDark ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-600' : 'bg-white border-gray-200 text-slate-500 hover:text-slate-900 hover:border-gray-300'
+                style={getPillButtonStyles(isDark)}
+                className={`p-3 relative shadow-sm ${
+                   isDark ? 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800' : 'bg-white text-slate-500 hover:text-slate-900 hover:bg-gray-50'
                 }`}
               >
                 <Bell className="w-5 h-5" />
@@ -154,18 +160,18 @@ export function DashboardHeader({
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className={`absolute right-0 mt-3 w-80 border rounded-3xl shadow-2xl overflow-hidden z-50 ${
+                    className={`absolute right-0 mt-3 w-80 border rounded-2xl shadow-2xl overflow-hidden z-50 ${
                       isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'
                     }`}
                   >
                     <div className={`p-5 border-b ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
                       <h3 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Notifications</h3>
                     </div>
-                    <div className="max-h-96 overflow-y-auto p-2">
+                    <div className="max-h-96 overflow-y-auto p-3">
                       {notifications.map((notif) => (
                         <div
                           key={notif.id}
-                          className={`p-4 rounded-2xl mb-1 cursor-pointer transition-colors ${
+                          className={`p-4 rounded-2xl mb-2 cursor-pointer transition-colors ${
                             isDark ? 'hover:bg-slate-800/50' : 'hover:bg-gray-50'
                           }`}
                         >
@@ -179,13 +185,14 @@ export function DashboardHeader({
               </AnimatePresence>
             </div>
 
-            {/* Theme Toggle */}
+            {/* Theme Toggle - PILL SHAPED */}
             <motion.button
               whileHover={{ scale: 1.1, rotate: 180 }}
               whileTap={{ scale: 0.9 }}
               onClick={onThemeToggle}
-              className={`p-3 rounded-full border transition-all shadow-sm ${
-                isDark ? 'bg-slate-900 border-slate-800 text-yellow-400 hover:border-slate-600' : 'bg-white border-gray-200 text-indigo-600 hover:border-gray-300'
+              style={getPillButtonStyles(isDark)}
+              className={`p-3 shadow-sm ${
+                isDark ? 'bg-slate-900 text-yellow-400 hover:bg-slate-800' : 'bg-white text-indigo-600 hover:bg-gray-50'
               }`}
             >
               <motion.div
@@ -197,15 +204,16 @@ export function DashboardHeader({
               </motion.div>
             </motion.button>
             
-            {/* Admin Profile */}
+            {/* Admin Profile - FORCED PILL SHAPE */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button 
-                  className={`flex items-center gap-3 pl-2 pr-5 py-2 rounded-full cursor-pointer border outline-none transition-all shadow-sm hover:shadow-md ${
-                    isDark 
-                      ? 'bg-slate-900 border-slate-800 hover:border-slate-600' 
-                      : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-3 pl-2 pr-5 py-2 font-medium select-none overflow-hidden group ${
+                      isDark
+                        ? 'bg-slate-900 text-slate-200 hover:bg-slate-800'
+                        : 'bg-white text-slate-900 hover:bg-gray-50'
+                    } !rounded-full shadow-sm hover:shadow-md transition-all outline-none`}
+                  style={getPillButtonStyles(isDark)}
                 >
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow-inner ${
                     isDark ? 'bg-gradient-to-br from-blue-600 to-blue-700' : 'bg-gradient-to-br from-blue-100 to-blue-200'
@@ -213,26 +221,23 @@ export function DashboardHeader({
                     <User className={`w-4 h-4 ${isDark ? 'text-white' : 'text-blue-700'}`} />
                   </div>
                   <div className="flex flex-col items-start">
-                    <span className={`text-sm font-bold leading-none ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Admin</span>
+                    <span className={`text-sm font-bold leading-none`}>Admin</span>
                   </div>
-                  <ChevronDown className={`w-3.5 h-3.5 ml-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 ml-1 opacity-50 group-hover:opacity-70 transition-opacity ${isDark ? 'text-slate-500' : 'text-slate-400'}`} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className={`rounded-2xl mt-2 w-56 p-2 border shadow-xl ${isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-gray-200 text-gray-700'}`}>
-                <DropdownMenuLabel className="px-3 py-2 text-xs font-semibold uppercase opacity-50">My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator className={`my-1 ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`} />
-                
-                <DropdownMenuItem className={`rounded-xl px-3 py-2.5 cursor-pointer font-medium ${isDark ? 'hover:bg-slate-800 focus:bg-slate-800' : 'hover:bg-gray-100 focus:bg-gray-100'}`}>
-                  <User className="w-4 h-4 mr-3" /> Profile
+                <DropdownMenuLabel className="px-4 py-3">My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator className={isDark ? 'bg-slate-700' : 'bg-gray-200'} />
+                <DropdownMenuItem className={`rounded-xl mx-1 my-1 cursor-pointer ${isDark ? 'hover:bg-slate-700 focus:bg-slate-700' : 'hover:bg-gray-100'}`}>
+                  <User className="w-4 h-4 mr-2" /> Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem className={`rounded-xl px-3 py-2.5 cursor-pointer font-medium ${isDark ? 'hover:bg-slate-800 focus:bg-slate-800' : 'hover:bg-gray-100 focus:bg-gray-100'}`}>
-                  <Settings className="w-4 h-4 mr-3" /> Settings
+                <DropdownMenuItem className={`rounded-xl mx-1 my-1 cursor-pointer ${isDark ? 'hover:bg-slate-700 focus:bg-slate-700' : 'hover:bg-gray-100'}`}>
+                  <Settings className="w-4 h-4 mr-2" /> Settings
                 </DropdownMenuItem>
-                
-                <DropdownMenuSeparator className={`my-1 ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`} />
-                
-                <DropdownMenuItem className={`rounded-xl px-3 py-2.5 cursor-pointer font-medium text-red-500 ${isDark ? 'hover:bg-red-950/30 focus:bg-red-950/30' : 'hover:bg-red-50 focus:bg-red-50'}`}>
-                  <LogOut className="w-4 h-4 mr-3" /> Logout
+                <DropdownMenuSeparator className={isDark ? 'bg-slate-700' : 'bg-gray-200'} />
+                <DropdownMenuItem className={`rounded-xl mx-1 my-1 cursor-pointer text-red-400 ${isDark ? 'hover:bg-slate-700 focus:bg-slate-700' : 'hover:bg-gray-100'}`}>
+                  <LogOut className="w-4 h-4 mr-2" /> Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -242,7 +247,7 @@ export function DashboardHeader({
 
       {/* Search Dialog */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className={`sm:max-w-[500px] rounded-[2rem] border-0 shadow-2xl p-0 overflow-hidden ${
+        <DialogContent className={`sm:max-w-[500px] !rounded-[2.5rem] border-0 shadow-2xl p-0 overflow-hidden ${
           isDark ? 'bg-[#1e293b] text-slate-300' : 'bg-white text-gray-900'
         }`}>
           <div className="p-6 pb-0">
@@ -258,7 +263,7 @@ export function DashboardHeader({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className={`pl-16 py-8 rounded-2xl border-2 text-lg shadow-inner transition-all ${
+                className={`pl-16 py-8 !rounded-[2rem] border-2 text-lg shadow-inner transition-all ${
                   isDark 
                     ? 'bg-slate-900/50 border-slate-700 focus:border-blue-500 text-white placeholder:text-slate-600' 
                     : 'bg-gray-50 border-gray-200 focus:border-blue-500 text-slate-900 placeholder:text-slate-400'
@@ -267,6 +272,7 @@ export function DashboardHeader({
             </div>
             <button
               onClick={handleSearch}
+              style={{ borderRadius: '1rem' }}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-lg transition-all shadow-lg shadow-blue-600/25 transform active:scale-[0.98]"
             >
               Search Results

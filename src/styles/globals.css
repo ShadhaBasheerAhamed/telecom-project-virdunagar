@@ -35,7 +35,8 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
 
-    --radius: 0.5rem;
+    /* ALTERNATIVE FIX: Increased from 0.5rem to 1rem to force visible curves */
+    --radius: 1rem;
   }
 
   .dark {
@@ -76,5 +77,12 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* VISUAL FIX: This removes the default "square" look browsers force on buttons/inputs */
+  button, input, select, textarea {
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: var(--radius); /* Force everything to use your new curve */
   }
 }

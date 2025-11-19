@@ -20,7 +20,7 @@ export function StatCard({ title, value, color, theme, details }: StatCardProps)
         whileHover={{ scale: 1.03, y: -5 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => details && setShowDetails(true)}
-        // VISUAL FIX: rounded-3xl for distinct curved look (Total Box)
+        // FIXED: Updated to rounded-3xl for distinct curved look
         className={`relative p-7 flex flex-col justify-between min-h-[160px] border transition-all duration-300 cursor-pointer shadow-sm rounded-3xl overflow-hidden group ${
           isDark
             ? 'bg-[#1e293b] border-slate-800 hover:border-slate-700 hover:shadow-2xl hover:shadow-black/40'
@@ -32,7 +32,7 @@ export function StatCard({ title, value, color, theme, details }: StatCardProps)
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 200 }}
-              // VISUAL FIX: text-5xl + tracking-tighter to make number POP
+              // FIXED: Added tracking-tighter and text-5xl to make number pop
               className={`text-5xl font-bold mb-3 tracking-tighter ${color}`}
             >
               {value}
