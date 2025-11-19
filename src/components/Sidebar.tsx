@@ -28,28 +28,31 @@ export function Sidebar({ theme, currentPage, onPageChange }: SidebarProps) {
       transition={{ duration: 0.3 }}
       className={`fixed left-0 top-0 h-screen w-64 ${
         isDark 
-          ? 'bg-[#1e293b]/80 border-[#334155]' 
-          : 'bg-white/80 border-gray-200'
-      } backdrop-blur-xl border-r z-50`}>
+          ? 'bg-[#1e293b]/95 border-[#334155]' 
+          : 'bg-white/95 border-gray-200'
+      } backdrop-blur-xl border-r z-50 flex flex-col`}
+    >
       {/* Logo/Brand */}
       <motion.div 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="p-6 border-b border-inherit">
-        <h1 className={`mb-1 text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          SPT GLOBAL TELECOM
+        className="p-8 border-b border-inherit"
+      >
+        <h1 className={`mb-1 text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          SPT TELECOM
         </h1>
-        <motion.p 
+        <motion.div 
           whileHover={{ scale: 1.05 }}
-          className={`text-sm ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+          className={`text-xs font-bold tracking-[0.2em] ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}
+        >
           ONE RADIUS
-        </motion.p>
+        </motion.div>
       </motion.div>
 
       {/* Navigation */}
-      <nav className="p-4 flex-1">
-        <ul className="space-y-2">
+      <nav className="p-4 flex-1 overflow-y-auto no-scrollbar">
+        <ul className="space-y-3">
           {navItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
@@ -65,41 +68,35 @@ export function Sidebar({ theme, currentPage, onPageChange }: SidebarProps) {
                   whileHover={{ scale: 1.02, x: 4 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onPageChange(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative overflow-hidden ${
+                  // FIXED: VISUALLY PERFECT CURVED BUTTON - rounded-2xl
+                  // Removed any potential rectangular background or borders
+                  className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all relative overflow-hidden group outline-none ${
                     isActive
                       ? isDark
-                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
-                        : 'bg-cyan-50 text-cyan-600 border border-cyan-200 shadow-lg shadow-cyan-500/20'
+                        ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-900/20'
+                        : 'bg-gradient-to-r from-cyan-50 to-blue-50 text-cyan-700 border border-cyan-200 shadow-lg shadow-cyan-100/50'
                       : isDark
-                      ? 'text-gray-400 hover:bg-white/5 hover:text-white'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  {/* Background animation for active state */}
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className={`absolute inset-0 rounded-lg ${
-                        isDark ? 'bg-cyan-500/10' : 'bg-cyan-100/50'
-                      }`}
-                      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                    />
-                  )}
-                  
                   <motion.div
-                    whileHover={{ rotate: 5 }}
+                    whileHover={{ rotate: 10 }}
                     transition={{ type: 'spring', stiffness: 400, damping: 10 }}
                   >
-                    <Icon className="w-5 h-5 relative z-10" />
+                    {/* Icon slightly larger for better touch target */}
+                    <Icon className={`w-5 h-5 relative z-10 ${isActive ? 'drop-shadow-md' : 'group-hover:scale-110 transition-transform'}`} />
                   </motion.div>
-                  <span className="relative z-10 font-medium">{item.label}</span>
                   
-                  {/* Active indicator */}
+                  <span className="relative z-10 font-medium text-sm tracking-wide">{item.label}</span>
+                  
+                  {/* Active Indicator: A clean dot instead of a line */}
                   {isActive && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="ml-auto w-2 h-2 bg-cyan-400 rounded-full relative z-10"
+                    <motion.div 
+                        layoutId="activeDot"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className={`ml-auto w-2 h-2 rounded-full ${isDark ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-cyan-600'}`}
                     />
                   )}
                 </motion.button>
@@ -110,11 +107,7 @@ export function Sidebar({ theme, currentPage, onPageChange }: SidebarProps) {
       </nav>
 
       {/* Logout at Bottom */}
-      <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="p-4 border-t border-inherit">
+      <div className="p-6 border-t border-inherit">
         <motion.button
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}
@@ -123,21 +116,16 @@ export function Sidebar({ theme, currentPage, onPageChange }: SidebarProps) {
               console.log('Logging out...');
             }
           }}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative overflow-hidden ${
+          className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all relative overflow-hidden outline-none ${
             isDark
-              ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
-              : 'text-red-600 hover:bg-red-50 hover:text-red-700'
+              ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300 border border-transparent hover:border-red-500/20'
+              : 'text-red-600 hover:bg-red-50 hover:text-red-700 border border-transparent hover:border-red-200'
           }`}
         >
-          <motion.div
-            whileHover={{ rotate: -5 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-          >
-            <LogOut className="w-5 h-5" />
-          </motion.div>
-          <span className="font-medium">Logout</span>
+          <LogOut className="w-5 h-5" />
+          <span className="font-medium text-sm">Logout</span>
         </motion.button>
-      </motion.div>
+      </div>
     </motion.div>
   );
 }

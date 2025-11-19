@@ -1,5 +1,5 @@
 {
-      "name": "Telecom Services Dashboard",
+      "name": "telecom-services-dashboard",
       "version": "0.1.0",
       "private": true,
       "dependencies": {
@@ -54,6 +54,9 @@
             "@types/react": "^19.2.5",
             "@types/react-dom": "^19.2.3",
             "@vitejs/plugin-react-swc": "^3.10.2",
+            "autoprefixer": "^10.4.22",
+            "postcss": "^8.5.6",
+            "tailwindcss": "^3.4.17",
             "typescript": "^5.9.3",
             "vite": "6.3.5"
       },
