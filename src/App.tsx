@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Dashboard } from './components/pages/Dashboard';
@@ -16,6 +16,13 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [dataSource, setDataSource] = useState<DataSource>('All');
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+
+  // CRITICAL FIX: Apply 'dark' class to the HTML tag so Popups/Calendars can see it
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
+  }, [theme]);
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
@@ -43,7 +50,8 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0F172A] dark-theme' : 'bg-[#F1F5F9] light-theme'} transition-colors duration-300`}>
+    // Removed the 'dark-theme' class from here because it's now handled globally on the HTML tag
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0F172A]' : 'bg-[#F1F5F9]'} transition-colors duration-300`}>
       <div className="flex">
         <Sidebar 
           theme={theme} 

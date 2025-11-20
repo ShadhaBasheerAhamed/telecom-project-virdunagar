@@ -5,7 +5,7 @@ import { StatisticsPanel } from '../StatisticsPanel';
 import { motion } from 'framer-motion';
 import { DashboardDataService } from '../../services/dashboardDataService';
 import type { DataSource } from '../../App';
-import { SubHeader } from '../SubHeader'; // Import SubHeader
+import { SubHeader } from '../SubHeader'; 
 
 import {
   ResponsiveContainer,
@@ -170,6 +170,8 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
       className="space-y-6"
     >
       <SubHeader theme={theme} />
+
+      
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
