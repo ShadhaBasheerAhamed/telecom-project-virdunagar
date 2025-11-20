@@ -10,48 +10,50 @@ interface StatCardProps {
   details?: Array<{ label: string; value: string | number }>;
 }
 
-// HELPER: High-Contrast Box Styles
-// Light Mode: Solid Light Color (Level 100/200) with Dark Text
-// Dark Mode: Strong Glassy Tint (30-40% Opacity) with White Text
-const getBoxStyle = (colorClass: string, isDark: boolean) => {
-  switch (colorClass) {
-    case 'text-blue-400':
-      return {
-        backgroundColor: isDark ? 'rgba(59, 130, 246, 0.35)' : '#dbeafe', // Stronger Blue Tint
-        borderColor: isDark ? 'rgba(59, 130, 246, 0.5)' : '#93c5fd',
-        color: isDark ? '#ffffff' : '#1e40af' 
-      };
-    case 'text-cyan-400':
-      return {
-        backgroundColor: isDark ? 'rgba(34, 211, 238, 0.35)' : '#cffafe', // Stronger Cyan Tint
-        borderColor: isDark ? 'rgba(34, 211, 238, 0.5)' : '#67e8f9',
-        color: isDark ? '#ffffff' : '#155e75'
-      };
-    case 'text-green-400':
-      return {
-        backgroundColor: isDark ? 'rgba(74, 222, 128, 0.35)' : '#dcfce7', // Stronger Green Tint
-        borderColor: isDark ? 'rgba(74, 222, 128, 0.5)' : '#86efac',
-        color: isDark ? '#ffffff' : '#166534'
-      };
-    case 'text-yellow-400':
-      return {
-        backgroundColor: isDark ? 'rgba(250, 204, 21, 0.35)' : '#fef9c3', // Stronger Yellow Tint
-        borderColor: isDark ? 'rgba(250, 204, 21, 0.5)' : '#fde047',
-        color: isDark ? '#ffffff' : '#854d0e'
-      };
-    case 'text-red-500':
-      return {
-        backgroundColor: isDark ? 'rgba(239, 68, 68, 0.35)' : '#fee2e2', // Stronger Red Tint
-        borderColor: isDark ? 'rgba(239, 68, 68, 0.5)' : '#fca5a5',
-        color: isDark ? '#ffffff' : '#991b1b'
-      };
-    default: // Slate
-      return {
-        backgroundColor: isDark ? 'rgba(148, 163, 184, 0.35)' : '#e2e8f0',
-        borderColor: isDark ? 'rgba(148, 163, 184, 0.5)' : '#cbd5e1',
-        color: isDark ? '#ffffff' : '#1e293b'
-      };
+// HELPER: Returns direct CSS values to FORCE the color to appear.
+const getBoxColors = (colorClass: string, isDark: boolean) => {
+  // Extract the base color intent
+  if (colorClass.includes('blue')) {
+    return {
+      bg: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff', // Dark: Glassy Blue, Light: Blue-50
+      border: isDark ? 'rgba(59, 130, 246, 0.3)' : '#dbeafe',
+      text: isDark ? '#93c5fd' : '#1e40af'
+    };
   }
+  if (colorClass.includes('cyan')) {
+    return {
+      bg: isDark ? 'rgba(6, 182, 212, 0.2)' : '#ecfeff',
+      border: isDark ? 'rgba(6, 182, 212, 0.3)' : '#cffafe',
+      text: isDark ? '#67e8f9' : '#155e75'
+    };
+  }
+  if (colorClass.includes('green')) {
+    return {
+      bg: isDark ? 'rgba(34, 197, 94, 0.2)' : '#f0fdf4',
+      border: isDark ? 'rgba(34, 197, 94, 0.3)' : '#dcfce7',
+      text: isDark ? '#86efac' : '#166534'
+    };
+  }
+  if (colorClass.includes('yellow')) {
+    return {
+      bg: isDark ? 'rgba(234, 179, 8, 0.2)' : '#fefce8',
+      border: isDark ? 'rgba(234, 179, 8, 0.3)' : '#fef9c3',
+      text: isDark ? '#fde047' : '#854d0e'
+    };
+  }
+  if (colorClass.includes('red')) {
+    return {
+      bg: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2',
+      border: isDark ? 'rgba(239, 68, 68, 0.3)' : '#fee2e2',
+      text: isDark ? '#fca5a5' : '#991b1b'
+    };
+  }
+  // Default Slate
+  return {
+    bg: isDark ? 'rgba(148, 163, 184, 0.2)' : '#f8fafc',
+    border: isDark ? 'rgba(148, 163, 184, 0.3)' : '#e2e8f0',
+    text: isDark ? '#cbd5e1' : '#334155'
+  };
 };
 
 export function StatCard({ title, value, color, theme, details }: StatCardProps) {
@@ -61,11 +63,8 @@ export function StatCard({ title, value, color, theme, details }: StatCardProps)
   const isOnline = title === 'ONLINE';
   const displayDetails = isOnline ? details : (details && details.length > 0 ? [details[0]] : []);
   
-  // Get the forced high-visibility styles
-  const boxStyle = getBoxStyle(color, isDark);
-  
-  // Generate glow class (fallback)
-  const bgClass = color.replace('text-', 'bg-');
+  const styles = getBoxColors(color, isDark);
+  const glowClass = color.replace('text-', 'bg-');
 
   return (
     <>
@@ -96,19 +95,19 @@ export function StatCard({ title, value, color, theme, details }: StatCardProps)
             </div>
         </div>
 
-        {/* High Contrast Small Box */}
+        {/* The Small Box with FORCED Background Color */}
         {displayDetails && displayDetails.length > 0 && (
           <div className="relative z-10 mt-4 flex flex-wrap gap-2">
             {displayDetails.map((detail, index) => (
               <div 
                 key={index}
-                // Explicitly setting styles ensures visibility
+                // Inline styles force the color to render
                 style={{ 
-                  backgroundColor: boxStyle.backgroundColor,
-                  borderColor: boxStyle.borderColor,
-                  color: boxStyle.color
+                  backgroundColor: styles.bg, 
+                  borderColor: styles.border,
+                  color: styles.text
                 }}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider border shadow-sm backdrop-blur-md"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider border shadow-sm backdrop-blur-sm"
               >
                 <span className="opacity-80">
                   {detail.label}:
@@ -122,7 +121,7 @@ export function StatCard({ title, value, color, theme, details }: StatCardProps)
         )}
         
         {/* Background Glow */}
-        <div className={`absolute -bottom-10 -right-10 w-32 h-32 rounded-full opacity-0 group-hover:opacity-10 blur-3xl transition-opacity duration-500 ${bgClass}`} />
+        <div className={`absolute -bottom-10 -right-10 w-32 h-32 rounded-full opacity-0 group-hover:opacity-10 blur-3xl transition-opacity duration-500 ${glowClass}`} />
       </motion.div>
 
       {/* Popup Dialog */}
@@ -131,14 +130,9 @@ export function StatCard({ title, value, color, theme, details }: StatCardProps)
           <DialogContent className={`sm:max-w-[400px] p-0 border-0 rounded-3xl overflow-hidden ${
             isDark ? 'bg-[#1e293b] text-slate-100' : 'bg-white text-gray-900'
           }`}>
-             <div 
-                className={`p-6 ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`}
-                style={{ backgroundColor: boxStyle.backgroundColor }}
-             >
-                <DialogTitle className="text-3xl font-bold tracking-tight" style={{ color: boxStyle.color }}>
-                  {value}
-                </DialogTitle>
-                <DialogDescription className={`text-xs font-bold uppercase tracking-widest mt-1 ${isDark ? 'text-slate-200' : 'text-slate-600'}`}>
+             <div className="p-6" style={{ backgroundColor: styles.bg }}>
+                <DialogTitle className="text-3xl font-bold tracking-tight" style={{ color: styles.text }}>{value}</DialogTitle>
+                <DialogDescription className={`text-xs font-bold uppercase tracking-widest mt-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                     {title} Breakdown
                 </DialogDescription>
             </div>
@@ -153,7 +147,7 @@ export function StatCard({ title, value, color, theme, details }: StatCardProps)
                   <span className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                     {detail.label}
                   </span>
-                  <span className="text-lg font-bold" style={{ color: isDark ? color.replace('text-', '#') : boxStyle.color }}>
+                  <span className="text-lg font-bold" style={{ color: styles.text }}>
                     {detail.value}
                   </span>
                 </div>

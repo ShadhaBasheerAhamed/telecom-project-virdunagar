@@ -12,22 +12,90 @@ interface ComplaintsProps {
 
 export interface Complaint {
   id: string;
-  userId: string;
-  userName: string;
-  subject: string;
-  department: string;
-  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
-  status: 'Pending' | 'In Progress' | 'Solved' | 'Closed';
-  dateSubmitted: string;
-  description: string;
-  source: 'BSNL' | 'RMAX';
+  customerName: string;
+  landlineNo: string;
+  address: string;
+  complaints: string;
+  employee: string;
+  bookingDate: string;
+  resolveDate: string;
+  status: 'Resolved' | 'Not Resolved';
+  source: string;
 }
 
 const mockComplaints: Complaint[] = [
-  { id: 'T001', userId: 'C001', userName: 'John Doe', subject: 'Internet Connectivity Issue', department: 'Technical', priority: 'High', status: 'In Progress', dateSubmitted: '2024-11-10', description: 'No internet connection for 2 days', source: 'BSNL' },
-  { id: 'T002', userId: 'C002', userName: 'Jane Smith', subject: 'Billing Discrepancy', department: 'Billing', priority: 'Medium', status: 'Pending', dateSubmitted: '2024-11-09', description: 'Overcharged in last invoice', source: 'RMAX' },
-  { id: 'T003', userId: 'C003', userName: 'Mike Johnson', subject: 'Slow Speed', department: 'Technical', priority: 'Low', status: 'Solved', dateSubmitted: '2024-11-08', description: 'Internet speed is very slow', source: 'BSNL' },
-  { id: 'T004', userId: 'C004', userName: 'Sarah Williams', subject: 'Router Not Working', department: 'Technical', priority: 'Urgent', status: 'In Progress', dateSubmitted: '2024-11-07', description: 'Router stopped working suddenly', source: 'RMAX' },
+  { 
+    id: '645', 
+    customerName: 'M PANDIAN', 
+    landlineNo: '04562-266001', 
+    address: 'NO4,MANINAGARAM STREET,VIRUDHUNAGAR,,626001', 
+    complaints: 'LOS', 
+    employee: 'R.ULAGANATHAN', 
+    bookingDate: '2025-10-27', 
+    resolveDate: '2025-10-27', 
+    status: 'Not Resolved', 
+    source: 'BSNL' 
+  },
+  { 
+    id: '646', 
+    customerName: 'A RAJESH KUMAR', 
+    landlineNo: '04562-266002', 
+    address: 'NO5,GANDHI NAGAR,TIRUNELVELI,627001', 
+    complaints: 'Network Issue', 
+    employee: 'S.MANIKANDAN', 
+    bookingDate: '2025-10-28', 
+    resolveDate: '2025-10-29', 
+    status: 'Resolved', 
+    source: 'BSNL' 
+  },
+  { 
+    id: '647', 
+    customerName: 'S PRIYA', 
+    landlineNo: '04562-266003', 
+    address: 'NO12,SOUTH STREET,THOOTHUKUDI,628001', 
+    complaints: 'Slow Internet', 
+    employee: 'K.VENKATESH', 
+    bookingDate: '2025-10-29', 
+    resolveDate: '', 
+    status: 'Not Resolved', 
+    source: 'Private' 
+  },
+  { 
+    id: '648', 
+    customerName: 'V SARATH KUMAR', 
+    landlineNo: '04562-266004', 
+    address: 'NO7,EAST MASI STREET,MADURAI,625001', 
+    complaints: 'Bill Problem', 
+    employee: 'P.RAJESH', 
+    bookingDate: '2025-10-30', 
+    resolveDate: '2025-10-30', 
+    status: 'Resolved', 
+    source: 'BSNL' 
+  },
+  { 
+    id: '649', 
+    customerName: 'K VANATHI', 
+    landlineNo: '04562-266005', 
+    address: 'NO15,ANNA NAGAR,COIMBATORE,641002', 
+    complaints: 'Phone Not Working', 
+    employee: 'M.SUBRAMANI', 
+    bookingDate: '2025-11-01', 
+    resolveDate: '', 
+    status: 'Not Resolved', 
+    source: 'Private' 
+  },
+  { 
+    id: '650', 
+    customerName: 'D NAVEEN KUMAR', 
+    landlineNo: '04562-266006', 
+    address: 'NO8,THIRUVALLUVAR SALAI,CHENNAI,600001', 
+    complaints: 'Internet Disconnection', 
+    employee: 'A.KUMAR', 
+    bookingDate: '2025-11-02', 
+    resolveDate: '2025-11-03', 
+    status: 'Resolved', 
+    source: 'BSNL' 
+  }
 ];
 
 export function Complaints({ dataSource, theme }: ComplaintsProps) {
@@ -35,15 +103,30 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const [complaints, setComplaints] = useState<Complaint[]>(mockComplaints);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
-  
+  const [searchField, setSearchField] = useState('All');
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
 
   const filteredComplaints = complaints.filter(complaint => {
-    const matchesSearch = complaint.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.userName.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    let matchesSearch = false;
+
+    if (searchField === 'All') {
+        matchesSearch = 
+          complaint.customerName.toLowerCase().includes(searchLower) ||
+          complaint.id.includes(searchLower) ||
+          complaint.landlineNo.includes(searchLower) ||
+          complaint.complaints.toLowerCase().includes(searchLower);
+    } else if (searchField === 'Name') {
+        matchesSearch = complaint.customerName.toLowerCase().includes(searchLower);
+    } else if (searchField === 'ID') {
+        matchesSearch = complaint.id.includes(searchLower);
+    } else if (searchField === 'Complaint') {
+        matchesSearch = complaint.complaints.toLowerCase().includes(searchLower);
+    }
+
     const matchesStatus = filterStatus === 'All' || complaint.status === filterStatus;
     const matchesSource = dataSource === 'All' || complaint.source === dataSource;
     return matchesSearch && matchesStatus && matchesSource;
@@ -52,7 +135,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const handleAddComplaint = (complaint: Omit<Complaint, 'id'>) => {
     const newComplaint = {
       ...complaint,
-      id: `T${String(complaints.length + 1).padStart(3, '0')}`,
+      id: String(complaints.length + 645),
     };
     setComplaints([...complaints, newComplaint]);
     setModalMode(null);
@@ -73,176 +156,125 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className={`text-3xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Complaints Management
-        </h1>
-        <button
-          onClick={() => setModalMode('add')}
-          className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all ${
-            isDark
-              ? 'bg-cyan-500 hover:bg-cyan-600 text-white'
-              : 'bg-cyan-600 hover:bg-cyan-700 text-white'
-          }`}
-        >
-          <Plus className="w-5 h-5" />
-          Create Complaint
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className={`p-6 rounded-xl border ${
-        isDark
-          ? 'bg-[#1e293b]/50 border-[#334155] backdrop-blur-xl'
-          : 'bg-white/80 border-gray-200 backdrop-blur-xl'
-      }`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 ${
-              isDark ? 'text-gray-400' : 'text-gray-500'
-            }`} />
+    <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
+      
+      {/* Header Section with Filters */}
+      <div className="mb-6">
+        <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Complaints Management</h1>
+        
+        <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
+          
+          {/* Search Bar */}
+          <div className="relative w-full md:w-96">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+            </div>
             <input
               type="text"
-              placeholder="Search complaints..."
+              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300 placeholder-gray-400' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-500'}`}
+              placeholder={`Search in ${searchField}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 rounded-lg border ${
-                isDark
-                  ? 'bg-[#0F172A] border-[#334155] text-white placeholder-gray-500'
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-              } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
             />
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className={`px-4 py-2 rounded-lg border ${
-              isDark
-                ? 'bg-[#0F172A] border-[#334155] text-white'
-                : 'bg-white border-gray-300 text-gray-900'
-            } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-          >
-            <option value="All">All Status</option>
-            <option value="Pending">Pending</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Solved">Solved</option>
-            <option value="Closed">Closed</option>
-          </select>
+          {/* Right Side Controls */}
+          <div className="flex gap-3 w-full md:w-auto">
+            {/* Search Field Select */}
+            <select
+              value={searchField}
+              onChange={(e) => setSearchField(e.target.value)}
+              className={`px-4 py-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium min-w-[140px] ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+            >
+              <option value="All">Search All</option>
+              <option value="Name">Customer Name</option>
+              <option value="ID">Complaint ID</option>
+              <option value="Complaint">Complaint</option>
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className={`px-4 py-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium min-w-[140px] ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+            >
+              <option value="All">All Status</option>
+              <option value="Resolved">Resolved</option>
+              <option value="Not Resolved">Not Resolved</option>
+            </select>
+
+            {/* Add Button */}
+            <button
+              onClick={() => setModalMode('add')}
+              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg shadow-blue-900/20"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Complaint</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Complaints Table */}
-      <div className={`rounded-xl border overflow-hidden ${
-        isDark
-          ? 'bg-[#1e293b]/50 border-[#334155] backdrop-blur-xl'
-          : 'bg-white/80 border-gray-200 backdrop-blur-xl'
-      }`}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-[#334155] bg-[#1e293b]' : 'border-gray-200 bg-gray-50'}`}>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Ticket ID</th>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>User</th>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Subject</th>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Department</th>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Priority</th>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Status</th>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Date</th>
-                <th className={`text-left py-4 px-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Actions</th>
+      {/* TABLE CONTAINER - Table-specific horizontal scroll at bottom */}
+      <div className={`w-full rounded-lg border shadow-xl ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}>
+        <div className="overflow-x-auto" style={{ maxWidth: '100%', overflowX: 'auto' }}>
+          <table className="w-full whitespace-nowrap text-left text-sm">
+            <thead className={`${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'} font-semibold uppercase tracking-wider`}>
+              <tr>
+                {/* Scrollable Columns */}
+                <th className={`px-6 py-4 min-w-[100px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>ID</th>
+                <th className={`px-6 py-4 min-w-[200px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Customer Name</th>
+                <th className={`px-6 py-4 min-w-[150px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Landline No</th>
+                <th className={`px-6 py-4 min-w-[300px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Address</th>
+                <th className={`px-6 py-4 min-w-[200px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Complaints</th>
+                <th className={`px-6 py-4 min-w-[150px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Employee</th>
+                <th className={`px-6 py-4 min-w-[140px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Booking Date</th>
+                <th className={`px-6 py-4 min-w-[140px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Resolve Date</th>
+
+                {/* STICKY COLUMNS (Header) */}
+                <th className={`px-6 py-4 min-w-[120px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
+                  Status
+                </th>
+                <th className={`px-6 py-4 min-w-[110px] text-center border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-0 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20`}>
+                  Options
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {filteredComplaints.map((complaint) => (
-                <tr key={complaint.id} className={`border-b ${isDark ? 'border-[#334155]' : 'border-gray-200'}`}>
-                  <td className={`py-4 px-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {complaint.id}
-                  </td>
-                  <td className={`py-4 px-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                    {complaint.userName}
-                  </td>
-                  <td className={`py-4 px-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {complaint.subject}
-                  </td>
-                  <td className={`py-4 px-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {complaint.department}
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className={`px-3 py-1 rounded-full text-sm ${
-                      complaint.priority === 'Urgent'
-                        ? 'bg-red-500/20 text-red-400'
-                        : complaint.priority === 'High'
-                        ? 'bg-orange-500/20 text-orange-400'
-                        : complaint.priority === 'Medium'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'bg-blue-500/20 text-blue-400'
-                    }`}>
-                      {complaint.priority}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className={`px-3 py-1 rounded-full text-sm ${
-                      complaint.status === 'Solved'
-                        ? 'bg-green-500/20 text-green-400'
-                        : complaint.status === 'In Progress'
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : complaint.status === 'Pending'
-                        ? 'bg-yellow-500/20 text-yellow-400'
-                        : 'bg-gray-500/20 text-gray-400'
-                    }`}>
+                <tr key={complaint.id} className={`hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'} transition-colors`}>
+                  {/* Scrollable Data */}
+                  <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.id}</td>
+                  <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.customerName}</td>
+                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.landlineNo}</td>
+                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.address}</td>
+                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.complaints}</td>
+                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.employee}</td>
+                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.bookingDate}</td>
+                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.resolveDate || '-'}</td>
+
+                  {/* STICKY COLUMNS (Body) */}
+                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)] hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'}`}>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                        complaint.status === 'Resolved'
+                          ? 'bg-green-900/30 text-green-400 border-green-800'
+                          : 'bg-red-900/30 text-red-400 border-red-800'
+                      }`}
+                    >
                       {complaint.status}
                     </span>
                   </td>
-                  <td className={`py-4 px-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {complaint.dateSubmitted}
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedComplaint(complaint);
-                          setViewModalOpen(true);
-                        }}
-                        className={`p-2 rounded-lg transition-all ${
-                          isDark
-                            ? 'hover:bg-white/10 text-cyan-400'
-                            : 'hover:bg-gray-100 text-cyan-600'
-                        }`}
-                        title="View"
-                      >
-                        <Eye className="w-4 h-4" />
+                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} text-center sticky right-0 ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'}`}>
+                    <div className="flex items-center justify-center gap-3">
+                      <button onClick={() => { setSelectedComplaint(complaint); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20" title="View">
+                        <Eye className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => {
-                          setSelectedComplaint(complaint);
-                          setModalMode('edit');
-                        }}
-                        className={`p-2 rounded-lg transition-all ${
-                          isDark
-                            ? 'hover:bg-white/10 text-blue-400'
-                            : 'hover:bg-gray-100 text-blue-600'
-                        }`}
-                        title="Edit"
-                      >
-                        <Edit className="w-4 h-4" />
+                      <button onClick={() => { setSelectedComplaint(complaint); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 transition-colors p-1 rounded hover:bg-yellow-900/20" title="Edit">
+                        <Edit className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => {
-                          setSelectedComplaint(complaint);
-                          setDeleteModalOpen(true);
-                        }}
-                        className={`p-2 rounded-lg transition-all ${
-                          isDark
-                            ? 'hover:bg-white/10 text-red-400'
-                            : 'hover:bg-gray-100 text-red-600'
-                        }`}
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                      <button onClick={() => { setSelectedComplaint(complaint); setDeleteModalOpen(true); }} className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20" title="Delete">
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -250,10 +282,27 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               ))}
             </tbody>
           </table>
+          
+          {filteredComplaints.length === 0 && (
+             <div className={`p-10 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                No complaints found matching your search.
+             </div>
+          )}
+        </div>
+
+        {/* Footer / Results Summary */}
+        <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+            <div className="text-sm">
+                Showing <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>1</span> to <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{filteredComplaints.length}</span> of <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaints.length}</span> results
+            </div>
+            <div className="flex gap-2">
+                <button className={`px-3 py-1 border rounded text-sm transition-colors ${isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>Previous</button>
+                <button className={`px-3 py-1 border rounded text-sm transition-colors ${isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>Next</button>
+            </div>
         </div>
       </div>
 
-      {/* Modals */}
+      {/* MODALS */}
       {modalMode && (
         <ComplaintModal
           mode={modalMode}

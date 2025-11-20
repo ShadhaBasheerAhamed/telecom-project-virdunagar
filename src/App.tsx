@@ -16,8 +16,8 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [dataSource, setDataSource] = useState<DataSource>('All');
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // CRITICAL FIX: Apply 'dark' class to the HTML tag so Popups/Calendars can see it
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove("light", "dark");
@@ -26,6 +26,14 @@ export default function App() {
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const closeSidebar = () => {
+    setSidebarOpen(false);
   };
 
   const renderPage = () => {
@@ -41,35 +49,48 @@ export default function App() {
       case 'payment':
         return <Payment dataSource={dataSource} theme={theme} />;
       case 'master-records':
-        return <MasterRecords dataSource={dataSource} theme={theme} />;
+        return <MasterRecords dataSource={dataSource} theme={theme} />; // Fixed prop passing
       case 'reports':
-        return <Reports dataSource={dataSource} theme={theme} />;
+        return <Reports dataSource={dataSource} theme={theme} />;     // Fixed prop passing
       default:
         return <Dashboard dataSource={dataSource} theme={theme} />;
     }
   };
 
   return (
-    // Removed the 'dark-theme' class from here because it's now handled globally on the HTML tag
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0F172A]' : 'bg-[#F1F5F9]'} transition-colors duration-300`}>
-      <div className="flex">
-        <Sidebar 
-          theme={theme} 
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
+    <div className={`min-h-screen w-full flex flex-col ${theme === 'dark' ? 'bg-[#0F172A]' : 'bg-[#F1F5F9]'} transition-colors duration-300`}>
+      
+      {/* Sidebar Component handles both Mobile (Overlay) and Desktop (Fixed) */}
+      <Sidebar
+        theme={theme}
+        currentPage={currentPage}
+        onPageChange={(page) => {
+          setCurrentPage(page);
+          closeSidebar(); 
+        }}
+        isOpen={sidebarOpen}
+        onClose={closeSidebar}
+      />
+      
+      {/* Main Layout Wrapper */}
+      {/* md:ml-64 pushes content to the right on desktop to accommodate the fixed sidebar */}
+      <div className="flex-1 flex flex-col min-h-screen transition-all duration-300 md:ml-64">
+        
+        {/* Header */}
+        <Header
+          theme={theme}
+          dataSource={dataSource}
+          onThemeToggle={toggleTheme}
+          onDataSourceChange={setDataSource}
+          onMenuClick={toggleSidebar}
         />
-        <div className="flex-1 ml-64">
-          <Header 
-            theme={theme}
-            dataSource={dataSource}
-            onThemeToggle={toggleTheme}
-            onDataSourceChange={setDataSource}
-          />
-          <main className="p-8">
-            {renderPage()}
-          </main>
-        </div>
+        
+        {/* Page Content Area */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+          {renderPage()}
+        </main>
       </div>
+
     </div>
   );
 }

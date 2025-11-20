@@ -62,7 +62,7 @@ export function Header({ theme, dataSource, onThemeToggle, onDataSourceChange, o
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={onMenuClick}
-                className={`lg:hidden p-2 rounded-lg transition-colors ${
+                className={`md:hidden p-2 rounded-lg transition-colors ${
                   isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >

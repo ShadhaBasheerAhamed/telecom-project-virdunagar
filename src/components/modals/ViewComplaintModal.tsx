@@ -49,7 +49,7 @@ export function ViewComplaintModal({ complaint, theme, onClose }: ViewComplaintM
               Complaint Details
             </h2>
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Ticket ID: {complaint.id}
+              Complaint ID: {complaint.id}
             </p>
           </div>
           <button
@@ -67,42 +67,45 @@ export function ViewComplaintModal({ complaint, theme, onClose }: ViewComplaintM
           {/* Left Side - Details */}
           <div className="flex-1 p-6 overflow-y-auto border-r border-inherit">
             <div className="space-y-4">
-              {/* User Info */}
+              {/* Customer Info */}
               <div className={`p-4 rounded-lg border ${
                 isDark ? 'bg-[#0F172A] border-[#334155]' : 'bg-gray-50 border-gray-200'
               }`}>
                 <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Submitted By
+                  Customer Information
                 </h3>
                 <p className={`mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {complaint.userName}
+                  {complaint.customerName}
                 </p>
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  User ID: {complaint.userId}
+                  Landline: {complaint.landlineNo}
+                </p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Address: {complaint.address}
                 </p>
               </div>
 
-              {/* Subject */}
+              {/* Complaint Details */}
               <div className={`p-4 rounded-lg border ${
                 isDark ? 'bg-[#0F172A] border-[#334155]' : 'bg-gray-50 border-gray-200'
               }`}>
                 <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Subject
+                  Complaint
                 </h3>
                 <p className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {complaint.subject}
+                  {complaint.complaints}
                 </p>
               </div>
 
-              {/* Description */}
+              {/* Employee Assignment */}
               <div className={`p-4 rounded-lg border ${
                 isDark ? 'bg-[#0F172A] border-[#334155]' : 'bg-gray-50 border-gray-200'
               }`}>
                 <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Description
+                  Assigned Employee
                 </h3>
                 <p className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {complaint.description}
+                  {complaint.employee}
                 </p>
               </div>
 
@@ -112,10 +115,10 @@ export function ViewComplaintModal({ complaint, theme, onClose }: ViewComplaintM
                   isDark ? 'bg-[#0F172A] border-[#334155]' : 'bg-gray-50 border-gray-200'
                 }`}>
                   <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Department
+                    Booking Date
                   </h3>
                   <p className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
-                    {complaint.department}
+                    {complaint.bookingDate}
                   </p>
                 </div>
 
@@ -123,10 +126,10 @@ export function ViewComplaintModal({ complaint, theme, onClose }: ViewComplaintM
                   isDark ? 'bg-[#0F172A] border-[#334155]' : 'bg-gray-50 border-gray-200'
                 }`}>
                   <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Date Submitted
+                    Resolve Date
                   </h3>
                   <p className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
-                    {complaint.dateSubmitted}
+                    {complaint.resolveDate || 'Not resolved yet'}
                   </p>
                 </div>
 
@@ -134,19 +137,11 @@ export function ViewComplaintModal({ complaint, theme, onClose }: ViewComplaintM
                   isDark ? 'bg-[#0F172A] border-[#334155]' : 'bg-gray-50 border-gray-200'
                 }`}>
                   <h3 className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Priority
+                    Source
                   </h3>
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    complaint.priority === 'Urgent'
-                      ? 'bg-red-500/20 text-red-400'
-                      : complaint.priority === 'High'
-                      ? 'bg-orange-500/20 text-orange-400'
-                      : complaint.priority === 'Medium'
-                      ? 'bg-yellow-500/20 text-yellow-400'
-                      : 'bg-blue-500/20 text-blue-400'
-                  }`}>
-                    {complaint.priority}
-                  </span>
+                  <p className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {complaint.source}
+                  </p>
                 </div>
 
                 <div className={`p-4 rounded-lg border ${
@@ -156,13 +151,9 @@ export function ViewComplaintModal({ complaint, theme, onClose }: ViewComplaintM
                     Status
                   </h3>
                   <span className={`px-3 py-1 rounded-full text-sm ${
-                    complaint.status === 'Solved'
+                    complaint.status === 'Resolved'
                       ? 'bg-green-500/20 text-green-400'
-                      : complaint.status === 'In Progress'
-                      ? 'bg-blue-500/20 text-blue-400'
-                      : complaint.status === 'Pending'
-                      ? 'bg-yellow-500/20 text-yellow-400'
-                      : 'bg-gray-500/20 text-gray-400'
+                      : 'bg-red-500/20 text-red-400'
                   }`}>
                     {complaint.status}
                   </span>

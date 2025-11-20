@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Paperclip } from 'lucide-react';
 import type { Complaint } from '../pages/Complaints';
-import { isValidComplaintPriority, isValidComplaintStatus, isValidComplaintSource } from '../../utils/typeGuards';
 
 interface ComplaintModalProps {
   mode: 'add' | 'edit';
@@ -15,29 +14,29 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
   const isDark = theme === 'dark';
   
   const [formData, setFormData] = useState({
-    userId: '',
-    userName: '',
-    subject: '',
-    department: 'Technical',
-    priority: 'Medium' as 'Low' | 'Medium' | 'High' | 'Urgent',
-    status: 'Pending' as 'Pending' | 'In Progress' | 'Solved' | 'Closed',
-    description: '',
-    source: 'BSNL' as 'BSNL' | 'RMAX',
-    dateSubmitted: new Date().toISOString().split('T')[0],
+    customerName: '',
+    landlineNo: '',
+    address: '',
+    complaints: '',
+    employee: '',
+    bookingDate: new Date().toISOString().split('T')[0],
+    resolveDate: '',
+    status: 'Not Resolved' as 'Resolved' | 'Not Resolved',
+    source: 'BSNL',
   });
 
   useEffect(() => {
     if (mode === 'edit' && complaint) {
       setFormData({
-        userId: complaint.userId,
-        userName: complaint.userName,
-        subject: complaint.subject,
-        department: complaint.department,
-        priority: complaint.priority,
+        customerName: complaint.customerName,
+        landlineNo: complaint.landlineNo,
+        address: complaint.address,
+        complaints: complaint.complaints,
+        employee: complaint.employee,
+        bookingDate: complaint.bookingDate,
+        resolveDate: complaint.resolveDate,
         status: complaint.status,
-        description: complaint.description,
         source: complaint.source,
-        dateSubmitted: complaint.dateSubmitted,
       });
     }
   }, [mode, complaint]);
@@ -76,105 +75,99 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* User Name */}
+            {/* Customer Name */}
             <div>
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                User Name *
+                Customer Name *
               </label>
               <input
                 type="text"
                 required
-                value={formData.userName}
-                onChange={(e) => setFormData({ ...formData, userName: e.target.value })}
+                value={formData.customerName}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter user name"
+                placeholder="Enter customer name"
               />
             </div>
 
-            {/* User ID */}
+            {/* Landline No */}
             <div>
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                User ID *
+                Landline No *
               </label>
               <input
                 type="text"
                 required
-                value={formData.userId}
-                onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+                value={formData.landlineNo}
+                onChange={(e) => setFormData({ ...formData, landlineNo: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="C001"
+                placeholder="04562-266001"
               />
             </div>
 
-            {/* Subject */}
+            {/* Address */}
             <div className="md:col-span-2">
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Subject *
+                Address *
               </label>
               <input
                 type="text"
                 required
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Brief subject of complaint"
+                placeholder="Enter full address"
               />
             </div>
 
-            {/* Department */}
-            <div>
+            {/* Complaints */}
+            <div className="md:col-span-2">
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Department *
+                Complaints *
               </label>
-              <select
+              <input
+                type="text"
                 required
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                value={formData.complaints}
+                onChange={(e) => setFormData({ ...formData, complaints: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="Technical">Technical</option>
-                <option value="Billing">Billing</option>
-                <option value="Customer Service">Customer Service</option>
-                <option value="Sales">Sales</option>
-              </select>
+                placeholder="Type of complaint (e.g., LOS, Network Issue)"
+              />
             </div>
 
-            {/* Priority */}
+            {/* Employee */}
             <div>
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Priority *
+                Employee *
               </label>
-              <select
+              <input
+                type="text"
                 required
-                value={formData.priority}
-onChange={(e) => isValidComplaintPriority(e.target.value) && setFormData({ ...formData, priority: e.target.value })}
+                value={formData.employee}
+                onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Urgent">Urgent</option>
-              </select>
+                placeholder="Employee name"
+              />
             </div>
 
             {/* Status */}
@@ -185,18 +178,51 @@ onChange={(e) => isValidComplaintPriority(e.target.value) && setFormData({ ...fo
               <select
                 required
                 value={formData.status}
-onChange={(e) => isValidComplaintStatus(e.target.value) && setFormData({ ...formData, status: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Resolved' | 'Not Resolved' })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
               >
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Solved">Solved</option>
-                <option value="Closed">Closed</option>
+                <option value="Not Resolved">Not Resolved</option>
+                <option value="Resolved">Resolved</option>
               </select>
+            </div>
+
+            {/* Booking Date */}
+            <div>
+              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Booking Date *
+              </label>
+              <input
+                type="date"
+                required
+                value={formData.bookingDate}
+                onChange={(e) => setFormData({ ...formData, bookingDate: e.target.value })}
+                className={`w-full px-4 py-2 rounded-lg border ${
+                  isDark
+                    ? 'bg-[#0F172A] border-[#334155] text-white'
+                    : 'bg-white border-gray-300 text-gray-900'
+                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+              />
+            </div>
+
+            {/* Resolve Date */}
+            <div>
+              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Resolve Date
+              </label>
+              <input
+                type="date"
+                value={formData.resolveDate}
+                onChange={(e) => setFormData({ ...formData, resolveDate: e.target.value })}
+                className={`w-full px-4 py-2 rounded-lg border ${
+                  isDark
+                    ? 'bg-[#0F172A] border-[#334155] text-white'
+                    : 'bg-white border-gray-300 text-gray-900'
+                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+              />
             </div>
 
             {/* Source */}
@@ -207,7 +233,7 @@ onChange={(e) => isValidComplaintStatus(e.target.value) && setFormData({ ...form
               <select
                 required
                 value={formData.source}
-onChange={(e) => isValidComplaintSource(e.target.value) && setFormData({ ...formData, source: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -215,42 +241,9 @@ onChange={(e) => isValidComplaintSource(e.target.value) && setFormData({ ...form
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
               >
                 <option value="BSNL">BSNL</option>
+                <option value="Private">Private</option>
                 <option value="RMAX">RMAX</option>
               </select>
-            </div>
-
-            {/* Description */}
-            <div className="md:col-span-2">
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Description *
-              </label>
-              <textarea
-                required
-                rows={4}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Detailed description of the complaint..."
-              />
-            </div>
-
-            {/* File Attachment */}
-            <div className="md:col-span-2">
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Attach File (Optional)
-              </label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center ${
-                isDark ? 'border-[#334155]' : 'border-gray-300'
-              }`}>
-                <Paperclip className={`w-8 h-8 mx-auto mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Click to upload or drag and drop
-                </p>
-              </div>
             </div>
           </div>
 

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Customer } from '../pages/Customers';
-import { isValidCustomerStatus, isValidCustomerSource } from '../../utils/typeGuards';
 
 interface CustomerModalProps {
   mode: 'add' | 'edit';
@@ -14,26 +13,53 @@ interface CustomerModalProps {
 export function CustomerModal({ mode, customer, theme, onClose, onSave }: CustomerModalProps) {
   const isDark = theme === 'dark';
   
+  // Initial State with all fields
   const [formData, setFormData] = useState({
+    id: '',
+    landline: '0',
     name: '',
-    email: '',
-    phone: '',
-    plan: 'Basic',
-    status: 'Active' as 'Active' | 'Suspended' | 'Expired',
-    source: 'BSNL' as 'BSNL' | 'RMAX',
-    joinDate: new Date().toISOString().split('T')[0],
+    mobileNo: '',
+    altMobileNo: '0',
+    vlanId: '0',
+    bbId: '',
+    voipPassword: 'NILL',
+    ontMake: 'N/A',
+    ontType: 'NA',
+    ontMacAddress: 'NA',
+    ontBillNo: '0',
+    ont: 'Paid ONT',
+    offerPrize: '0',
+    routerMake: 'N/A',
+    routerMacId: 'NA',
+    oltIp: '10.215.168.64',
+    installationDate: new Date().toISOString().split('T')[0],
+    status: 'Active',
+    source: 'BSNL',
   });
 
   useEffect(() => {
     if (mode === 'edit' && customer) {
       setFormData({
+        id: customer.id,
+        landline: customer.landline,
         name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
-        plan: customer.plan,
+        mobileNo: customer.mobileNo,
+        altMobileNo: customer.altMobileNo,
+        vlanId: customer.vlanId,
+        bbId: customer.bbId,
+        voipPassword: customer.voipPassword,
+        ontMake: customer.ontMake,
+        ontType: customer.ontType,
+        ontMacAddress: customer.ontMacAddress,
+        ontBillNo: customer.ontBillNo,
+        ont: customer.ont,
+        offerPrize: customer.offerPrize,
+        routerMake: customer.routerMake,
+        routerMacId: customer.routerMacId,
+        oltIp: customer.oltIp,
+        installationDate: customer.installationDate,
         status: customer.status,
         source: customer.source,
-        joinDate: customer.joinDate,
       });
     }
   }, [mode, customer]);
@@ -47,172 +73,109 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
     }
   };
 
+  const inputClasses = `w-full px-4 py-2.5 rounded-xl border text-sm font-medium ${
+    isDark
+      ? 'bg-[#0F172A] border-[#334155] text-white focus:border-cyan-500'
+      : 'bg-white border-gray-300 text-gray-900 focus:border-cyan-500'
+  } focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-colors`;
+
+  const labelClasses = `block text-xs font-bold uppercase tracking-wider mb-1.5 ${
+    isDark ? 'text-gray-400' : 'text-gray-500'
+  }`;
+
+  const sectionTitleClasses = `text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${
+    isDark ? 'text-cyan-400 border-cyan-500/20' : 'text-cyan-700 border-cyan-200'
+  }`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className={`w-full max-w-2xl rounded-xl border ${
-        isDark
-          ? 'bg-[#1e293b]/95 border-[#334155]'
-          : 'bg-white/95 border-gray-200'
-      } backdrop-blur-xl shadow-2xl`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className={`w-full max-w-6xl rounded-2xl border max-h-[90vh] flex flex-col ${
+        isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'
+      } shadow-2xl`}>
+        
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-inherit">
-          <h2 className={`text-2xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {mode === 'add' ? 'Add New Customer' : 'Edit Customer'}
-          </h2>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-lg transition-all ${
-              isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'
-            }`}
-          >
-            <X className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
+        <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-[#334155]' : 'border-gray-200'}`}>
+          <div>
+            <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {mode === 'add' ? 'New Customer Registration' : 'Edit Customer Details'}
+            </h2>
+          </div>
+          <button onClick={onClose} className={`p-2 rounded-lg hover:bg-white/10 transition-colors`}>
+            <X className={`w-6 h-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Name */}
+        {/* Form Content */}
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          <form id="customerForm" onSubmit={handleSubmit} className="space-y-8">
+            
+            {/* Personal Information */}
             <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Full Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter full name"
-              />
+              <h3 className={sectionTitleClasses}>Personal Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><label className={labelClasses}>Customer ID</label><input type="text" value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Full Name</label><input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Mobile No</label><input type="tel" required value={formData.mobileNo} onChange={e => setFormData({...formData, mobileNo: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Alt. Mobile</label><input type="tel" value={formData.altMobileNo} onChange={e => setFormData({...formData, altMobileNo: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Landline</label><input type="text" value={formData.landline} onChange={e => setFormData({...formData, landline: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Install Date</label><input type="date" value={formData.installationDate} onChange={e => setFormData({...formData, installationDate: e.target.value})} className={inputClasses} /></div>
+              </div>
             </div>
 
-            {/* Email */}
+            {/* Technical Details */}
             <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Email *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter email"
-              />
+              <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-purple-400 border-purple-500/20' : 'text-purple-700 border-purple-200'}`}>Technical Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div><label className={labelClasses}>BB ID / User ID</label><input type="text" required value={formData.bbId} onChange={e => setFormData({...formData, bbId: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>VLAN ID</label><input type="text" value={formData.vlanId} onChange={e => setFormData({...formData, vlanId: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>VoIP Password</label><input type="text" value={formData.voipPassword} onChange={e => setFormData({...formData, voipPassword: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>OLT IP</label><input type="text" value={formData.oltIp} onChange={e => setFormData({...formData, oltIp: e.target.value})} className={inputClasses} /></div>
+                <div>
+                  <label className={labelClasses}>Source</label>
+                  <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className={inputClasses}>
+                    <option value="BSNL">BSNL</option>
+                    <option value="RMAX">RMAX</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClasses}>Status</label>
+                  <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className={inputClasses}>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Expired">Expired</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
-            {/* Phone */}
+            {/* Device Information */}
             <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Phone *
-              </label>
-              <input
-                type="tel"
-                required
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="+91 98765 43210"
-              />
+              <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-green-400 border-green-500/20' : 'text-green-700 border-green-200'}`}>Device Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div><label className={labelClasses}>ONT Make</label><input type="text" value={formData.ontMake} onChange={e => setFormData({...formData, ontMake: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>ONT Type</label><input type="text" value={formData.ontType} onChange={e => setFormData({...formData, ontType: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>ONT Mac</label><input type="text" value={formData.ontMacAddress} onChange={e => setFormData({...formData, ontMacAddress: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Bill No</label><input type="text" value={formData.ontBillNo} onChange={e => setFormData({...formData, ontBillNo: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>ONT Status</label><input type="text" value={formData.ont} onChange={e => setFormData({...formData, ont: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Offer Prize</label><input type="text" value={formData.offerPrize} onChange={e => setFormData({...formData, offerPrize: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Router Make</label><input type="text" value={formData.routerMake} onChange={e => setFormData({...formData, routerMake: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>Router Mac</label><input type="text" value={formData.routerMacId} onChange={e => setFormData({...formData, routerMacId: e.target.value})} className={inputClasses} /></div>
+              </div>
             </div>
+          </form>
+        </div>
 
-            {/* Plan */}
-            <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Plan *
-              </label>
-              <select
-                required
-                value={formData.plan}
-                onChange={(e) => setFormData({ ...formData, plan: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="Basic">Basic</option>
-                <option value="Standard">Standard</option>
-                <option value="Premium">Premium</option>
-              </select>
-            </div>
+        {/* Footer */}
+        <div className={`p-6 border-t flex justify-end gap-3 ${isDark ? 'border-[#334155] bg-[#1e293b]' : 'border-gray-200 bg-gray-50'} rounded-b-2xl`}>
+          <button onClick={onClose} className={`px-6 py-2.5 rounded-xl font-bold transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-white border hover:bg-gray-50 text-gray-700'}`}>
+            Cancel
+          </button>
+          <button form="customerForm" type="submit" className="px-8 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg transition-all">
+            Save Details
+          </button>
+        </div>
 
-            {/* Status */}
-            <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Status *
-              </label>
-              <select
-                required
-                value={formData.status}
-onChange={(e) => isValidCustomerStatus(e.target.value) && setFormData({ ...formData, status: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="Active">Active</option>
-                <option value="Suspended">Suspended</option>
-                <option value="Expired">Expired</option>
-              </select>
-            </div>
-
-            {/* Source */}
-            <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Source *
-              </label>
-              <select
-                required
-                value={formData.source}
-onChange={(e) => isValidCustomerSource(e.target.value) && setFormData({ ...formData, source: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="BSNL">BSNL</option>
-                <option value="RMAX">RMAX</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-4 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-6 py-2 rounded-lg transition-all ${
-                isDark
-                  ? 'bg-white/10 hover:bg-white/20 text-white'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
-              }`}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-all"
-            >
-              {mode === 'add' ? 'Add Customer' : 'Update Customer'}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );

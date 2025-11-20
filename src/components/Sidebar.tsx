@@ -1,11 +1,13 @@
-import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Page } from '../App';
 
 interface SidebarProps {
   theme: 'light' | 'dark';
   currentPage: Page;
   onPageChange: (page: Page) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 const navItems = [
@@ -18,7 +20,6 @@ const navItems = [
   { id: 'reports' as Page, label: 'Reports', icon: FileText },
 ];
 
-// Enhanced pill-style generator for consistent curved aesthetics
 const getPillStyles = (isActive: boolean, isDark: boolean) => ({
   borderRadius: '1rem',
   background: isActive 
@@ -38,136 +39,131 @@ const getPillStyles = (isActive: boolean, isDark: boolean) => ({
     : 'none',
 });
 
-export function Sidebar({ theme, currentPage, onPageChange }: SidebarProps) {
+const SidebarContent = ({ isDark, currentPage, onPageChange, onClose }: {
+  isDark: boolean;
+  currentPage: Page;
+  onPageChange: (page: Page) => void;
+  onClose?: () => void;
+}) => (
+  <>
+    <div className="p-6 sm:p-8 border-b border-inherit flex items-center justify-between">
+      <div>
+        <h1 className={`mb-1 text-lg sm:text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          SPT TELECOM
+        </h1>
+        <div className={`text-xs font-bold tracking-[0.2em] ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+          ONE RADIUS
+        </div>
+      </div>
+      
+      {onClose && (
+        <button
+          onClick={onClose}
+          className={`md:hidden p-2 rounded-lg transition-colors ${
+            isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+          }`}
+        >
+          <X className="w-5 h-5" />
+        </button>
+      )}
+    </div>
+
+    <nav className="p-4 flex-1 overflow-y-auto no-scrollbar">
+      <ul className="space-y-2">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentPage === item.id;
+          const pillStyles = getPillStyles(isActive, isDark);
+          
+          return (
+            <li key={item.id}>
+              <button
+                onClick={() => {
+                  onPageChange(item.id);
+                  onClose?.();
+                }}
+                style={pillStyles}
+                className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden group outline-none ${
+                  isActive
+                    ? isDark ? 'text-cyan-400' : 'text-cyan-700'
+                    : isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <Icon className={`w-5 h-5 relative z-10 ${isActive ? 'drop-shadow-md' : 'group-hover:scale-110 transition-transform'}`} />
+                <span className="relative z-10 font-medium text-sm tracking-wide">{item.label}</span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeDot"
+                    className={`ml-auto w-2 h-2 rounded-full ${isDark ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-cyan-600'}`}
+                  />
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+
+    <div className="p-6 border-t border-inherit">
+      <button
+        onClick={() => { if (confirm('Are you sure you want to log out?')) console.log('Logging out...'); }}
+        style={{ 
+          borderRadius: '1rem',
+          border: isDark ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(239, 68, 68, 0.1)'
+        }}
+        className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden outline-none ${
+          isDark
+            ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30'
+            : 'text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
+        }`}
+      >
+        <LogOut className="w-5 h-5" />
+        <span className="font-medium text-sm">Logout</span>
+      </button>
+    </div>
+  </>
+);
+
+export function Sidebar({ theme, currentPage, onPageChange, isOpen = false, onClose }: SidebarProps) {
   const isDark = theme === 'dark';
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3 }}
-      className={`fixed left-0 top-0 h-screen w-64 ${
-        isDark 
-          ? 'bg-[#1e293b]/95 border-[#334155]' 
-          : 'bg-white/95 border-gray-200'
-      } backdrop-blur-xl border-r z-50 flex flex-col`}
-    >
-      {/* Logo/Brand */}
-      <motion.div 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="p-8 border-b border-inherit"
-      >
-        <h1 className={`mb-1 text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          SPT TELECOM
-        </h1>
-        <motion.div 
-          whileHover={{ scale: 1.05 }}
-          className={`text-xs font-bold tracking-[0.2em] ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}
-        >
-          ONE RADIUS
-        </motion.div>
-      </motion.div>
-
-      {/* Navigation */}
-      <nav className="p-4 flex-1 overflow-y-auto no-scrollbar">
-        <ul className="space-y-2">
-          {navItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = currentPage === item.id;
-            const pillStyles = getPillStyles(isActive, isDark);
-            
-            return (
-              <motion.li 
-                key={item.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <motion.button
-                  whileHover={{ scale: 1.02, x: 4 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => onPageChange(item.id)}
-                  style={pillStyles}
-                  className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden group outline-none ${
-                    isActive
-                      ? isDark
-                        ? 'text-cyan-400'
-                        : 'text-cyan-700'
-                      : isDark
-                      ? 'text-gray-400 hover:text-white hover:bg-white/5'
-                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <motion.div
-                    whileHover={{ rotate: 10 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-                  >
-                    <Icon className={`w-5 h-5 relative z-10 ${isActive ? 'drop-shadow-md' : 'group-hover:scale-110 transition-transform'}`} />
-                  </motion.div>
-                  
-                  <span className="relative z-10 font-medium text-sm tracking-wide">{item.label}</span>
-                  
-                  {isActive && (
-                    <motion.div 
-                      layoutId="activeDot"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className={`ml-auto w-2 h-2 rounded-full ${isDark ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-cyan-600'}`}
-                    />
-                  )}
-                  
-                  {/* Curved highlight overlay for active state */}
-                  {isActive && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className={`absolute inset-0 rounded-2xl ${
-                        isDark 
-                          ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10' 
-                          : 'bg-gradient-to-r from-cyan-50/50 to-blue-50/50'
-                      }`}
-                    />
-                  )}
-                </motion.button>
-              </motion.li>
-            );
-          })}
-        </ul>
-      </nav>
-
-      {/* Logout at Bottom - PILL SHAPED */}
-      <div className="p-6 border-t border-inherit">
-        <motion.button
-          whileHover={{ scale: 1.02, x: 4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => {
-            if (confirm('Are you sure you want to log out?')) {
-              console.log('Logging out...');
-            }
-          }}
-          style={{ 
-            borderRadius: '1rem',
-            border: isDark 
-              ? '1px solid rgba(239, 68, 68, 0.2)' 
-              : '1px solid rgba(239, 68, 68, 0.1)'
-          }}
-          className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden outline-none ${
-            isDark
-              ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30'
-              : 'text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
-          }`}
-        >
-          <LogOut className="w-5 h-5" />
-          <span className="font-medium text-sm">Logout</span>
-          
-          {/* Subtle curved overlay for logout button */}
-          <div className={`absolute inset-0 rounded-2xl transition-colors ${
-            isDark ? 'hover:bg-red-500/5' : 'hover:bg-red-50/50'
-          }`} />
-        </motion.button>
+    <>
+      {/* --- Desktop Sidebar (Always Visible on Large Screens) --- */}
+      <div className={`hidden md:flex fixed left-0 top-0 h-screen w-64 z-30 flex-col border-r backdrop-blur-xl ${
+          isDark ? 'bg-[#1e293b]/95 border-[#334155]' : 'bg-white/95 border-gray-200'
+        }`}>
+        <SidebarContent isDark={isDark} currentPage={currentPage} onPageChange={onPageChange} />
       </div>
-    </motion.div>
+
+      {/* --- Mobile Sidebar Overlay (Only Visible on Small Screens when Open) --- */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Dark Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+            />
+            
+            {/* Slide-in Sidebar */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: "0%" }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+              className={`md:hidden fixed left-0 top-0 h-screen w-80 max-w-[85vw] z-50 flex flex-col border-r shadow-2xl ${
+                isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'
+              }`}
+            >
+              <SidebarContent isDark={isDark} currentPage={currentPage} onPageChange={onPageChange} onClose={onClose} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
