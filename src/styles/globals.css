@@ -5,69 +5,70 @@
 @layer base {
   :root {
     --font-size: 16px;
-    
-    /* LIGHT MODE: Pure White Background, Pure Black Text */
-    --background: 0 0% 100%;      /* #ffffff */
-    --foreground: 0 0% 0%;        /* #000000 */
 
+    /* LIGHT MODE: Pure White Background, Pure Black Text */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    
     --card: 0 0% 100%;
     --card-foreground: 0 0% 0%;
-
+    
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
+    
+    /* Primary: Black Button with White Text */
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 0%;
+    
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 0%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    /* ALTERNATIVE FIX: Increased from 0.5rem to 1rem to force visible curves */
-    --radius: 1rem;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 0%;
+    
+    --radius: 0.5rem;
   }
 
   .dark {
-    /* DARK MODE: Dark Slate Background, Pure White Text */
-    --background: 222.2 84% 4.9%; /* #020817 */
-    --foreground: 0 0% 100%;      /* #ffffff */
-
-    --card: 222.2 84% 4.9%;
+    /* DARK MODE: Pure Black Background, Pure White Text */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    
+    --card: 0 0% 3%; /* Very dark grey for cards to distinguish from bg */
     --card-foreground: 0 0% 100%;
-
-    --popover: 222.2 84% 4.9%;
+    
+    --popover: 0 0% 3%;
     --popover-foreground: 0 0% 100%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    
+    /* Primary: White Button with Black Text */
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;
+    
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 0 0% 83%;
   }
 }
 
@@ -79,10 +80,10 @@
     @apply bg-background text-foreground;
   }
   
-  /* VISUAL FIX: This removes the default "square" look browsers force on buttons/inputs */
+  /* VISUAL FIX: Removes default square look on inputs/buttons */
   button, input, select, textarea {
     appearance: none;
     -webkit-appearance: none;
-    border-radius: var(--radius); /* Force everything to use your new curve */
+    border-radius: var(--radius);
   }
 }
