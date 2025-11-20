@@ -75,7 +75,6 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
       try {
         const data = await DashboardDataService.generateChartData();
         
-        // Use exact values as specified
         const exactStats = {
           total: 179,
           active: 112,
@@ -88,7 +87,6 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
         setStats(exactStats);
         setPieData(data.complaintsData);
         
-        // Transform registration data to line data format
         const lineData = data.renewalsData.map(item => ({
           name: item.day,
           uv: item.value,
@@ -96,7 +94,6 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
           amt: Math.floor(Math.random() * 20) + 1
         }));
         
-        // Transform registration data to area data format
         const areaData = data.registrationsData.map(item => ({
           name: item.day,
           uv: item.value,
@@ -104,7 +101,6 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
           amt: Math.floor(Math.random() * 20) + 1
         }));
         
-        // Transform expired data to bar data format
         const barData = data.expiredData.map(item => ({
           name: item.day,
           uv: item.value,
@@ -117,32 +113,8 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
         setBarData(barData);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
-        // Set exact fallback data as specified
-        const exactStats = {
-          total: 179,
-          active: 112,
-          online: 104,
-          expired: 67,
-          suspended: 0,
-          disabled: 0
-        };
-        setStats(exactStats);
-        setPieData([
-          { name: 'Open', value: 18 },
-          { name: 'Reopened', value: 9 },
-          { name: 'Progress', value: 14 },
-          { name: 'Resolved', value: 125 },
-          { name: 'Closed', value: 13 }
-        ]);
-        const fallbackLineData = Array.from({ length: 7 }, (_, i) => ({
-          name: (21 + i).toString(),
-          uv: Math.floor(Math.random() * 10) + 1,
-          pv: Math.floor(Math.random() * 10) + 1,
-          amt: Math.floor(Math.random() * 20) + 1
-        }));
-        setLineData(fallbackLineData);
-        setAreaData(fallbackLineData);
-        setBarData(fallbackLineData);
+        setStats({ total: 179, active: 112, online: 104, expired: 67, suspended: 0, disabled: 0 });
+        setLoading(false);
       } finally {
         setLoading(false);
       }
@@ -170,8 +142,6 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
       className="space-y-6"
     >
       <SubHeader theme={theme} />
-
-      
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
