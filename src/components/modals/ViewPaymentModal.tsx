@@ -1,5 +1,5 @@
 import { X, Download, CreditCard, Calendar, User, Hash } from 'lucide-react';
-import type { Payment } from '../pages/Payment';
+import type { Payment } from '../../types';
 
 interface ViewPaymentModalProps {
   payment: Payment;
@@ -24,7 +24,7 @@ export function ViewPaymentModal({ payment, theme, onClose }: ViewPaymentModalPr
               Payment Details
             </h2>
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Invoice: {payment.invoiceId}
+              Payment ID: {payment.id}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -62,10 +62,10 @@ export function ViewPaymentModal({ payment, theme, onClose }: ViewPaymentModalPr
               <User className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`} />
               <div>
                 <p className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {payment.userName}
+                  {payment.customerName}
                 </p>
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  User ID: {payment.userId}
+                  Landline: {payment.landlineNo}
                 </p>
               </div>
             </div>
@@ -115,7 +115,7 @@ export function ViewPaymentModal({ payment, theme, onClose }: ViewPaymentModalPr
                   </span>
                 </div>
                 <span className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {payment.date}
+                  {payment.paidDate}
                 </span>
               </div>
 
@@ -127,7 +127,7 @@ export function ViewPaymentModal({ payment, theme, onClose }: ViewPaymentModalPr
                   </span>
                 </div>
                 <span className={`${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {payment.method}
+                  {payment.modeOfPayment}
                 </span>
               </div>
 
@@ -151,8 +151,6 @@ export function ViewPaymentModal({ payment, theme, onClose }: ViewPaymentModalPr
                 <span className={`px-3 py-1 rounded-full text-sm ${
                   payment.status === 'Paid'
                     ? 'bg-green-500/20 text-green-400'
-                    : payment.status === 'Pending'
-                    ? 'bg-yellow-500/20 text-yellow-400'
                     : 'bg-red-500/20 text-red-400'
                 }`}>
                   {payment.status}
@@ -166,7 +164,7 @@ export function ViewPaymentModal({ payment, theme, onClose }: ViewPaymentModalPr
                   Total Amount
                 </span>
                 <span className={`text-2xl ${isDark ? 'text-green-400' : 'text-green-600'}`}>
-                  ₹{payment.amount.toLocaleString()}
+                  ₹{payment.billAmount.toLocaleString()}
                 </span>
               </div>
             </div>

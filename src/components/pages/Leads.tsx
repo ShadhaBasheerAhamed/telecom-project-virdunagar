@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Plus, Search, Eye, Edit, Trash2, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Eye, Edit, Trash2, X, UserCheck } from 'lucide-react';
 import type { DataSource } from '../../App';
 import { LeadModal } from '../modals/LeadModal';
 import { DeleteConfirmModal } from '../modals/DeleteConfirmModal';
+import { Customer } from '../../types'; // Importing shared Customer type
+import { toast } from 'sonner'; // Assuming you have sonner for alerts, otherwise use alert()
 
 interface LeadsProps {
   dataSource: DataSource;
@@ -16,9 +18,46 @@ export interface Lead {
   address: string;
   remarks: string;
   followupDate: string;
-  status: 'Success' | 'Rejected';
+  status: 'Success' | 'Rejected' | 'Sale'; // Added Sale status
   source: string;
 }
+
+// LocalStorage utility functions
+const STORAGE_KEY = 'leads-data';
+const CUSTOMER_STORAGE_KEY = 'customers-data'; // Key to push data to Customers page
+
+const generateUniqueId = (): string => {
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 1000);
+  return `${timestamp}-${random}`;
+};
+
+// Helper to generate Customer ID format: 104562-XXXXXX-CUSTOMER-RECORD
+const generateCustomerId = (): string => {
+  const random = Math.floor(100000 + Math.random() * 900000);
+  return `104562-${random}-CUSTOMER-RECORD`;
+};
+
+const saveLeadsToStorage = (leads: Lead[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+  } catch (error) {
+    console.error('Failed to save leads to localStorage:', error);
+  }
+};
+
+const loadLeadsFromStorage = (): Lead[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch (error) {
+    console.error('Failed to load leads from localStorage:', error);
+  }
+  return [];
+};
 
 const mockLeads: Lead[] = [
   { 
@@ -36,56 +75,16 @@ const mockLeads: Lead[] = [
     customerName: 'THALUKA OFFICE BACK SIDE', 
     phoneNo: '9884268841', 
     address: 'THALUKA OFFICE BACK SIDE', 
-    remarks: '22.05.24 CALL SEITHA POTHU SATURDAY SOLVATHAGA SONNAR, SATUR DAY KEATKUM POTHU MONDAY,TUSDAY VANTHGU KUPIDUVATHAGA KURINAR, 29.05.24 CALL SEITHA POTHU AIRTEL DISH IRUPATHAL AVARKAL MULAMAGA CONECTION POTTATHAGA KURI ULLAR', 
+    remarks: '22.05.24 CALL SEITHA POTHU SATURDAY SOLVATHAGA SONNAR...', 
     followupDate: '0024-05-29', 
     status: 'Rejected', 
     source: 'Private' 
   },
-  { 
-    id: '3', 
-    customerName: 'PONRAJ', 
-    phoneNo: '9940996784', 
-    address: 'PETHANATCHI NAGAR', 
-    remarks: 'ASK TODAY EVENING (BSNL)', 
-    followupDate: '2024-05-29', 
-    status: 'Success', 
-    source: 'BSNL' 
-  },
-  { 
-    id: '2', 
-    customerName: 'SARAVANAN P...', 
-    phoneNo: '8300131417', 
-    address: '120/30 AYYAN COMPLEX, OPP TO BSNL OFFICE, VIRUDHUNAGAR', 
-    remarks: 'AFWEFGE', 
-    followupDate: '2023-10-18', 
-    status: 'Rejected', 
-    source: 'BSNL' 
-  },
-  { 
-    id: '7', 
-    customerName: 'SIVAKUMAR R', 
-    phoneNo: '8754123698', 
-    address: 'NO 45, GANDHI STREET, SALEM, 636001', 
-    remarks: 'CALL BACK REQUESTED FOR BROADBAND CONNECTION', 
-    followupDate: '2025-11-15', 
-    status: 'Success', 
-    source: 'Private' 
-  },
-  { 
-    id: '8', 
-    customerName: 'MEENA K', 
-    phoneNo: '9876543210', 
-    address: '23/12, RADHA NAGAR, ERODE, 638001', 
-    remarks: 'INTERESTED IN FIBER TO HOME PLAN', 
-    followupDate: '2025-11-20', 
-    status: 'Rejected', 
-    source: 'BSNL' 
-  }
 ];
 
 export function Leads({ dataSource, theme }: LeadsProps) {
   const isDark = theme === 'dark';
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchField, setSearchField] = useState('All');
@@ -93,6 +92,16 @@ export function Leads({ dataSource, theme }: LeadsProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
+
+  useEffect(() => {
+    const storedLeads = loadLeadsFromStorage();
+    if (storedLeads.length > 0) {
+      setLeads(storedLeads);
+    } else {
+      setLeads(mockLeads);
+      saveLeadsToStorage(mockLeads);
+    }
+  }, []);
 
   const filteredLeads = leads.filter(lead => {
     const searchLower = searchTerm.toLowerCase();
@@ -118,38 +127,97 @@ export function Leads({ dataSource, theme }: LeadsProps) {
   });
 
   const handleAddLead = (lead: Omit<Lead, 'id'>) => {
-    const newLead = {
-      ...lead,
-      id: String(leads.length + 1),
-    };
-    setLeads([...leads, newLead]);
+    const newLead = { ...lead, id: generateUniqueId() };
+    const updatedLeads = [...leads, newLead];
+    setLeads(updatedLeads);
+    saveLeadsToStorage(updatedLeads);
     setModalMode(null);
   };
 
   const handleEditLead = (lead: Lead) => {
-    setLeads(leads.map(l => l.id === lead.id ? lead : l));
+    const updatedLeads = leads.map(l => l.id === lead.id ? lead : l);
+    setLeads(updatedLeads);
+    saveLeadsToStorage(updatedLeads);
     setModalMode(null);
     setSelectedLead(null);
   };
 
   const handleDeleteLead = () => {
     if (selectedLead) {
-      setLeads(leads.filter(l => l.id !== selectedLead.id));
+      const updatedLeads = leads.filter(l => l.id !== selectedLead.id);
+      setLeads(updatedLeads);
+      saveLeadsToStorage(updatedLeads);
       setDeleteModalOpen(false);
       setSelectedLead(null);
     }
   };
 
+  // --- NEW: Logic to Handle Status Change & Sale Conversion ---
+  const handleStatusChange = (id: string, newStatus: 'Success' | 'Rejected' | 'Sale') => {
+    // 1. Find the lead
+    const leadToUpdate = leads.find(l => l.id === id);
+    if (!leadToUpdate) return;
+
+    // 2. Confirmation Logic
+    if (!window.confirm(`Are you sure you want to change status from ${leadToUpdate.status} to ${newStatus}?`)) {
+        return;
+    }
+
+    // 3. If Status is SALE -> Add to Customers
+    if (newStatus === 'Sale') {
+        // Create new Customer Object
+        const newCustomer: Customer = {
+            id: generateCustomerId(),
+            landline: '', // To be filled in Customer page
+            name: leadToUpdate.customerName,
+            mobileNo: leadToUpdate.phoneNo,
+            altMobileNo: '',
+            vlanId: '',
+            bbId: '',
+            voipPassword: '',
+            ontMake: '',
+            ontType: '',
+            ontMacAddress: '',
+            ontBillNo: '',
+            ont: 'Paid ONT', // Default
+            offerPrize: '0',
+            routerMake: '',
+            routerMacId: '',
+            oltIp: '',
+            installationDate: new Date().toISOString().split('T')[0],
+            status: 'Active',
+            source: leadToUpdate.source,
+            plan: '',
+            email: ''
+        };
+
+        // Get existing customers and add new one
+        try {
+            const existingCustomersStr = localStorage.getItem(CUSTOMER_STORAGE_KEY);
+            const existingCustomers = existingCustomersStr ? JSON.parse(existingCustomersStr) : [];
+            const updatedCustomers = [newCustomer, ...existingCustomers]; // Add to top
+            localStorage.setItem(CUSTOMER_STORAGE_KEY, JSON.stringify(updatedCustomers));
+            toast.success(`${leadToUpdate.customerName} moved to Customers list!`);
+        } catch (err) {
+            console.error("Error moving to customer", err);
+            toast.error("Failed to move to customer list");
+        }
+    }
+
+    // 4. Update Lead Status locally
+    const updatedLeads = leads.map(l => l.id === id ? { ...l, status: newStatus } : l);
+    setLeads(updatedLeads);
+    saveLeadsToStorage(updatedLeads);
+  };
+
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* Header Section with Filters */}
       <div className="mb-6">
         <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Leads Management</h1>
         
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           
-          {/* Search Bar */}
           <div className="relative w-full md:w-96">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -163,9 +231,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
             />
           </div>
 
-          {/* Right Side Controls */}
           <div className="flex gap-3 w-full md:w-auto">
-            {/* Search Field Select */}
             <select
               value={searchField}
               onChange={(e) => setSearchField(e.target.value)}
@@ -177,7 +243,6 @@ export function Leads({ dataSource, theme }: LeadsProps) {
               <option value="Phone">Phone No</option>
             </select>
 
-            {/* Status Filter */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -186,9 +251,9 @@ export function Leads({ dataSource, theme }: LeadsProps) {
               <option value="All">All Status</option>
               <option value="Success">Success</option>
               <option value="Rejected">Rejected</option>
+              <option value="Sale">Sale</option>
             </select>
 
-            {/* Add Button */}
             <button
               onClick={() => setModalMode('add')}
               className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg shadow-blue-900/20"
@@ -200,13 +265,11 @@ export function Leads({ dataSource, theme }: LeadsProps) {
         </div>
       </div>
 
-      {/* TABLE CONTAINER - Table-specific horizontal scroll at bottom */}
       <div className={`w-full rounded-lg border shadow-xl ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}>
         <div className="overflow-x-auto" style={{ maxWidth: '100%', overflowX: 'auto' }}>
           <table className="w-full whitespace-nowrap text-left text-sm">
             <thead className={`${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'} font-semibold uppercase tracking-wider`}>
               <tr>
-                {/* Scrollable Columns */}
                 <th className={`px-6 py-4 min-w-[80px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>ID</th>
                 <th className={`px-6 py-4 min-w-[200px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Customer Name</th>
                 <th className={`px-6 py-4 min-w-[140px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Phone No</th>
@@ -214,9 +277,8 @@ export function Leads({ dataSource, theme }: LeadsProps) {
                 <th className={`px-6 py-4 min-w-[400px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Remarks</th>
                 <th className={`px-6 py-4 min-w-[140px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Followup Date</th>
 
-                {/* STICKY COLUMNS (Header) */}
-                <th className={`px-6 py-4 min-w-[120px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
-                  Status
+                <th className={`px-6 py-4 min-w-[150px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
+                  Status Action
                 </th>
                 <th className={`px-6 py-4 min-w-[110px] text-center border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-0 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20`}>
                   Options
@@ -226,7 +288,6 @@ export function Leads({ dataSource, theme }: LeadsProps) {
             <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {filteredLeads.map((lead) => (
                 <tr key={lead.id} className={`hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'} transition-colors`}>
-                  {/* Scrollable Data */}
                   <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{lead.id}</td>
                   <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{lead.customerName}</td>
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{lead.phoneNo}</td>
@@ -234,27 +295,34 @@ export function Leads({ dataSource, theme }: LeadsProps) {
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{lead.remarks}</td>
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{lead.followupDate}</td>
 
-                  {/* STICKY COLUMNS (Body) */}
-                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)] hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'}`}>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                  {/* Dynamic Status Selector */}
+                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
+                    <select
+                      value={lead.status}
+                      onChange={(e) => handleStatusChange(lead.id, e.target.value as any)}
+                      className={`text-xs font-bold px-2 py-1 rounded border-0 cursor-pointer outline-none ${
                         lead.status === 'Success'
-                          ? 'bg-green-900/30 text-green-400 border-green-800'
-                          : 'bg-red-900/30 text-red-400 border-red-800'
+                          ? 'bg-green-900/30 text-green-400'
+                          : lead.status === 'Rejected'
+                          ? 'bg-red-900/30 text-red-400'
+                          : 'bg-yellow-900/30 text-yellow-400' // SALE Color
                       }`}
                     >
-                      {lead.status}
-                    </span>
+                        <option value="Success" className="text-green-500 bg-gray-800">Success</option>
+                        <option value="Rejected" className="text-red-500 bg-gray-800">Rejected</option>
+                        <option value="Sale" className="text-yellow-500 bg-gray-800">Sale (Convert)</option>
+                    </select>
                   </td>
-                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} text-center sticky right-0 ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'}`}>
+
+                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} text-center sticky right-0 ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10`}>
                     <div className="flex items-center justify-center gap-3">
-                      <button onClick={() => { setSelectedLead(lead); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-900/20" title="View">
+                      <button onClick={() => { setSelectedLead(lead); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 transition-colors" title="View">
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button onClick={() => { setSelectedLead(lead); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 transition-colors p-1 rounded hover:bg-yellow-900/20" title="Edit">
+                      <button onClick={() => { setSelectedLead(lead); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 transition-colors" title="Edit">
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button onClick={() => { setSelectedLead(lead); setDeleteModalOpen(true); }} className="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-900/20" title="Delete">
+                      <button onClick={() => { setSelectedLead(lead); setDeleteModalOpen(true); }} className="text-red-400 hover:text-red-300 transition-colors" title="Delete">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -263,87 +331,50 @@ export function Leads({ dataSource, theme }: LeadsProps) {
               ))}
             </tbody>
           </table>
-          
-          {filteredLeads.length === 0 && (
-             <div className={`p-10 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                No leads found matching your search.
-             </div>
-          )}
         </div>
-
-        {/* Footer / Results Summary */}
         <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
             <div className="text-sm">
-                Showing <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>1</span> to <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{filteredLeads.length}</span> of <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{leads.length}</span> results
-            </div>
-            <div className="flex gap-2">
-                <button className={`px-3 py-1 border rounded text-sm transition-colors ${isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>Previous</button>
-                <button className={`px-3 py-1 border rounded text-sm transition-colors ${isDark ? 'border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>Next</button>
+                Showing {filteredLeads.length} results
             </div>
         </div>
       </div>
 
-      {/* MODALS */}
+      {/* Modals... (Kept same logic) */}
       {modalMode && (
         <LeadModal
           mode={modalMode}
           lead={selectedLead}
           theme={theme}
-          onClose={() => {
-            setModalMode(null);
-            setSelectedLead(null);
-          }}
+          onClose={() => { setModalMode(null); setSelectedLead(null); }}
           onSave={modalMode === 'add' ? handleAddLead : handleEditLead}
         />
       )}
 
       {viewModalOpen && selectedLead && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className={`w-full max-w-3xl rounded-xl border ${
-            isDark
-              ? 'bg-[#1e293b]/95 border-[#334155]'
-              : 'bg-white/95 border-gray-200'
-          } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto`}>
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-inherit">
-              <h2 className={`text-2xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Lead Details
-              </h2>
-              <button
-                onClick={() => setViewModalOpen(false)}
-                className={`p-2 rounded-lg transition-all ${
-                  isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'
-                }`}
-              >
-                <X className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
-              </button>
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className={`w-full max-w-2xl rounded-xl p-6 ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-gray-900'}`}>
+                <div className="flex justify-between mb-4">
+                    <h2 className="text-xl font-bold">Lead Details</h2>
+                    <button onClick={() => setViewModalOpen(false)}><X className="w-5 h-5" /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                    <p><strong>Name:</strong> {selectedLead.customerName}</p>
+                    <p><strong>Phone:</strong> {selectedLead.phoneNo}</p>
+                    <p><strong>Status:</strong> {selectedLead.status}</p>
+                    <p className="col-span-2"><strong>Address:</strong> {selectedLead.address}</p>
+                    <p className="col-span-2"><strong>Remarks:</strong> {selectedLead.remarks}</p>
+                </div>
             </div>
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><strong>ID:</strong> {selectedLead.id}</div>
-                <div><strong>Customer Name:</strong> {selectedLead.customerName}</div>
-                <div><strong>Phone No:</strong> {selectedLead.phoneNo}</div>
-                <div><strong>Followup Date:</strong> {selectedLead.followupDate}</div>
-                <div><strong>Address:</strong> {selectedLead.address}</div>
-                <div><strong>Status:</strong> {selectedLead.status}</div>
-                <div className="col-span-2"><strong>Remarks:</strong> {selectedLead.remarks}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+         </div>
       )}
 
       {deleteModalOpen && (
         <DeleteConfirmModal
           title="Delete Lead"
-          message={`Are you sure you want to delete lead ${selectedLead?.id}? This action cannot be undone.`}
+          message={`Are you sure you want to delete lead ${selectedLead?.id}?`}
           theme={theme}
           onConfirm={handleDeleteLead}
-          onCancel={() => {
-            setDeleteModalOpen(false);
-            setSelectedLead(null);
-          }}
+          onCancel={() => { setDeleteModalOpen(false); setSelectedLead(null); }}
         />
       )}
     </div>

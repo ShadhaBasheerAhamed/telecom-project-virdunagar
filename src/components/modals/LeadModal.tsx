@@ -1,41 +1,38 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Lead } from '../pages/Leads';
-import { isValidLeadFunnel, isValidLeadStatus, isValidLeadSource } from '../../utils/typeGuards';
 
 interface LeadModalProps {
   mode: 'add' | 'edit';
   lead: Lead | null;
   theme: 'light' | 'dark';
   onClose: () => void;
-  onSave: (lead: any) => void;
+  onSave: (lead: Omit<Lead, 'id'> | Lead) => void;
 }
 
 export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps) {
   const isDark = theme === 'dark';
   
   const [formData, setFormData] = useState({
-    name: '',
-    company: '',
-    email: '',
-    phone: '',
-    funnel: 'New' as 'New' | 'Contacted' | 'Qualified' | 'Negotiating',
-    status: 'Warm' as 'Hot' | 'Warm' | 'Cold',
-    source: 'BSNL' as 'BSNL' | 'RMAX',
-    notes: '',
+    customerName: '',
+    phoneNo: '',
+    address: '',
+    remarks: '',
+    followupDate: '',
+    status: 'Success' as 'Success' | 'Rejected',
+    source: '',
   });
 
   useEffect(() => {
     if (mode === 'edit' && lead) {
       setFormData({
-        name: lead.name,
-        company: lead.company,
-        email: lead.email,
-        phone: lead.phone,
-        funnel: lead.funnel,
+        customerName: lead.customerName,
+        phoneNo: lead.phoneNo,
+        address: lead.address,
+        remarks: lead.remarks,
+        followupDate: lead.followupDate,
         status: lead.status,
         source: lead.source,
-        notes: lead.notes,
       });
     }
   }, [mode, lead]);
@@ -74,73 +71,35 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Name */}
+            {/* Customer Name */}
             <div>
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Lead Name *
+                Customer Name *
               </label>
               <input
                 type="text"
                 required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={formData.customerName}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter lead name"
+                placeholder="Enter customer name"
               />
             </div>
 
-            {/* Company */}
+            {/* Phone No */}
             <div>
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Company *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.company}
-                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter company name"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Email *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter email"
-              />
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Phone *
+                Phone No *
               </label>
               <input
                 type="tel"
                 required
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                value={formData.phoneNo}
+                onChange={(e) => setFormData({ ...formData, phoneNo: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -150,26 +109,41 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
               />
             </div>
 
-            {/* Funnel */}
-            <div>
+            {/* Address */}
+            <div className="md:col-span-2">
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Funnel *
+                Address *
               </label>
-              <select
+              <input
+                type="text"
                 required
-                value={formData.funnel}
-onChange={(e) => isValidLeadFunnel(e.target.value) && setFormData({ ...formData, funnel: e.target.value })}
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="New">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Negotiating">Negotiating</option>
-              </select>
+                placeholder="Enter address"
+              />
+            </div>
+
+            {/* Followup Date */}
+            <div>
+              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Followup Date *
+              </label>
+              <input
+                type="date"
+                required
+                value={formData.followupDate}
+                onChange={(e) => setFormData({ ...formData, followupDate: e.target.value })}
+                className={`w-full px-4 py-2 rounded-lg border ${
+                  isDark
+                    ? 'bg-[#0F172A] border-[#334155] text-white'
+                    : 'bg-white border-gray-300 text-gray-900'
+                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+              />
             </div>
 
             {/* Status */}
@@ -180,16 +154,15 @@ onChange={(e) => isValidLeadFunnel(e.target.value) && setFormData({ ...formData,
               <select
                 required
                 value={formData.status}
-onChange={(e) => isValidLeadStatus(e.target.value) && setFormData({ ...formData, status: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Success' | 'Rejected' })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
               >
-                <option value="Hot">Hot</option>
-                <option value="Warm">Warm</option>
-                <option value="Cold">Cold</option>
+                <option value="Success">Success</option>
+                <option value="Rejected">Rejected</option>
               </select>
             </div>
 
@@ -198,36 +171,35 @@ onChange={(e) => isValidLeadStatus(e.target.value) && setFormData({ ...formData,
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 Source *
               </label>
-              <select
+              <input
+                type="text"
                 required
                 value={formData.source}
-onChange={(e) => isValidLeadSource(e.target.value) && setFormData({ ...formData, source: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="BSNL">BSNL</option>
-                <option value="RMAX">RMAX</option>
-              </select>
+                placeholder="Enter source (e.g., BSNL, Private)"
+              />
             </div>
 
-            {/* Notes */}
+            {/* Remarks */}
             <div className="md:col-span-2">
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Notes
+                Remarks
               </label>
               <textarea
                 rows={4}
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                value={formData.remarks}
+                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Additional notes about the lead..."
+                placeholder="Additional remarks about the lead..."
               />
             </div>
           </div>

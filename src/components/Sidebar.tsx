@@ -1,23 +1,27 @@
-import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X, ShoppingCart, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Page } from '../App';
+// ✅ FIXED IMPORT: Changed '../../App' to '../App'
+import type { Page, UserRole } from '../App';
 
 interface SidebarProps {
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark'; // This fixes the "Property theme does not exist" error
   currentPage: Page;
+  userRole: UserRole; 
   onPageChange: (page: Page) => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-const navItems = [
-  { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'customers' as Page, label: 'Customers', icon: Users },
-  { id: 'complaints' as Page, label: 'Complaints', icon: MessageSquare },
-  { id: 'leads' as Page, label: 'Leads', icon: UserPlus },
-  { id: 'payment' as Page, label: 'Payment', icon: CreditCard },
-  { id: 'master-records' as Page, label: 'Master Records', icon: Database },
-  { id: 'reports' as Page, label: 'Reports', icon: FileText },
+const allNavItems = [
+  { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard, roles: ['Super Admin', 'Sales', 'Maintenance'] },
+  { id: 'leads' as Page, label: 'Leads', icon: UserPlus, roles: ['Super Admin', 'Sales'] },
+  { id: 'customers' as Page, label: 'Customers', icon: Users, roles: ['Super Admin', 'Sales', 'Maintenance'] },
+  { id: 'sales' as Page, label: 'Sales POS', icon: ShoppingCart, roles: ['Super Admin', 'Sales'] },
+  { id: 'payment' as Page, label: 'Payment', icon: CreditCard, roles: ['Super Admin', 'Sales'] },
+  { id: 'complaints' as Page, label: 'Complaints', icon: MessageSquare, roles: ['Super Admin', 'Maintenance'] },
+  { id: 'inventory' as Page, label: 'Inventory', icon: Package, roles: ['Super Admin', 'Sales'] },
+  { id: 'master-records' as Page, label: 'Master Records', icon: Database, roles: ['Super Admin'] }, 
+  { id: 'reports' as Page, label: 'Reports', icon: FileText, roles: ['Super Admin'] },
 ];
 
 const getPillStyles = (isActive: boolean, isDark: boolean) => ({
@@ -39,117 +43,118 @@ const getPillStyles = (isActive: boolean, isDark: boolean) => ({
     : 'none',
 });
 
-const SidebarContent = ({ isDark, currentPage, onPageChange, onClose }: {
+const SidebarContent = ({ isDark, currentPage, onPageChange, onClose, userRole }: {
   isDark: boolean;
   currentPage: Page;
+  userRole: UserRole;
   onPageChange: (page: Page) => void;
   onClose?: () => void;
-}) => (
-  <>
-    <div className="p-6 sm:p-8 border-b border-inherit flex items-center justify-between">
-      <div>
-        <h1 className={`mb-1 text-lg sm:text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          SPT TELECOM
-        </h1>
-        <div className={`text-xs font-bold tracking-[0.2em] ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
-          ONE RADIUS
-        </div>
-      </div>
-      
-      {onClose && (
-        <button
-          onClick={onClose}
-          className={`md:hidden p-2 rounded-lg transition-colors ${
-            isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-          }`}
-        >
-          <X className="w-5 h-5" />
-        </button>
-      )}
-    </div>
-
-    <nav className="p-4 flex-1 overflow-y-auto no-scrollbar">
-      <ul className="space-y-2">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentPage === item.id;
-          const pillStyles = getPillStyles(isActive, isDark);
-          
-          return (
-            <li key={item.id}>
-              <button
-                onClick={() => {
-                  onPageChange(item.id);
-                  onClose?.();
-                }}
-                style={pillStyles}
-                className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden group outline-none ${
-                  isActive
-                    ? isDark ? 'text-cyan-400' : 'text-cyan-700'
-                    : isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <Icon className={`w-5 h-5 relative z-10 ${isActive ? 'drop-shadow-md' : 'group-hover:scale-110 transition-transform'}`} />
-                <span className="relative z-10 font-medium text-sm tracking-wide">{item.label}</span>
-                {isActive && (
-                  <motion.div 
-                    layoutId="activeDot"
-                    className={`ml-auto w-2 h-2 rounded-full ${isDark ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-cyan-600'}`}
-                  />
-                )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-
-    <div className="p-6 border-t border-inherit">
-      <button
-        onClick={() => { if (confirm('Are you sure you want to log out?')) console.log('Logging out...'); }}
-        style={{ 
-          borderRadius: '1rem',
-          border: isDark ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(239, 68, 68, 0.1)'
-        }}
-        className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden outline-none ${
-          isDark
-            ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30'
-            : 'text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
-        }`}
-      >
-        <LogOut className="w-5 h-5" />
-        <span className="font-medium text-sm">Logout</span>
-      </button>
-    </div>
-  </>
-);
-
-export function Sidebar({ theme, currentPage, onPageChange, isOpen = false, onClose }: SidebarProps) {
-  const isDark = theme === 'dark';
+}) => {
+  const visibleItems = allNavItems.filter(item => item.roles.includes(userRole || 'Super Admin'));
 
   return (
     <>
-      {/* --- Desktop Sidebar (Always Visible on Large Screens) --- */}
+      <div className="p-6 sm:p-8 border-b border-inherit flex items-center justify-between">
+        <div>
+          <h1 className={`mb-1 text-lg sm:text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            SPT TELECOM
+          </h1>
+          <div className={`text-xs font-bold tracking-[0.2em] uppercase ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+            {userRole || 'ONE RADIUS'}
+          </div>
+        </div>
+        
+        {onClose && (
+          <button
+            onClick={onClose}
+            className={`md:hidden p-2 rounded-lg transition-colors ${
+              isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
+      <nav className="p-4 flex-1 overflow-y-auto no-scrollbar">
+        <ul className="space-y-2">
+          {visibleItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.id;
+            const pillStyles = getPillStyles(isActive, isDark);
+            
+            return (
+              <li key={item.id}>
+                <button
+                  onClick={() => {
+                    onPageChange(item.id);
+                    onClose?.();
+                  }}
+                  style={pillStyles}
+                  className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden group outline-none ${
+                    isActive
+                      ? isDark ? 'text-cyan-400' : 'text-cyan-700'
+                      : isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 relative z-10 ${isActive ? 'drop-shadow-md' : 'group-hover:scale-110 transition-transform'}`} />
+                  <span className="relative z-10 font-medium text-sm tracking-wide">{item.label}</span>
+                  {isActive && (
+                    <motion.div 
+                      layoutId="activeDot"
+                      className={`ml-auto w-2 h-2 rounded-full ${isDark ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-cyan-600'}`}
+                    />
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      <div className="p-6 border-t border-inherit">
+        <button
+          onClick={() => { if (confirm('Are you sure you want to log out?')) window.location.reload(); }}
+          style={{ 
+            borderRadius: '1rem',
+            border: isDark ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(239, 68, 68, 0.1)'
+          }}
+          className={`w-full flex items-center gap-4 px-5 py-4 transition-all relative overflow-hidden outline-none ${
+            isDark
+              ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/30'
+              : 'text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
+          }`}
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="font-medium text-sm">Logout</span>
+        </button>
+      </div>
+    </>
+  );
+};
+
+export function Sidebar(props: SidebarProps) {
+  const isDark = props.theme === 'dark';
+
+  return (
+    <>
       <div className={`hidden md:flex fixed left-0 top-0 h-screen w-64 z-30 flex-col border-r backdrop-blur-xl ${
           isDark ? 'bg-[#1e293b]/95 border-[#334155]' : 'bg-white/95 border-gray-200'
         }`}>
-        <SidebarContent isDark={isDark} currentPage={currentPage} onPageChange={onPageChange} />
+        <SidebarContent isDark={isDark} {...props} />
       </div>
 
-      {/* --- Mobile Sidebar Overlay (Only Visible on Small Screens when Open) --- */}
       <AnimatePresence>
-        {isOpen && (
+        {props.isOpen && (
           <>
-            {/* Dark Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={onClose}
+              onClick={props.onClose}
               className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
             />
             
-            {/* Slide-in Sidebar */}
             <motion.div
               initial={{ x: "-100%" }}
               animate={{ x: "0%" }}
@@ -159,7 +164,7 @@ export function Sidebar({ theme, currentPage, onPageChange, isOpen = false, onCl
                 isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'
               }`}
             >
-              <SidebarContent isDark={isDark} currentPage={currentPage} onPageChange={onPageChange} onClose={onClose} />
+              <SidebarContent isDark={isDark} {...props} />
             </motion.div>
           </>
         )}

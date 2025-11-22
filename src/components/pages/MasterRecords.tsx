@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit, Trash2, Plus, 
   Users, Briefcase, UserCheck, Building2, 
   Router, HardDrive, FileText, Network, Server 
 } from 'lucide-react';
 import { MasterRecordModal } from '../modals/MasterRecordModal';
+import { MasterRecordService } from '../../services/masterRecordService';
+import { DeleteConfirmModal } from '../modals/DeleteConfirmModal';
 import type { DataSource } from '../../App';
 
 interface MasterRecordsProps {
@@ -20,7 +22,86 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [recordsData, setRecordsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load data from Firebase when tab or filters change
+  useEffect(() => {
+    loadRecordsData();
+  }, [activeTab, searchTerm, statusFilter]);
+
+  const loadRecordsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Try to load from Firebase first
+      let records: any[];
+      
+      try {
+        if (statusFilter === 'All') {
+          records = await MasterRecordService.getRecords(activeTab);
+        } else {
+          records = await MasterRecordService.getRecordsByStatus(activeTab, statusFilter);
+        }
+        
+        // Apply search filter locally (since Firebase doesn't support full-text search easily)
+        if (searchTerm) {
+          records = records.filter(record => 
+            Object.values(record).some(val => 
+              String(val).toLowerCase().includes(searchTerm.toLowerCase())
+            )
+          );
+        }
+      } catch (firebaseError) {
+        console.warn(`Firebase load failed for ${activeTab}, using mock data:`, firebaseError);
+        // Fallback to mock data
+        records = getMockDataForTab(activeTab);
+        
+        // Apply filters to mock data
+        if (statusFilter !== 'All') {
+          records = records.filter(record => record.status === statusFilter);
+        }
+        
+        if (searchTerm) {
+          records = records.filter(record => 
+            Object.values(record).some(val => 
+              String(val).toLowerCase().includes(searchTerm.toLowerCase())
+            )
+          );
+        }
+      }
+      
+      setRecordsData(records);
+    } catch (error) {
+      console.error(`Error loading ${activeTab} data:`, error);
+      setError(`Failed to load ${activeTab} records. Using fallback data.`);
+      // Final fallback to mock data
+      setRecordsData(getMockDataForTab(activeTab));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMockDataForTab = (tab: string) => {
+    // Return the corresponding mock data based on tab
+    switch (tab) {
+      case 'routerMake': return routerMakeData;
+      case 'ontMake': return ontMakeData;
+      case 'ontType': return ontTypeData;
+      case 'plan': return planData;
+      case 'oltIp': return oltIpData;
+      case 'employee': return employeeData;
+      case 'department': return departmentData;
+      case 'designation': return designationData;
+      case 'user': return userData;
+      default: return [];
+    }
+  };
 
   // Modal handlers
   const handleAddRecord = () => {
@@ -33,11 +114,36 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     setIsViewModalOpen(true);
   };
 
-  const handleSaveRecord = (recordData: any) => {
-    console.log('Saving record:', recordData);
+  const handleSaveRecord = async () => {
+    // Reload data after save operation
+    await loadRecordsData();
     setIsAddModalOpen(false);
+    setIsEditModalOpen(false);
     setIsViewModalOpen(false);
     setSelectedRecord(null);
+  };
+
+  const handleEditRecord = (record: any) => {
+    setSelectedRecord(record);
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteRecord = async (record: any) => {
+    try {
+      await MasterRecordService.deleteRecord(activeTab, record.id);
+      setRecordsData(prev => prev.filter(r => r.id !== record.id));
+      setIsDeleteModalOpen(false);
+      setSelectedRecord(null);
+    } catch (error) {
+      console.error(`Error deleting ${activeTab} record:`, error);
+      alert(`Failed to delete ${activeTab} record. Please try again.`);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (selectedRecord) {
+      await handleDeleteRecord(selectedRecord);
+    }
   };
 
   // Theme-based styling
@@ -139,30 +245,16 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     { id: 'user', label: 'User', icon: UserCheck },
   ];
 
-  // --- HELPER: Get Current Data ---
+  // Update the currentData to use the loaded records
   const currentData = useMemo(() => {
-    let data = [];
-    switch (activeTab) {
-      case 'routerMake': data = routerMakeData; break;
-      case 'ontMake': data = ontMakeData; break;
-      case 'ontType': data = ontTypeData; break;
-      case 'plan': data = planData; break;
-      case 'oltIp': data = oltIpData; break;
-      case 'employee': data = employeeData; break;
-      case 'department': data = departmentData; break;
-      case 'designation': data = designationData; break;
-      case 'user': data = userData; break;
-      default: data = [];
-    }
-
-    return data.filter(item => {
-      const matchesSearch = Object.values(item).some(val => 
+    return recordsData.filter(record => {
+      const matchesSearch = Object.values(record).some(val => 
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
-      const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
+      const matchesStatus = statusFilter === 'All' || record.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [activeTab, searchTerm, statusFilter]);
+  }, [recordsData, searchTerm, statusFilter]);
 
   // --- RENDER HELPER ---
   const RenderTable = ({ columns, rows }) => (
@@ -222,10 +314,18 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button className={`${isDark ? 'text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/20' : 'text-yellow-600 hover:text-yellow-500 hover:bg-yellow-50'} transition-colors p-1 rounded`} title="Edit">
+                    <button 
+                      onClick={() => handleEditRecord(row)} 
+                      className={`${isDark ? 'text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/20' : 'text-yellow-600 hover:text-yellow-500 hover:bg-yellow-50'} transition-colors p-1 rounded`} 
+                      title="Edit"
+                    >
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button className={`${isDark ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20' : 'text-red-600 hover:text-red-500 hover:bg-red-50'} transition-colors p-1 rounded`} title="Delete">
+                    <button 
+                      onClick={() => { setSelectedRecord(row); setIsDeleteModalOpen(true); }}
+                      className={`${isDark ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20' : 'text-red-600 hover:text-red-500 hover:bg-red-50'} transition-colors p-1 rounded`} 
+                      title="Delete"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -306,7 +406,25 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
       
       <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mb-6`}>Master Records</h1>
 
-      {/* TABS NAVIGATION - Scrollable horizontal list */}
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <span className="ml-3 text-sm text-gray-600">Loading records...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div className="p-4 bg-yellow-100 border border-yellow-300 rounded-lg mb-6">
+          <p className="text-yellow-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Main Content */}
+      {!loading && (
+        <>
+          {/* TABS NAVIGATION - Scrollable horizontal list */}
       <div className="mb-6 w-full overflow-x-auto pb-2 custom-scrollbar">
         <div className={`${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-300'} p-1 rounded-lg inline-flex border min-w-max`}>
           {tabs.map((tab) => (
@@ -398,6 +516,31 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
         />
       )}
 
+      {isEditModalOpen && selectedRecord && (
+        <MasterRecordModal
+          mode="edit"
+          recordType={activeTab}
+          data={selectedRecord}
+          theme={theme}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleSaveRecord}
+        />
+      )}
+
+      {isDeleteModalOpen && (
+        <DeleteConfirmModal
+          title={`Delete ${tabs.find(t => t.id === activeTab)?.label}`}
+          message={`Are you sure you want to delete ${selectedRecord?.name || selectedRecord?.id}? This action cannot be undone.`}
+          theme={theme}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => {
+            setIsDeleteModalOpen(false);
+            setSelectedRecord(null);
+          }}
+        />
+      )}
+        </>
+      )}
     </div>
   );
 };

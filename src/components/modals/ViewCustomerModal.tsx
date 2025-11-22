@@ -11,12 +11,12 @@ export function ViewCustomerModal({ customer, theme, onClose }: ViewCustomerModa
   const isDark = theme === 'dark';
 
   const detailItems = [
-    { icon: Mail, label: 'Email', value: customer.email },
-    { icon: Phone, label: 'Phone', value: customer.phone },
-    { icon: Package, label: 'Plan', value: customer.plan },
+    { icon: Mail, label: 'Email', value: customer.email || 'N/A' },
+    { icon: Phone, label: 'Mobile No', value: customer.mobileNo },
+    { icon: Package, label: 'Plan', value: customer.plan || 'N/A' },
     { icon: Activity, label: 'Status', value: customer.status },
     { icon: Tag, label: 'Source', value: customer.source },
-    { icon: Calendar, label: 'Join Date', value: customer.joinDate },
+    { icon: Calendar, label: 'Installation Date', value: customer.installationDate },
   ];
 
   return (

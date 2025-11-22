@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface StatItem {
+export interface StatItem {
   label: string;
   value: string | number;
+  textColor?: string; 
+  isHighlight?: boolean;
 }
 
 interface StatisticsPanelProps {
@@ -13,9 +15,10 @@ interface StatisticsPanelProps {
   items: StatItem[];
   showRefresh?: boolean;
   theme: 'light' | 'dark';
+  className?: string; // Added className prop
 }
 
-export function StatisticsPanel({ title, items, showRefresh = false, theme }: StatisticsPanelProps) {
+export function StatisticsPanel({ title, items, showRefresh = false, theme, className = '' }: StatisticsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isDark = theme === 'dark';
@@ -33,61 +36,58 @@ export function StatisticsPanel({ title, items, showRefresh = false, theme }: St
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`border rounded-xl overflow-hidden transition-all shadow-sm hover:shadow-md ${
+      // Changed h-full to h-fit to avoid empty blanks
+      className={`flex flex-col h-fit border rounded-xl overflow-hidden transition-all shadow-sm hover:shadow-md ${
         isDark
           ? 'bg-slate-800 border-slate-700'
           : 'bg-white border-gray-100 shadow-gray-200'
-      }`}
+      } ${className}`}
     >
-      {/* Header Section */}
-      <div className={`px-5 py-4 border-b flex items-center justify-between ${
+      {/* Header Section with subtle gradient */}
+      <div className={`px-4 py-3 border-b flex items-center justify-between ${
         isDark
-          ? 'bg-slate-800 border-slate-700'
-          : 'bg-white border-gray-100'
+          ? 'bg-gradient-to-r from-slate-800 to-slate-900 border-slate-700'
+          : 'bg-gradient-to-r from-white to-gray-50 border-gray-100'
       }`}>
-        <h3 className={`text-sm font-bold uppercase tracking-wide ${
-          isDark ? 'text-slate-100' : 'text-gray-800'
+        <h3 className={`text-xs font-bold uppercase tracking-wider ${
+          isDark ? 'text-slate-200' : 'text-gray-600'
         }`}>
           {title}
         </h3>
         
         <div className="flex items-center gap-1">
           {showRefresh && (
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+            <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className={`p-1.5 rounded-md transition-colors ${
+              className={`p-1 rounded transition-colors ${
                 isDark 
-                  ? 'text-slate-400 hover:text-cyan-400 hover:bg-slate-700' 
-                  : 'text-gray-400 hover:text-cyan-600 hover:bg-gray-50'
+                ? 'text-slate-400 hover:text-cyan-400 hover:bg-slate-700' 
+                : 'text-gray-400 hover:text-cyan-600 hover:bg-gray-100'
               }`}
             >
               <motion.div 
                 animate={{ rotate: isRefreshing ? 360 : 0 }} 
                 transition={{ duration: 0.5, repeat: isRefreshing ? Infinity : 0, ease: 'linear' }}
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5" />
               </motion.div>
-            </motion.button>
+            </button>
           )}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={`p-1.5 rounded-md transition-colors ${
+            className={`p-1 rounded transition-colors ${
               isDark 
-                ? 'text-slate-400 hover:text-white hover:bg-slate-700' 
-                : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50'
+              ? 'text-slate-400 hover:text-white hover:bg-slate-700' 
+              : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'
             }`}
           >
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </motion.button>
+            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
       
-      {/* List Items */}
+      {/* List Items - Compact Padding */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -96,34 +96,34 @@ export function StatisticsPanel({ title, items, showRefresh = false, theme }: St
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="p-5 pt-2">
-              <div className="space-y-1">
+            <div className="p-3 space-y-1">
                 {items.map((item, index) => (
                   <motion.div
                     key={index}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.03 }}
-                    className={`flex items-center justify-between py-2 px-3 rounded-lg transition-colors cursor-default group ${
-                      isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'
+                    className={`flex items-center justify-between py-1.5 px-2 rounded transition-colors cursor-default group ${
+                      item.isHighlight 
+                        ? (isDark ? 'bg-cyan-950/40 border border-cyan-900/50' : 'bg-cyan-50 border border-cyan-100')
+                        : (isDark ? 'hover:bg-slate-700/30' : 'hover:bg-gray-50')
                     }`}
                   >
-                    {/* Label Color Fix */}
-                    <span className={`text-sm font-medium ${
-                      isDark ? 'text-slate-400 group-hover:text-slate-200' : 'text-gray-600 group-hover:text-gray-900'
+                    <span className={`text-[11px] md:text-xs font-medium truncate pr-2 ${
+                      isDark ? 'text-slate-400 group-hover:text-slate-300' : 'text-gray-500 group-hover:text-gray-700'
                     }`}>
                       {item.label}
                     </span>
                     
-                    {/* Value Color Fix */}
-                    <span className={`text-sm font-bold ${
-                      isDark ? 'text-blue-400' : 'text-blue-600'
+                    <span className={`text-xs md:text-sm font-bold whitespace-nowrap ${
+                      item.textColor 
+                        ? item.textColor 
+                        : (isDark ? 'text-slate-200' : 'text-slate-700')
                     }`}>
                       {item.value}
                     </span>
                   </motion.div>
                 ))}
-              </div>
             </div>
           </motion.div>
         )}

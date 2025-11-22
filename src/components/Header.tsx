@@ -2,7 +2,7 @@ import { Sun, Moon, User, Search, Bell, Menu, Settings, LogOut } from 'lucide-re
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import type { DataSource } from '../App';
+import type { DataSource, UserRole } from '../App'; // Added UserRole import
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +19,20 @@ interface HeaderProps {
   dataSource: DataSource;
   onThemeToggle: () => void;
   onDataSourceChange: (source: DataSource) => void;
-  onMenuClick?: () => void; // Optional menu click handler for mobile
+  onMenuClick?: () => void;
+  userRole: UserRole; // ✅ Added Prop
+  onLogout: () => void; // ✅ Added Prop
 }
 
-export function Header({ theme, dataSource, onThemeToggle, onDataSourceChange, onMenuClick }: HeaderProps) {
+export function Header({ 
+  theme, 
+  dataSource, 
+  onThemeToggle, 
+  onDataSourceChange, 
+  onMenuClick,
+  userRole, // ✅ Destructured
+  onLogout  // ✅ Destructured
+}: HeaderProps) {
   const isDark = theme === 'dark';
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,8 +159,8 @@ export function Header({ theme, dataSource, onThemeToggle, onDataSourceChange, o
                           whileHover={{ x: 5 }}
                           className={`p-4 border-b transition-all cursor-pointer ${
                             isDark 
-                              ? 'border-[#334155] hover:bg-white/5' 
-                              : 'border-gray-200 hover:bg-gray-50'
+                            ? 'border-[#334155] hover:bg-white/5' 
+                            : 'border-gray-200 hover:bg-gray-50'
                           }`}
                         >
                           <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{notif.message}</p>
@@ -202,9 +212,15 @@ export function Header({ theme, dataSource, onThemeToggle, onDataSourceChange, o
                   >
                     <User className="w-5 h-5" />
                   </motion.div>
-                  <span className={`hidden md:inline ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                    Admin User
-                  </span>
+                  {/* ✅ Dynamic User Role Display */}
+                  <div className="hidden md:flex flex-col items-start">
+                    <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      {userRole || 'Guest'}
+                    </span>
+                    <span className={`text-[10px] uppercase tracking-wider ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                      Authorized
+                    </span>
+                  </div>
                 </motion.div>
               </DropdownMenuTrigger>
               <DropdownMenuContent className={`w-56 ${isDark ? 'bg-[#1e293b] border-[#334155] text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
@@ -219,7 +235,11 @@ export function Header({ theme, dataSource, onThemeToggle, onDataSourceChange, o
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className={isDark ? 'bg-[#334155]' : 'bg-gray-200'} />
-                <DropdownMenuItem className="hover:bg-red-500/10 text-red-400 cursor-pointer">
+                {/* ✅ Logout Connected */}
+                <DropdownMenuItem 
+                  onClick={onLogout} 
+                  className="hover:bg-red-500/10 text-red-400 cursor-pointer"
+                >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </DropdownMenuItem>

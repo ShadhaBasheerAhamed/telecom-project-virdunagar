@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import type { Customer } from '../pages/Customers';
+import type { Customer } from '../../types';
+import { MasterRecordService } from '../../services/masterRecordService';
 
 interface CustomerModalProps {
   mode: 'add' | 'edit';
@@ -13,7 +14,11 @@ interface CustomerModalProps {
 export function CustomerModal({ mode, customer, theme, onClose, onSave }: CustomerModalProps) {
   const isDark = theme === 'dark';
   
-  // Initial State with all fields
+  // --- DYNAMIC DATA STATE ---
+  const [plans, setPlans] = useState<any[]>([]);
+  const [oltIps, setOltIps] = useState<any[]>([]);
+  
+  // Initial State
   const [formData, setFormData] = useState({
     id: '',
     landline: '0',
@@ -31,12 +36,33 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
     offerPrize: '0',
     routerMake: 'N/A',
     routerMacId: 'NA',
-    oltIp: '10.215.168.64',
+    oltIp: '',
     installationDate: new Date().toISOString().split('T')[0],
     status: 'Active',
     source: 'BSNL',
+    plan: '',
+    email: ''
   });
 
+  // 1. FETCH MASTER RECORDS (Plans & IPs)
+  useEffect(() => {
+    const loadMasterData = async () => {
+      try {
+        // Fetch Plans
+        const fetchedPlans = await MasterRecordService.getRecords('plan');
+        setPlans(fetchedPlans.filter((p: any) => p.status === 'Active'));
+
+        // Fetch OLT IPs
+        const fetchedIps = await MasterRecordService.getRecords('oltIp');
+        setOltIps(fetchedIps.filter((ip: any) => ip.status === 'Active'));
+      } catch (err) {
+        console.error("Failed to load dropdowns", err);
+      }
+    };
+    loadMasterData();
+  }, []);
+
+  // 2. POPULATE FORM (Edit Mode)
   useEffect(() => {
     if (mode === 'edit' && customer) {
       setFormData({
@@ -60,9 +86,18 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
         installationDate: customer.installationDate,
         status: customer.status,
         source: customer.source,
+        plan: customer.plan || '',
+        email: customer.email || ''
       });
     }
   }, [mode, customer]);
+
+  // 3. OFFER PRICE LOGIC (Reset if not 'Offer Price')
+  useEffect(() => {
+    if (formData.ont !== 'Offer Price') {
+       setFormData(prev => ({ ...prev, offerPrize: '0' }));
+    }
+  }, [formData.ont]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,11 +130,9 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
         
         {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-[#334155]' : 'border-gray-200'}`}>
-          <div>
-            <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              {mode === 'add' ? 'New Customer Registration' : 'Edit Customer Details'}
-            </h2>
-          </div>
+          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            {mode === 'add' ? 'New Customer Registration' : 'Edit Customer Details'}
+          </h2>
           <button onClick={onClose} className={`p-2 rounded-lg hover:bg-white/10 transition-colors`}>
             <X className={`w-6 h-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
           </button>
@@ -122,14 +155,12 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
               </div>
             </div>
 
-            {/* Technical Details */}
+            {/* Service Details */}
             <div>
-              <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-purple-400 border-purple-500/20' : 'text-purple-700 border-purple-200'}`}>Technical Details</h3>
+              <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-purple-400 border-purple-500/20' : 'text-purple-700 border-purple-200'}`}>Service Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><label className={labelClasses}>BB ID / User ID</label><input type="text" required value={formData.bbId} onChange={e => setFormData({...formData, bbId: e.target.value})} className={inputClasses} /></div>
-                <div><label className={labelClasses}>VLAN ID</label><input type="text" value={formData.vlanId} onChange={e => setFormData({...formData, vlanId: e.target.value})} className={inputClasses} /></div>
-                <div><label className={labelClasses}>VoIP Password</label><input type="text" value={formData.voipPassword} onChange={e => setFormData({...formData, voipPassword: e.target.value})} className={inputClasses} /></div>
-                <div><label className={labelClasses}>OLT IP</label><input type="text" value={formData.oltIp} onChange={e => setFormData({...formData, oltIp: e.target.value})} className={inputClasses} /></div>
+                
+                {/* Source */}
                 <div>
                   <label className={labelClasses}>Source</label>
                   <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className={inputClasses}>
@@ -137,6 +168,50 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
                     <option value="RMAX">RMAX</option>
                   </select>
                 </div>
+
+                {/* DYNAMIC PLAN DROPDOWN */}
+                <div>
+                  <label className={labelClasses}>Plan</label>
+                  <select 
+                    value={formData.plan} 
+                    onChange={e => setFormData({...formData, plan: e.target.value})} 
+                    className={inputClasses}
+                    required
+                  >
+                    <option value="">Select Plan</option>
+                    {plans.length > 0 ? (
+                        plans.map((p) => (
+                            <option key={p.id} value={p.name}>{p.name} - ₹{p.total}</option>
+                        ))
+                    ) : (
+                        <option disabled>No active plans found</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* DYNAMIC OLT IP DROPDOWN */}
+                <div>
+                  <label className={labelClasses}>OLT IP</label>
+                  <select 
+                    value={formData.oltIp} 
+                    onChange={e => setFormData({...formData, oltIp: e.target.value})} 
+                    className={inputClasses}
+                  >
+                    <option value="">Select OLT IP</option>
+                    {oltIps.length > 0 ? (
+                        oltIps.map((ip) => (
+                            <option key={ip.id} value={ip.name}>{ip.name}</option>
+                        ))
+                    ) : (
+                        <option disabled>No IPs found</option>
+                    )}
+                  </select>
+                </div>
+
+                <div><label className={labelClasses}>BB ID / User ID</label><input type="text" required value={formData.bbId} onChange={e => setFormData({...formData, bbId: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>VLAN ID</label><input type="text" value={formData.vlanId} onChange={e => setFormData({...formData, vlanId: e.target.value})} className={inputClasses} /></div>
+                <div><label className={labelClasses}>VoIP Password</label><input type="text" value={formData.voipPassword} onChange={e => setFormData({...formData, voipPassword: e.target.value})} className={inputClasses} /></div>
+                
                 <div>
                   <label className={labelClasses}>Status</label>
                   <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className={inputClasses}>
@@ -157,8 +232,32 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
                 <div><label className={labelClasses}>ONT Type</label><input type="text" value={formData.ontType} onChange={e => setFormData({...formData, ontType: e.target.value})} className={inputClasses} /></div>
                 <div><label className={labelClasses}>ONT Mac</label><input type="text" value={formData.ontMacAddress} onChange={e => setFormData({...formData, ontMacAddress: e.target.value})} className={inputClasses} /></div>
                 <div><label className={labelClasses}>Bill No</label><input type="text" value={formData.ontBillNo} onChange={e => setFormData({...formData, ontBillNo: e.target.value})} className={inputClasses} /></div>
-                <div><label className={labelClasses}>ONT Status</label><input type="text" value={formData.ont} onChange={e => setFormData({...formData, ont: e.target.value})} className={inputClasses} /></div>
-                <div><label className={labelClasses}>Offer Prize</label><input type="text" value={formData.offerPrize} onChange={e => setFormData({...formData, offerPrize: e.target.value})} className={inputClasses} /></div>
+                
+                {/* ONT Status Logic */}
+                <div>
+                    <label className={labelClasses}>ONT Status</label>
+                    <select value={formData.ont} onChange={e => setFormData({...formData, ont: e.target.value})} className={inputClasses}>
+                        <option value="Paid ONT">Paid ONT</option>
+                        <option value="Free ONT">Free ONT</option>
+                        <option value="Offer Price">Offer Price</option>
+                        <option value="Rented ONT">Rented ONT</option>
+                    </select>
+                </div>
+
+                {/* Show Price only if Offer Price is selected */}
+                {formData.ont === 'Offer Price' && (
+                    <div>
+                        <label className={labelClasses}>Offer Price (₹)</label>
+                        <input 
+                            type="number" 
+                            value={formData.offerPrize} 
+                            onChange={e => setFormData({...formData, offerPrize: e.target.value})} 
+                            className={`${inputClasses} border-yellow-500 bg-yellow-500/10`} 
+                            placeholder="Enter Price"
+                        />
+                    </div>
+                )}
+
                 <div><label className={labelClasses}>Router Make</label><input type="text" value={formData.routerMake} onChange={e => setFormData({...formData, routerMake: e.target.value})} className={inputClasses} /></div>
                 <div><label className={labelClasses}>Router Mac</label><input type="text" value={formData.routerMacId} onChange={e => setFormData({...formData, routerMacId: e.target.value})} className={inputClasses} /></div>
               </div>

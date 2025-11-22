@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Paperclip } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { Complaint } from '../pages/Complaints';
+import { toast } from 'sonner';
 
 interface ComplaintModalProps {
   mode: 'add' | 'edit';
@@ -16,6 +17,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
   const [formData, setFormData] = useState({
     customerName: '',
     landlineNo: '',
+    mobileNo: '', // Added mobile no for searching
     address: '',
     complaints: '',
     employee: '',
@@ -30,6 +32,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
       setFormData({
         customerName: complaint.customerName,
         landlineNo: complaint.landlineNo,
+        mobileNo: '', 
         address: complaint.address,
         complaints: complaint.complaints,
         employee: complaint.employee,
@@ -41,6 +44,43 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
     }
   }, [mode, complaint]);
 
+  // --- AUTO-FETCH LOGIC ---
+  const handleSearchCustomer = (value: string, type: 'landline' | 'mobile') => {
+    // 1. Update the field user is typing
+    setFormData(prev => ({ 
+        ...prev, 
+        [type === 'landline' ? 'landlineNo' : 'mobileNo']: value 
+    }));
+
+    // 2. Search in LocalStorage (Customer Data)
+    try {
+        const storedCustomers = localStorage.getItem('customers-data');
+        if (storedCustomers) {
+            const customers = JSON.parse(storedCustomers);
+            
+            // Find match
+            const found = customers.find((c: any) => 
+                (type === 'landline' && c.landline === value) || 
+                (type === 'mobile' && c.mobileNo === value)
+            );
+
+            if (found) {
+                setFormData(prev => ({
+                    ...prev,
+                    customerName: found.name,
+                    source: found.source,
+                    address: found.address || '', // If address exists in customer object
+                    landlineNo: found.landline || prev.landlineNo,
+                    mobileNo: found.mobileNo || prev.mobileNo
+                }));
+                toast.success("Customer details fetched!");
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching customer", err);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'edit' && complaint) {
@@ -50,6 +90,12 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
     }
   };
 
+  const inputClasses = `w-full px-4 py-2 rounded-lg border ${
+    isDark
+      ? 'bg-[#0F172A] border-[#334155] text-white'
+      : 'bg-white border-gray-300 text-gray-900'
+  } focus:outline-none focus:ring-2 focus:ring-cyan-500`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className={`w-full max-w-3xl rounded-xl border ${
@@ -58,7 +104,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
           : 'bg-white/95 border-gray-200'
       } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-inherit sticky top-0 bg-inherit">
+        <div className="flex items-center justify-between p-6 border-b border-inherit sticky top-0 bg-inherit z-10">
           <h2 className={`text-2xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
             {mode === 'add' ? 'Create New Complaint' : 'Edit Complaint'}
           </h2>
@@ -75,8 +121,38 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Customer Name */}
+            
+            {/* Landline No (Auto-Fetch) */}
             <div>
+              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Landline No * (Type to fetch)
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.landlineNo}
+                onChange={(e) => handleSearchCustomer(e.target.value, 'landline')}
+                className={inputClasses}
+                placeholder="04562-xxxxxx"
+              />
+            </div>
+
+             {/* Mobile No (Auto-Fetch) */}
+             <div>
+              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Mobile No (Type to fetch)
+              </label>
+              <input
+                type="text"
+                value={formData.mobileNo}
+                onChange={(e) => handleSearchCustomer(e.target.value, 'mobile')}
+                className={inputClasses}
+                placeholder="Search by Mobile"
+              />
+            </div>
+
+            {/* Customer Name (Auto-Filled) */}
+            <div className="md:col-span-2">
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 Customer Name *
               </label>
@@ -85,31 +161,8 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
                 required
                 value={formData.customerName}
                 onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter customer name"
-              />
-            </div>
-
-            {/* Landline No */}
-            <div>
-              <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Landline No *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.landlineNo}
-                onChange={(e) => setFormData({ ...formData, landlineNo: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="04562-266001"
+                className={inputClasses}
+                placeholder="Auto-filled from Landline/Mobile"
               />
             </div>
 
@@ -123,11 +176,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
                 required
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                className={inputClasses}
                 placeholder="Enter full address"
               />
             </div>
@@ -142,11 +191,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
                 required
                 value={formData.complaints}
                 onChange={(e) => setFormData({ ...formData, complaints: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                className={inputClasses}
                 placeholder="Type of complaint (e.g., LOS, Network Issue)"
               />
             </div>
@@ -154,18 +199,14 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
             {/* Employee */}
             <div>
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Employee *
+                Assigned Employee *
               </label>
               <input
                 type="text"
                 required
                 value={formData.employee}
                 onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                className={inputClasses}
                 placeholder="Employee name"
               />
             </div>
@@ -179,11 +220,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
                 required
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Resolved' | 'Not Resolved' })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                className={inputClasses}
               >
                 <option value="Not Resolved">Not Resolved</option>
                 <option value="Resolved">Resolved</option>
@@ -200,11 +237,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
                 required
                 value={formData.bookingDate}
                 onChange={(e) => setFormData({ ...formData, bookingDate: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                className={inputClasses}
               />
             </div>
 
@@ -217,11 +250,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
                 type="date"
                 value={formData.resolveDate}
                 onChange={(e) => setFormData({ ...formData, resolveDate: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                className={inputClasses}
               />
             </div>
 
@@ -234,11 +263,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
                 required
                 value={formData.source}
                 onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                className={inputClasses}
               >
                 <option value="BSNL">BSNL</option>
                 <option value="Private">Private</option>
@@ -262,7 +287,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-all"
+              className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-all shadow-lg shadow-cyan-500/20"
             >
               {mode === 'add' ? 'Create Complaint' : 'Update Complaint'}
             </button>
