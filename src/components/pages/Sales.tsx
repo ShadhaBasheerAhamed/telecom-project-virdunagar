@@ -1,10 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle, User, Phone } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Product } from './Inventory';
+import { WhatsAppService } from '../../services/whatsappService'; // Import WhatsApp Service
 
 interface SalesProps {
   theme: 'light' | 'dark';
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  buyPrice: number;
+  sellPrice: number;
+  stock: number;
+  unit: string; 
+  gst: number;
+  image: string; 
 }
 
 interface CartItem extends Product {
@@ -18,6 +31,10 @@ export function Sales({ theme }: SalesProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // --- NEW: Customer State for Billing ---
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
 
   // Load Inventory
   useEffect(() => {
@@ -25,7 +42,6 @@ export function Sales({ theme }: SalesProps) {
     if (stored) setProducts(JSON.parse(stored));
   }, []);
 
-  // Update Inventory in Storage (After Sale)
   const updateInventory = (updatedProducts: Product[]) => {
     setProducts(updatedProducts);
     localStorage.setItem(INVENTORY_KEY, JSON.stringify(updatedProducts));
@@ -75,8 +91,14 @@ export function Sales({ theme }: SalesProps) {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    
+    // Validate Customer Details
+    if (!customerName.trim() || !customerPhone.trim()) {
+        toast.error("Please enter Customer Name and Phone Number to generate bill.");
+        return;
+    }
 
-    if(confirm("Confirm Sale and Generate Invoice?")) {
+    if(confirm(`Confirm sale for ₹${calculateTotal().total.toFixed(2)}?`)) {
         // 1. Deduct Stock
         const updatedInventory = products.map(p => {
             const cartItem = cart.find(c => c.id === p.id);
@@ -87,14 +109,31 @@ export function Sales({ theme }: SalesProps) {
         });
 
         updateInventory(updatedInventory);
+
+        // 2. Generate WhatsApp Bill
+        const { total } = calculateTotal();
+        const itemsList = cart.map(item => `${item.name} (x${item.qty})`).join(', '); // Simplified list for text msg
+        
+        // You can replace this URL with your actual Payment Gateway Link if you have one
+        const paymentLink = `upi://pay?pa=your-upi@okaxis&pn=SPT_Telecom&am=${total}`; 
+
+        const billMessage = WhatsAppService.sendBill(customerName, total, new Date().toISOString().split('T')[0], paymentLink);
+        
+        // Open WhatsApp
+        WhatsAppService.openWhatsApp(customerPhone, billMessage);
+
+        // 3. Reset
         setCart([]);
-        toast.success("Sale Completed! Stock updated.");
-        // Trigger WhatsApp or PDF generation here in future
+        setCustomerName('');
+        setCustomerPhone('');
+        toast.success("Sale Completed! Invoice sent via WhatsApp.");
     }
   };
 
   const { subtotal, gstAmount, total } = calculateTotal();
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const inputClass = `w-full px-3 py-2 rounded-lg border text-sm ${isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 outline-none`;
 
   return (
     <div className={`flex flex-col lg:flex-row h-screen overflow-hidden ${isDark ? 'bg-[#1a1f2c] text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -175,8 +214,33 @@ export function Sales({ theme }: SalesProps) {
             )}
         </div>
 
-        {/* Footer / Total */}
+        {/* BILLING DETAILS & CHECKOUT */}
         <div className={`p-4 border-t ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+            
+            {/* Customer Inputs */}
+            <div className="space-y-3 mb-4">
+                <div className="relative">
+                    <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Customer Name" 
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className={`${inputClass} pl-10`}
+                    />
+                </div>
+                <div className="relative">
+                    <Phone className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <input 
+                        type="tel" 
+                        placeholder="WhatsApp Number" 
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        className={`${inputClass} pl-10`}
+                    />
+                </div>
+            </div>
+
             <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
                 <div className="flex justify-between text-gray-400"><span>GST (18%)</span><span>₹{gstAmount.toFixed(2)}</span></div>
@@ -189,7 +253,7 @@ export function Sales({ theme }: SalesProps) {
                 disabled={cart.length === 0}
                 className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 ${cart.length > 0 ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
             >
-                <CheckCircle className="w-5 h-5" /> Checkout & Print
+                <CheckCircle className="w-5 h-5" /> Checkout & Send Bill
             </button>
         </div>
       </div>

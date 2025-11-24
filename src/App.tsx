@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-// ✅ FIXED IMPORTS: Removed '/ui' from path
-import { Sidebar } from './components/Sidebar';
-import { Header } from './components/Header';
-import { Login } from './components/Login'; 
+// ✅ FIXED IMPORTS: Direct path to component files
+import { Sidebar } from './components/Sidebar'; // Make sure Sidebar is in components/ui
+import { Header } from './components/Header';   // Make sure Header is in components/ui
+import { Login } from './components/Login';
 
 // Pages
 import { Dashboard } from './components/pages/Dashboard';
@@ -24,7 +24,7 @@ export default function App() {
   const [dataSource, setDataSource] = useState<DataSource>('All');
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   // --- AUTH STATE ---
   const [userRole, setUserRole] = useState<UserRole>(null);
 
@@ -78,23 +78,23 @@ export default function App() {
 
   return (
     <div className={`min-h-screen w-full flex flex-col ${theme === 'dark' ? 'bg-[#0F172A]' : 'bg-[#F1F5F9]'} transition-colors duration-300`}>
-      
+
       {/* Sidebar */}
       <Sidebar
         theme={theme}
         currentPage={currentPage}
-        userRole={userRole} 
+        userRole={userRole}
         onPageChange={(page: any) => {
           setCurrentPage(page);
-          closeSidebar(); 
+          closeSidebar();
         }}
         isOpen={sidebarOpen}
         onClose={closeSidebar}
       />
-      
+
       {/* Main Layout */}
       <div className="flex-1 flex flex-col min-h-screen transition-all duration-300 md:ml-64">
-        
+
         {/* Header */}
         <Header
           theme={theme}
@@ -105,7 +105,7 @@ export default function App() {
           userRole={userRole}
           onLogout={() => setUserRole(null)}
         />
-        
+
         {/* Page Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
           {renderPage()}
