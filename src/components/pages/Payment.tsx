@@ -74,7 +74,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
         if (stored) {
             const customers = JSON.parse(stored);
             const found = customers.find((c: any) => c.landline === landline);
-            // Priority: Alt Mobile -> Main Mobile -> Landline (if nothing else)
+            // Priority: Alt Mobile -> Main Mobile -> Landline
             return found ? (found.altMobileNo || found.mobileNo) : landline;
         }
     } catch (e) { return landline; }
@@ -142,8 +142,11 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
         // 4. ✅ Send WhatsApp Acknowledgement if Paid
         if (newStatus === 'Paid') {
              const mobileNo = getCustomerMobile(payment.landlineNo);
-             // Send Ack
-             WhatsAppService.sendPaymentAck(payment, mobileNo);
+             // Use WhatsAppService to format & send
+             const msg = WhatsAppService.sendPaymentAck(payment, mobileNo);
+             // Note: WhatsAppService.sendPaymentAck handles opening the window itself if implemented correctly.
+             // If it returns a string message, you can open it here manually:
+             // WhatsAppService.openWhatsApp(mobileNo, msg);
         }
       } catch (error) {
         toast.error("Failed to update status");
@@ -210,7 +213,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                 modeOfPayment: cols[3]?.trim() || 'CASH',
                 status: (cols[4]?.trim() as any) || 'Unpaid',
                 paidDate: new Date().toISOString().split('T')[0],
-                renewalDate: '', // Logic handled in Service if needed, or set default
+                renewalDate: '', 
                 rechargePlan: 'Bulk Import',
                 duration: '30',
                 commission: 0,

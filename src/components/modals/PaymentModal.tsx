@@ -173,6 +173,7 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
                     />
                 </div>
                 
+                {/* Source Selection Triggering Logic */}
                 <div>
                     <label className="text-xs font-bold text-gray-500 uppercase">Source</label>
                     <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className={inputClasses}>
