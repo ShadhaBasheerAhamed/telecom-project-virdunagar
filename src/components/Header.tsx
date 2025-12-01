@@ -2,7 +2,8 @@ import { Sun, Moon, User, Search, Bell, Menu, Settings, LogOut } from 'lucide-re
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import type { DataSource, UserRole } from '../App'; // Added UserRole import
+// ✅ FIXED IMPORT PATH: Adjusted to go up two levels to src/App.tsx
+import type { DataSource, UserRole } from '../App';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,8 +21,8 @@ interface HeaderProps {
   onThemeToggle: () => void;
   onDataSourceChange: (source: DataSource) => void;
   onMenuClick?: () => void;
-  userRole: UserRole; // ✅ Added Prop
-  onLogout: () => void; // ✅ Added Prop
+  userRole: UserRole; // ✅ Added Prop to fix App.tsx error
+  onLogout: () => void; // ✅ Added Prop to fix App.tsx error
 }
 
 export function Header({ 

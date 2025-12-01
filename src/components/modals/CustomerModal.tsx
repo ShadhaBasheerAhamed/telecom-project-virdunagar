@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import type { Customer } from '../../types';
+// ✅ FIXED IMPORT: Pointing to the shared types file
+import type { Customer } from '../../types'; 
 import { MasterRecordService } from '../../services/masterRecordService';
 
 interface CustomerModalProps {
@@ -17,6 +18,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
   // --- DYNAMIC DATA STATE ---
   const [plans, setPlans] = useState<any[]>([]);
   const [oltIps, setOltIps] = useState<any[]>([]);
+  const [filteredOltIps, setFilteredOltIps] = useState<any[]>([]);
   
   // Initial State
   const [formData, setFormData] = useState({
@@ -32,7 +34,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
     ontType: 'NA',
     ontMacAddress: 'NA',
     ontBillNo: '0',
-    ont: 'Paid ONT',
+    ont: 'Paid ONT', // Default
     offerPrize: '0',
     routerMake: 'N/A',
     routerMacId: 'NA',
@@ -62,7 +64,14 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
     loadMasterData();
   }, []);
 
-  // 2. POPULATE FORM (Edit Mode)
+  // 2. FILTER OLT IPs BASED ON SOURCE
+  useEffect(() => {
+    // Logic: If you want to show specific IPs for BSNL vs RMAX, filter here.
+    // For now, we show all active IPs.
+    setFilteredOltIps(oltIps);
+  }, [formData.source, oltIps]);
+
+  // 3. POPULATE FORM (Edit Mode)
   useEffect(() => {
     if (mode === 'edit' && customer) {
       setFormData({
@@ -92,7 +101,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
     }
   }, [mode, customer]);
 
-  // 3. OFFER PRICE LOGIC (Reset if not 'Offer Price')
+  // 4. OFFER PRICE LOGIC (Reset price if status is not 'Offer Price')
   useEffect(() => {
     if (formData.ont !== 'Offer Price') {
        setFormData(prev => ({ ...prev, offerPrize: '0' }));
@@ -130,9 +139,11 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
         
         {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-[#334155]' : 'border-gray-200'}`}>
-          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {mode === 'add' ? 'New Customer Registration' : 'Edit Customer Details'}
-          </h2>
+          <div>
+            <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {mode === 'add' ? 'New Customer Registration' : 'Edit Customer Details'}
+            </h2>
+          </div>
           <button onClick={onClose} className={`p-2 rounded-lg hover:bg-white/10 transition-colors`}>
             <X className={`w-6 h-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
           </button>
@@ -160,7 +171,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
               <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-purple-400 border-purple-500/20' : 'text-purple-700 border-purple-200'}`}>Service Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
-                {/* Source */}
+                {/* Source Selection */}
                 <div>
                   <label className={labelClasses}>Source</label>
                   <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className={inputClasses}>
@@ -198,8 +209,8 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
                     className={inputClasses}
                   >
                     <option value="">Select OLT IP</option>
-                    {oltIps.length > 0 ? (
-                        oltIps.map((ip) => (
+                    {filteredOltIps.length > 0 ? (
+                        filteredOltIps.map((ip) => (
                             <option key={ip.id} value={ip.name}>{ip.name}</option>
                         ))
                     ) : (
@@ -233,7 +244,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
                 <div><label className={labelClasses}>ONT Mac</label><input type="text" value={formData.ontMacAddress} onChange={e => setFormData({...formData, ontMacAddress: e.target.value})} className={inputClasses} /></div>
                 <div><label className={labelClasses}>Bill No</label><input type="text" value={formData.ontBillNo} onChange={e => setFormData({...formData, ontBillNo: e.target.value})} className={inputClasses} /></div>
                 
-                {/* ONT Status Logic */}
+                {/* ONT Status Dropdown */}
                 <div>
                     <label className={labelClasses}>ONT Status</label>
                     <select value={formData.ont} onChange={e => setFormData({...formData, ont: e.target.value})} className={inputClasses}>
@@ -244,7 +255,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
                     </select>
                 </div>
 
-                {/* Show Price only if Offer Price is selected */}
+                {/* Conditional Offer Price Field */}
                 {formData.ont === 'Offer Price' && (
                     <div>
                         <label className={labelClasses}>Offer Price (₹)</label>
@@ -253,7 +264,7 @@ export function CustomerModal({ mode, customer, theme, onClose, onSave }: Custom
                             value={formData.offerPrize} 
                             onChange={e => setFormData({...formData, offerPrize: e.target.value})} 
                             className={`${inputClasses} border-yellow-500 bg-yellow-500/10`} 
-                            placeholder="Enter Price"
+                            placeholder="Enter Offer Amount"
                         />
                     </div>
                 )}

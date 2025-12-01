@@ -45,31 +45,30 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
         source: data.source
       });
     } else if (mode === 'add') {
-        // Trigger date calculation for default values
+        // Trigger date calculation for default
         calculateRenewalDate(new Date().toISOString().split('T')[0], 'BSNL');
     }
   }, [mode, data]);
 
   // --- 1. AUTO-CALCULATE DATES (BSNL vs RMAX) ---
-  const calculateRenewalDate = (date: string, source: string) => {
-      if (!date) return;
-      const current = new Date(date);
+  const calculateRenewalDate = (dateStr: string, source: string) => {
+      if (!dateStr) return;
+      const date = new Date(dateStr);
       
       if (source === 'BSNL') {
-          // BSNL = Monthly Cycle (Same date next month)
-          current.setMonth(current.getMonth() + 1);
+          // BSNL = 1 Month exactly
+          date.setMonth(date.getMonth() + 1);
       } else {
-          // RMAX = 30 Days Cycle
-          current.setDate(current.getDate() + 30);
+          // RMAX = 30 Days strictly
+          date.setDate(date.getDate() + 30);
       }
-      setFormData(prev => ({ ...prev, renewalDate: current.toISOString().split('T')[0] }));
+      setFormData(prev => ({ ...prev, renewalDate: date.toISOString().split('T')[0] }));
   };
 
-  // Watch for Date or Source changes to update Renewal Date
+  // Watch changes
   useEffect(() => {
       calculateRenewalDate(formData.paidDate, formData.source);
   }, [formData.paidDate, formData.source]);
-
 
   // --- 2. AUTO-FETCH CUSTOMER ---
   const handleSearchCustomer = (landline: string) => {
@@ -128,9 +127,9 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
     onSave(paymentData);
   };
 
-  const inputClasses = `w-full px-4 py-2 rounded-lg border ${
+  const inputClasses = `w-full px-4 py-2.5 rounded-xl border text-sm font-medium ${
     isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-gray-300 text-gray-900'
-  } focus:outline-none focus:ring-2 focus:ring-cyan-500`;
+  } focus:outline-none focus:ring-1 focus:ring-cyan-500`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -145,27 +144,26 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
           <button onClick={onClose}><X className="w-6 h-6 text-gray-500" /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* Customer Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Landline No (Auto-Fetch)</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Landline No (Auto-Fetch)</label>
                     <div className="relative">
                         <input 
                             type="text" 
                             value={formData.landlineNo} 
                             onChange={(e) => handleSearchCustomer(e.target.value)} 
-                            className={inputClasses}
+                            className={`${inputClasses} pl-10`}
                             placeholder="Enter Landline to search"
                             required 
                         />
-                        <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
+                        <Search className="absolute right-3 top-3 w-4 h-4 text-gray-400" />
                     </div>
                 </div>
                 <div>
-                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Customer Name</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Customer Name</label>
                     <input 
                         type="text" 
                         value={formData.customerName} 
@@ -174,107 +172,63 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
                         required 
                     />
                 </div>
+                
                 <div>
-                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Source</label>
-                    <select 
-                        value={formData.source} 
-                        onChange={(e) => setFormData({...formData, source: e.target.value})} 
-                        className={inputClasses}
-                    >
+                    <label className="text-xs font-bold text-gray-500 uppercase">Source</label>
+                    <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className={inputClasses}>
                         <option value="BSNL">BSNL (Monthly)</option>
                         <option value="RMAX">RMAX (30 Days)</option>
                     </select>
                 </div>
+
                 <div>
-                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Status</label>
-                    <select 
-                        value={formData.status} 
-                        onChange={(e) => setFormData({...formData, status: e.target.value as any})} 
-                        className={inputClasses}
-                    >
-                        <option value="Paid">Paid</option>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Status</label>
+                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className={inputClasses}>
                         <option value="Unpaid">Unpaid</option>
+                        <option value="Paid">Paid</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Bill Amount (₹)</label>
+                    <input type="number" value={formData.billAmount} onChange={e => setFormData({...formData, billAmount: e.target.value})} className={inputClasses} required />
+                </div>
+
+                <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Commission (₹)</label>
+                    <input type="number" value={formData.commission} readOnly className={`${inputClasses} opacity-70`} />
+                </div>
+
+                <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Paid Date</label>
+                    <input type="date" value={formData.paidDate} onChange={e => setFormData({...formData, paidDate: e.target.value})} className={inputClasses} required />
+                </div>
+
+                <div>
+                    <label className="text-xs font-bold text-green-500 uppercase">Renewal Date (Auto)</label>
+                    <input type="date" value={formData.renewalDate} readOnly className={`${inputClasses} border-green-500/50 bg-green-500/10 text-green-500`} />
+                </div>
+
+                 <div className="md:col-span-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Recharge Plan</label>
+                    <input type="text" value={formData.rechargePlan} onChange={e => setFormData({...formData, rechargePlan: e.target.value})} className={inputClasses} required />
+                </div>
+                
+                <div className="md:col-span-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Payment Mode</label>
+                     <select value={formData.modeOfPayment} onChange={e => setFormData({...formData, modeOfPayment: e.target.value})} className={inputClasses}>
+                        <option value="CASH">CASH</option>
+                        <option value="UPI">UPI</option>
+                        <option value="ONLINE">ONLINE</option>
+                        <option value="BSNL PAYMENT">BSNL PAYMENT</option>
                     </select>
                 </div>
             </div>
 
-            {/* Plan Info */}
-            <div className="p-4 rounded-xl border border-gray-700/50 bg-gray-800/20">
-                <h3 className="text-sm font-bold text-cyan-500 mb-4 uppercase">Payment Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-3">
-                        <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Recharge Plan</label>
-                        <input 
-                            type="text" 
-                            value={formData.rechargePlan} 
-                            onChange={(e) => setFormData({...formData, rechargePlan: e.target.value})} 
-                            className={inputClasses}
-                            required 
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Bill Amount (₹)</label>
-                        <input 
-                            type="number" 
-                            value={formData.billAmount} 
-                            onChange={(e) => setFormData({...formData, billAmount: e.target.value})} 
-                            className={inputClasses}
-                            required 
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Commission (₹)</label>
-                        <input 
-                            type="number" 
-                            value={formData.commission} 
-                            onChange={(e) => setFormData({...formData, commission: e.target.value})} 
-                            className={inputClasses}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Mode</label>
-                        <select 
-                            value={formData.modeOfPayment} 
-                            onChange={(e) => setFormData({...formData, modeOfPayment: e.target.value})} 
-                            className={inputClasses}
-                        >
-                            <option value="CASH">CASH</option>
-                            <option value="UPI">UPI</option>
-                            <option value="ONLINE">ONLINE</option>
-                            <option value="BSNL PAYMENT">BSNL PAYMENT</option>
-                        </select>
-                    </div>
-                </div>
+            <div className="flex justify-end pt-4">
+                <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-gray-700 text-white mr-2">Cancel</button>
+                <button type="submit" className="px-8 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg">Save Record</button>
             </div>
-
-            {/* Date Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Paid Date</label>
-                    <input 
-                        type="date" 
-                        value={formData.paidDate} 
-                        onChange={(e) => setFormData({...formData, paidDate: e.target.value})} 
-                        className={inputClasses}
-                        required 
-                    />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold uppercase mb-1 text-gray-500">Renewal Date (Auto)</label>
-                    <input 
-                        type="date" 
-                        value={formData.renewalDate} 
-                        readOnly
-                        className={`${inputClasses} opacity-70 cursor-not-allowed`}
-                    />
-                </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-gray-700 text-white">Cancel</button>
-                <button type="submit" className="px-6 py-2 rounded-lg bg-cyan-600 text-white font-bold hover:bg-cyan-500">Save Record</button>
-            </div>
-
           </form>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CheckCircle, User, Phone } from 'lucide-react';
 import { toast } from 'sonner';
-import { WhatsAppService } from '../../services/whatsappService'; // Import WhatsApp Service
+import { WhatsAppService } from '../../services/whatsappService'; // ✅ Import Service
 
 interface SalesProps {
   theme: 'light' | 'dark';
@@ -32,7 +32,7 @@ export function Sales({ theme }: SalesProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // --- NEW: Customer State for Billing ---
+  // Customer Inputs for Billing
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
@@ -92,13 +92,14 @@ export function Sales({ theme }: SalesProps) {
   const handleCheckout = () => {
     if (cart.length === 0) return;
     
-    // Validate Customer Details
     if (!customerName.trim() || !customerPhone.trim()) {
         toast.error("Please enter Customer Name and Phone Number to generate bill.");
         return;
     }
 
-    if(confirm(`Confirm sale for ₹${calculateTotal().total.toFixed(2)}?`)) {
+    const { total } = calculateTotal();
+
+    if(confirm(`Confirm sale for ₹${total.toFixed(2)}?`)) {
         // 1. Deduct Stock
         const updatedInventory = products.map(p => {
             const cartItem = cart.find(c => c.id === p.id);
@@ -110,17 +111,9 @@ export function Sales({ theme }: SalesProps) {
 
         updateInventory(updatedInventory);
 
-        // 2. Generate WhatsApp Bill
-        const { total } = calculateTotal();
-        const itemsList = cart.map(item => `${item.name} (x${item.qty})`).join(', '); // Simplified list for text msg
-        
-        // You can replace this URL with your actual Payment Gateway Link if you have one
-        const paymentLink = `upi://pay?pa=your-upi@okaxis&pn=SPT_Telecom&am=${total}`; 
-
-        const billMessage = WhatsAppService.sendBill(customerName, total, new Date().toISOString().split('T')[0], paymentLink);
-        
-        // Open WhatsApp
-        WhatsAppService.openWhatsApp(customerPhone, billMessage);
+        // 2. ✅ Generate WhatsApp Bill
+        const itemsList = cart.map(item => `${item.name} (x${item.qty}): ₹${(item.sellPrice * item.qty).toFixed(2)}`).join('\n');
+        WhatsAppService.sendInvoice(customerName, customerPhone, itemsList, parseFloat(total.toFixed(2)));
 
         // 3. Reset
         setCart([]);
@@ -132,7 +125,6 @@ export function Sales({ theme }: SalesProps) {
 
   const { subtotal, gstAmount, total } = calculateTotal();
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
   const inputClass = `w-full px-3 py-2 rounded-lg border text-sm ${isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 outline-none`;
 
   return (

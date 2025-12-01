@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp } from "firebase/app";
 import { 
   getFirestore, 
   collection, 
@@ -11,19 +11,19 @@ import {
   where, 
   orderBy,
   getDoc,
-  setDoc
+  setDoc,
+  limit
 } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
-// ⚠️ IMPORTANT: You need to replace these values with your actual Firebase keys
-// Go to https://console.firebase.google.com/ -> Create Project -> Project Settings
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "your-sender-id",
-  appId: "your-app-id"
+  apiKey: "AIzaSyCP6cvVrFmYgekRbm5titNYPJpP4iWH3EE",
+  authDomain: "telecomproject-virudhunagar.firebaseapp.com",
+  projectId: "telecomproject-virudhunagar",
+  storageBucket: "telecomproject-virudhunagar.firebasestorage.app",
+  messagingSenderId: "1080285921059",
+  appId: "1:1080285921059:web:f09f84e52371158e3c1696"
 };
 
 // Initialize Firebase
@@ -34,10 +34,13 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 
+// Export services and functions for use in other files
 export { 
   db, 
   auth, 
   googleProvider, 
+  signInWithEmailAndPassword,
+  signOut,
   collection, 
   getDocs, 
   addDoc, 
@@ -47,6 +50,7 @@ export {
   query, 
   where, 
   orderBy,
+  limit,
   getDoc,
   setDoc
 };
