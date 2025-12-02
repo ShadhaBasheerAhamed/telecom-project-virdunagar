@@ -8,21 +8,19 @@ import {
   query, 
   where, 
   orderBy, 
-  limit 
+  limit,
+  onSnapshot 
 } from '../firebase/config';
+import { writeBatch } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import type { Payment } from '../components/pages/Payment'; // Import from Payment component file if types are there
-
-// Ensure we import the shared type correctly, or define it here if needed
-// For now, assumes shared type exists in types/index.ts as per previous steps
-// If not, we use the interface from Payment.tsx
+import type { Payment } from '../types'; 
 
 const PAYMENTS_COLLECTION = 'payments';
 
 export const PaymentService = {
   
   // Add a new payment record
-  addPayment: async (payment: any) => {
+  addPayment: async (payment: Omit<Payment, 'id'>) => {
     try {
       const docRef = await addDoc(collection(db, PAYMENTS_COLLECTION), {
         ...payment,
@@ -36,8 +34,35 @@ export const PaymentService = {
     }
   },
 
+  // 🔥 NEW: Bulk Upload Function (Optimized)
+  addBulkPayments: async (payments: Omit<Payment, 'id'>[]) => {
+    try {
+      // Firestore allows max 500 writes per batch
+      const batchSize = 500;
+      for (let i = 0; i < payments.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = payments.slice(i, i + batchSize);
+        
+        chunk.forEach((payment) => {
+          const docRef = doc(collection(db, PAYMENTS_COLLECTION)); // Create ref
+          batch.set(docRef, {
+            ...payment,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        });
+
+        await batch.commit(); // Commit chunk
+      }
+      console.log(`Successfully added ${payments.length} payments.`);
+    } catch (error) {
+      console.error('Bulk upload failed:', error);
+      throw new Error('Bulk upload failed');
+    }
+  },
+
   // Update an existing payment
-  updatePayment: async (id: string, payment: any) => {
+  updatePayment: async (id: string, payment: Partial<Payment>) => {
     try {
       const paymentRef = doc(db, PAYMENTS_COLLECTION, id);
       await updateDoc(paymentRef, {
@@ -61,7 +86,7 @@ export const PaymentService = {
   },
 
   // Get all payments (Latest first)
-  getPayments: async () => {
+  getPayments: async (): Promise<Payment[]> => {
     try {
       const q = query(
         collection(db, PAYMENTS_COLLECTION),
@@ -73,7 +98,7 @@ export const PaymentService = {
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as Payment[];
     } catch (error) {
       console.error('Error fetching payments:', error);
       return [];
@@ -81,7 +106,7 @@ export const PaymentService = {
   },
 
   // Get payments filtered by Source
-  getPaymentsBySource: async (source: string) => {
+  getPaymentsBySource: async (source: string): Promise<Payment[]> => {
     try {
       const q = query(
         collection(db, PAYMENTS_COLLECTION),
@@ -93,10 +118,26 @@ export const PaymentService = {
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as Payment[];
     } catch (error) {
       console.error('Error fetching payments by source:', error);
       return [];
     }
+  },
+
+  // LIVE LISTEN (Real-time)
+  subscribeToPayments: (callback: (payments: Payment[]) => void) => {
+      const q = query(
+        collection(db, PAYMENTS_COLLECTION),
+        orderBy('paidDate', 'desc'),
+        limit(100)
+      );
+      return onSnapshot(q, (snapshot) => {
+          const payments = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+          })) as Payment[];
+          callback(payments);
+      });
   }
 };

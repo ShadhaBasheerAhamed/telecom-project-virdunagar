@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 // ✅ FIXED IMPORTS: Direct path to component files
-import { Sidebar } from './components/Sidebar'; // Make sure Sidebar is in components/ui
-import { Header } from './components/Header';   // Make sure Header is in components/ui
+import { Sidebar } from './components/Sidebar'; 
+import { Header } from './components/Header';   
 import { Login } from './components/Login';
 
 // Pages
@@ -13,10 +13,10 @@ import { Payment } from './components/pages/Payment';
 import { MasterRecords } from './components/pages/MasterRecords';
 import { Reports } from './components/pages/Reports';
 import { Inventory } from './components/pages/Inventory';
-import { Sales } from './components/pages/Sales';
+// Sales import removed
 
 export type DataSource = 'All' | 'BSNL' | 'RMAX';
-export type Page = 'dashboard' | 'customers' | 'complaints' | 'leads' | 'payment' | 'master-records' | 'reports' | 'inventory' | 'sales';
+export type Page = 'dashboard' | 'customers' | 'complaints' | 'leads' | 'payment' | 'master-records' | 'reports' | 'inventory';
 export type UserRole = 'Super Admin' | 'Sales' | 'Maintenance' | null;
 
 export default function App() {
@@ -69,8 +69,6 @@ export default function App() {
         return <Reports dataSource={dataSource} theme={theme} />;
       case 'inventory':
         return <Inventory theme={theme} />;
-      case 'sales':
-        return <Sales theme={theme} />;
       default:
         return <Dashboard dataSource={dataSource} theme={theme} />;
     }

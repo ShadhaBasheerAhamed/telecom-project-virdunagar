@@ -1,10 +1,9 @@
-import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X, ShoppingCart, Package } from 'lucide-react';
+import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ✅ FIXED IMPORT: Changed '../../App' to '../App'
 import type { Page, UserRole } from '../App';
 
 interface SidebarProps {
-  theme: 'light' | 'dark'; // This fixes the "Property theme does not exist" error
+  theme: 'light' | 'dark';
   currentPage: Page;
   userRole: UserRole; 
   onPageChange: (page: Page) => void;
@@ -16,10 +15,9 @@ const allNavItems = [
   { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard, roles: ['Super Admin', 'Sales', 'Maintenance'] },
   { id: 'leads' as Page, label: 'Leads', icon: UserPlus, roles: ['Super Admin', 'Sales'] },
   { id: 'customers' as Page, label: 'Customers', icon: Users, roles: ['Super Admin', 'Sales', 'Maintenance'] },
-  { id: 'sales' as Page, label: 'Sales POS', icon: ShoppingCart, roles: ['Super Admin', 'Sales'] },
   { id: 'payment' as Page, label: 'Payment', icon: CreditCard, roles: ['Super Admin', 'Sales'] },
   { id: 'complaints' as Page, label: 'Complaints', icon: MessageSquare, roles: ['Super Admin', 'Maintenance'] },
-  { id: 'inventory' as Page, label: 'Inventory', icon: Package, roles: ['Super Admin', 'Sales'] },
+  { id: 'inventory' as Page, label: 'Inventory & Sales', icon: Package, roles: ['Super Admin', 'Sales'] },
   { id: 'master-records' as Page, label: 'Master Records', icon: Database, roles: ['Super Admin'] }, 
   { id: 'reports' as Page, label: 'Reports', icon: FileText, roles: ['Super Admin'] },
 ];

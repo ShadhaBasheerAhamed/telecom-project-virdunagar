@@ -1,4 +1,4 @@
-// Payment interface moved from component to shared types
+// Payment interface
 export interface Payment {
   id: string;
   landlineNo: string;
@@ -30,6 +30,7 @@ export interface Plan extends MasterRecord {
   price: number;
   gst: number;
   total: number;
+  validity?: string; // e.g., "30 Days", "1 Month"
 }
 
 // Employee specific fields
@@ -56,31 +57,67 @@ export interface User extends MasterRecord {
   lastLogin: string;
 }
 
-// OLT IP specific fields (already in base MasterRecord)
+// OLT IP specific fields
 export interface OltIp extends MasterRecord {}
 
-// --- NEW: Shared Customer Interface ---
+// Inventory Product
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  buyPrice: number;
+  sellPrice: number;
+  stock: number;
+  unit: 'Nos' | 'Mtr'; 
+  gst: number; // Percentage (e.g., 18)
+  image: string; 
+}
+
+// --- SHARED CUSTOMER INTERFACE ---
 export interface Customer {
   id: string;
-  landline: string;
+  landline: string; // Unique Identifier
   name: string;
   mobileNo: string;
   altMobileNo: string;
   vlanId: string;
   bbId: string;
   voipPassword: string;
-  ontMake: string;
+  
+  // Dynamic Master Record Links
+  ontMake: string; 
   ontType: string;
   ontMacAddress: string;
   ontBillNo: string;
-  ont: string;
-  offerPrize: string;
+  
+  // ONT Status Logic
+  ont: 'Paid ONT' | 'Free ONT' | 'Offer Price' | 'Rented ONT';
+  offerPrize: string; // Only if 'Offer Price' is selected
+  
   routerMake: string;
   routerMacId: string;
-  oltIp: string;
+  oltIp: string; // Dropdown from Master Records
+  
   installationDate: string;
-  status: string;
-  source: string;
+  
+  // Status Logic Update
+  status: 'Active' | 'Inactive' | 'Suspended' | 'Expired'; 
+  planStatus?: string; // e.g., "Plan Active", "Plan Expired"
+  ottSubscription?: string; // New Field
+  
+  source: 'BSNL' | 'RMAX' | 'Private';
   email?: string;
   plan?: string;
+}
+
+export interface Lead {
+  id: string;
+  customerName: string;
+  phoneNo: string;
+  address: string;
+  remarks: string;
+  followupDate: string;
+  status: 'Success' | 'Rejected' | 'Sale' | 'Pending';
+  source: string;
 }

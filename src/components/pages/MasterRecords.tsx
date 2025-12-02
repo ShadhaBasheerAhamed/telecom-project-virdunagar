@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit, Trash2, Plus, 
   Users, Briefcase, UserCheck, Building2, 
-  Router, HardDrive, FileText, Network, Server 
+  Router, HardDrive, FileText, Network, Server, Loader2, Cpu
 } from 'lucide-react';
-import { MasterRecordModal } from '../modals/MasterRecordModal';
-import { MasterRecordService } from '../../services/masterRecordService';
-import { DeleteConfirmModal } from '../modals/DeleteConfirmModal';
+import { MasterRecordModal } from '@/components/modals/MasterRecordModal';
+import { MasterRecordService } from '@/services/masterRecordService';
+import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
 import type { DataSource } from '../../App';
+import { toast } from 'sonner';
 
 interface MasterRecordsProps {
   dataSource: DataSource;
@@ -15,6 +16,7 @@ interface MasterRecordsProps {
 }
 
 export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
+  const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState('routerMake');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -27,79 +29,30 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const [recordsData, setRecordsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Load data from Firebase when tab or filters change
   useEffect(() => {
     loadRecordsData();
-  }, [activeTab, searchTerm, statusFilter]);
+  }, [activeTab, statusFilter]); // Removed searchTerm from dependency to prevent excessive api calls
 
   const loadRecordsData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Try to load from Firebase first
       let records: any[];
       
-      try {
-        if (statusFilter === 'All') {
-          records = await MasterRecordService.getRecords(activeTab);
-        } else {
-          records = await MasterRecordService.getRecordsByStatus(activeTab, statusFilter);
-        }
-        
-        // Apply search filter locally (since Firebase doesn't support full-text search easily)
-        if (searchTerm) {
-          records = records.filter(record => 
-            Object.values(record).some(val => 
-              String(val).toLowerCase().includes(searchTerm.toLowerCase())
-            )
-          );
-        }
-      } catch (firebaseError) {
-        console.warn(`Firebase load failed for ${activeTab}, using mock data:`, firebaseError);
-        // Fallback to mock data
-        records = getMockDataForTab(activeTab);
-        
-        // Apply filters to mock data
-        if (statusFilter !== 'All') {
-          records = records.filter(record => record.status === statusFilter);
-        }
-        
-        if (searchTerm) {
-          records = records.filter(record => 
-            Object.values(record).some(val => 
-              String(val).toLowerCase().includes(searchTerm.toLowerCase())
-            )
-          );
-        }
+      if (statusFilter === 'All') {
+        records = await MasterRecordService.getRecords(activeTab);
+      } else {
+        records = await MasterRecordService.getRecordsByStatus(activeTab, statusFilter);
       }
       
       setRecordsData(records);
     } catch (error) {
       console.error(`Error loading ${activeTab} data:`, error);
-      setError(`Failed to load ${activeTab} records. Using fallback data.`);
-      // Final fallback to mock data
-      setRecordsData(getMockDataForTab(activeTab));
+      toast.error(`Failed to load ${activeTab} records.`);
+      setRecordsData([]); // Clear data on error
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getMockDataForTab = (tab: string) => {
-    // Return the corresponding mock data based on tab
-    switch (tab) {
-      case 'routerMake': return routerMakeData;
-      case 'ontMake': return ontMakeData;
-      case 'ontType': return ontTypeData;
-      case 'plan': return planData;
-      case 'oltIp': return oltIpData;
-      case 'employee': return employeeData;
-      case 'department': return departmentData;
-      case 'designation': return designationData;
-      case 'user': return userData;
-      default: return [];
     }
   };
 
@@ -115,8 +68,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   };
 
   const handleSaveRecord = async () => {
-    // Reload data after save operation
-    await loadRecordsData();
+    await loadRecordsData(); // Reload data after save
     setIsAddModalOpen(false);
     setIsEditModalOpen(false);
     setIsViewModalOpen(false);
@@ -128,115 +80,28 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     setIsEditModalOpen(true);
   };
 
-  const handleDeleteRecord = async (record: any) => {
+  const handleDeleteRecord = async () => {
+    if (!selectedRecord) return;
     try {
-      await MasterRecordService.deleteRecord(activeTab, record.id);
-      setRecordsData(prev => prev.filter(r => r.id !== record.id));
+      await MasterRecordService.deleteRecord(activeTab, selectedRecord.id);
+      toast.success("Record deleted successfully");
+      // Optimistic update
+      setRecordsData(prev => prev.filter(r => r.id !== selectedRecord.id));
       setIsDeleteModalOpen(false);
       setSelectedRecord(null);
     } catch (error) {
-      console.error(`Error deleting ${activeTab} record:`, error);
-      alert(`Failed to delete ${activeTab} record. Please try again.`);
+      console.error(`Error deleting record:`, error);
+      toast.error(`Failed to delete record.`);
     }
   };
-
-  const handleConfirmDelete = async () => {
-    if (selectedRecord) {
-      await handleDeleteRecord(selectedRecord);
-    }
-  };
-
-  // Theme-based styling
-  const isDark = theme === 'dark';
-
-  // --- MOCK DATA GENERATORS (Updated from Screenshots) ---
-
-  // 1. Router Make Data (Ref: image_4b16a0.jpg)
-  const routerMakeData = [
-    { id: '1', name: 'TP-LINK C24', status: 'Active' },
-    { id: '2', name: 'D-Link DIR-615', status: 'Active' },
-    { id: '3', name: 'Netgear R6120', status: 'Inactive' },
-    { id: '4', name: 'Tenda N301', status: 'Active' },
-    { id: '5', name: 'Mercusys MW301R', status: 'Active' },
-    { id: '6', name: 'Cisco RV160', status: 'Active' },
-    { id: '7', name: 'Mi Router 4C', status: 'Inactive' },
-    { id: '8', name: 'Huawei WS318n', status: 'Active' },
-  ];
-
-  // 2. ONT Make Data (Ref: image_4b19c1.jpg)
-  const ontMakeData = [
-    { id: '3', name: 'GENEXIS', status: 'Active' },
-    { id: '6', name: 'NFTLINK', status: 'Active' },
-    { id: '7', name: 'OPTILINK', status: 'Inactive' },
-    { id: '8', name: 'BINTECH', status: 'Active' },
-    { id: '9', name: 'REVU', status: 'Active' },
-    { id: '10', name: 'SYROTECH', status: 'Active' },
-    { id: '11', name: 'TP-LINK', status: 'Active' },
-    { id: '12', name: 'ALPHINE', status: 'Inactive' },
-    { id: '13', name: 'DBC', status: 'Active' },
-    { id: '14', name: 'DIGISOL', status: 'Active' },
-  ];
-
-  // 3. ONT Type Data (Ref: image_4b1aa0.jpg)
-  const ontTypeData = [
-    { id: '1', name: 'RGW SINGLE BAND', status: 'Active' },
-    { id: '2', name: 'DAC DUAL BAND 4GE PORT', status: 'Active' },
-    { id: '3', name: 'SINGLE BAND 1GE + 1VOIP + 2.4G', status: 'Inactive' },
-    { id: '4', name: 'DUAL BAND 2GE PORT WITHOUT VOIP', status: 'Active' },
-    { id: '7', name: 'ONU WITHOUT VOICE', status: 'Active' },
-    { id: '8', name: 'ONU WITH VOICE', status: 'Active' },
-    { id: '10', name: 'DAC 2GE PORT + WITH VOICE', status: 'Active' },
-  ];
-
-  // 4. Plan Data (Ref: image_54f8a4.jpg)
-  const planData = [
-    { id: '33', name: '100GB CUL - BHARAT FIBER', price: 499, gst: 18, total: 588, status: 'Active' },
-    { id: '34', name: '200MBPS 1500GB C555-BHARAT FIBER', price: 1999, gst: 18, total: 2359, status: 'Active' },
-    { id: '35', name: '100 MBPS 300 GB CS139 FIBRO-BHARAT FIBER', price: 699, gst: 18, total: 825, status: 'Active' },
-    { id: '36', name: 'BHARAT FIBER SAFE CUSTODY', price: 100, gst: 18, total: 118, status: 'Active' },
-    { id: '37', name: '100MBPS FIBER_BB_SHIKSHA_899 SCHOOL PLAN', price: 899, gst: 18, total: 1061, status: 'Active' },
-    { id: '38', name: '300MBPS 1000 FIBER SILVER BSNL', price: 1099, gst: 18, total: 1296, status: 'Active' },
-    { id: '39', name: '100 MBPS 799 FIBER VALUE', price: 799, gst: 18, total: 943, status: 'Active' },
-    { id: '40', name: 'BSNL 299 10MBPS 20GBUNLIMITED VOICE', price: 299, gst: 18, total: 353, status: 'Active' },
-  ];
-
-  // 5. OLT IP Data (Ref: image_54f8a6.jpg)
-  const oltIpData = [
-    { id: '3', name: 'NETLINK TOWN OLT 10.215.168.86', status: 'Active' },
-    { id: '6', name: 'NETLINK NGO 10.215.168.64', status: 'Active' },
-    { id: '7', name: 'NETLINK EPON SULAKARAI 10.215.168.237', status: 'Inactive' },
-    { id: '8', name: 'SYROTECH OLT 192.168.1.100', status: 'Active' },
-  ];
-
-  // 6. Employee Data (Updated fields from image_54f82a.jpg)
-  const employeeData = [
-    { id: '1', name: 'SARAVANAN P', mobile: '8300131417', address: '120/30 ayyan complex, opp to bsnl office, virudhunagar', aadhaar: '217226859055', status: 'Active' },
-    { id: '2', name: 'R.ULAGANATHAN', mobile: '8300131437', address: 'SDVNMN', aadhaar: '258987456123', status: 'Active' },
-    { id: '3', name: 'KUMAR S', mobile: '9876543210', address: '45, Anna Nagar, Chennai', aadhaar: '895623147852', status: 'Inactive' },
-    { id: '4', name: 'RAJESH K', mobile: '9944112233', address: '12, Main Road, Madurai', aadhaar: '456123789654', status: 'Active' },
-  ];
-
-  // 7. Old Data (Department, Designation, User) kept for completeness
-  const departmentData = [
-    { id: '101', name: 'Engineering', head: 'Ravi Kumar', location: 'Chennai', status: 'Active' },
-    { id: '102', name: 'Sales', head: 'Priya S', location: 'Madurai', status: 'Active' },
-  ];
-
-  const designationData = [
-    { id: '201', name: 'Senior Engineer', department: 'Engineering', status: 'Active' },
-    { id: '202', name: 'Sales Executive', department: 'Sales', status: 'Active' },
-  ];
-
-  const userData = [
-    { id: 'USR-001', name: 'admin_user_1', role: 'Super Admin', lastLogin: '2024-11-20', status: 'Active' },
-    { id: 'USR-002', name: 'viewer_user_1', role: 'Viewer', lastLogin: '2024-11-19', status: 'Inactive' },
-  ];
 
   // --- TABS CONFIGURATION ---
   const tabs = [
     { id: 'routerMake', label: 'Router Make', icon: Router },
+    { id: 'routerMac', label: 'Router Mac', icon: Cpu }, 
     { id: 'ontMake', label: 'ONT Make', icon: HardDrive },
     { id: 'ontType', label: 'ONT Type', icon: Server },
+    { id: 'ontMac', label: 'ONT Mac', icon: Cpu },
     { id: 'plan', label: 'Plan', icon: FileText },
     { id: 'oltIp', label: 'OLT IP', icon: Network },
     { id: 'employee', label: 'Employee', icon: Users },
@@ -245,138 +110,52 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     { id: 'user', label: 'User', icon: UserCheck },
   ];
 
-  // Update the currentData to use the loaded records
+  // Local Filtering for Search
   const currentData = useMemo(() => {
+    if (!searchTerm) return recordsData;
     return recordsData.filter(record => {
-      const matchesSearch = Object.values(record).some(val => 
+      return Object.values(record).some(val => 
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
-      const matchesStatus = statusFilter === 'All' || record.status === statusFilter;
-      return matchesSearch && matchesStatus;
     });
-  }, [recordsData, searchTerm, statusFilter]);
-
-  // --- RENDER HELPER ---
-  const RenderTable = ({ columns, rows }) => (
-    <div className={`w-full overflow-hidden rounded-lg border ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-300 bg-white'} shadow-xl`}>
-      <div className="overflow-x-auto w-full pb-2 custom-scrollbar">
-        <table className="w-full whitespace-nowrap text-left text-sm">
-          <thead className={`${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-100 text-gray-600'} font-semibold uppercase tracking-wider`}>
-            <tr>
-              {/* Dynamic Columns */}
-              {columns.map((col, idx) => (
-                <th key={idx} className={`px-6 py-4 min-w-[150px] border-b ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>
-                  {col.header}
-                </th>
-              ))}
-
-              {/* STICKY COLUMNS (Header) - Fixed to Right */}
-              <th className={`px-6 py-4 min-w-[120px] border-b ${isDark ? 'border-gray-700 sticky right-[110px] bg-[#1f2533] shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]' : 'border-gray-300 sticky right-[110px] bg-gray-100 shadow-[-5px_0px_10px_rgba(0,0,0,0.1)]'} z-20`}>
-                Status
-              </th>
-              <th className={`px-6 py-4 min-w-[160px] text-center border-b ${isDark ? 'border-gray-700 sticky right-0 bg-[#1f2533]' : 'border-gray-300 sticky right-0 bg-gray-100'} z-20`}>
-                Options
-              </th>
-            </tr>
-          </thead>
-          <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-            {rows.map((row, index) => (
-              <tr key={index} className={`${isDark ? 'hover:bg-[#2d3546]' : 'hover:bg-gray-50'} transition-colors group`}>
-                {/* Dynamic Data Cells */}
-                {columns.map((col, colIdx) => (
-                  <td key={colIdx} className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
-                    {col.render ? col.render(row) : row[col.accessor]}
-                  </td>
-                ))}
-
-                {/* STICKY COLUMNS (Body) - Fixed to Right */}
-                <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700 sticky right-[110px] bg-[#242a38] shadow-[-5px_0px_10px_rgba(0,0,0,0.2)] group-hover:bg-[#2d3546]' : 'border-gray-200 sticky right-[110px] bg-white shadow-[-5px_0px_10px_rgba(0,0,0,0.1)] group-hover:bg-gray-50'} z-10`}>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                      row.status === 'Active'
-                        ? isDark 
-                          ? 'bg-green-900/30 text-green-400 border-green-800'
-                          : 'bg-green-100 text-green-700 border-green-300'
-                        : isDark
-                          ? 'bg-red-900/30 text-red-400 border-red-800'
-                          : 'bg-red-100 text-red-700 border-red-300'
-                    }`}
-                  >
-                    {row.status}
-                  </span>
-                </td>
-                <td className={`px-6 py-4 border-b text-center ${isDark ? 'border-gray-700 sticky right-0 bg-[#242a38] group-hover:bg-[#2d3546]' : 'border-gray-200 sticky right-0 bg-white group-hover:bg-gray-50'} z-10`}>
-                  <div className="flex items-center justify-center gap-2">
-                    <button 
-                      onClick={() => handleViewRecord(row)} 
-                      className={`${isDark ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/20' : 'text-blue-600 hover:text-blue-500 hover:bg-blue-50'} transition-colors p-1 rounded`} 
-                      title="View"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleEditRecord(row)} 
-                      className={`${isDark ? 'text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/20' : 'text-yellow-600 hover:text-yellow-500 hover:bg-yellow-50'} transition-colors p-1 rounded`} 
-                      title="Edit"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={() => { setSelectedRecord(row); setIsDeleteModalOpen(true); }}
-                      className={`${isDark ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20' : 'text-red-600 hover:text-red-500 hover:bg-red-50'} transition-colors p-1 rounded`} 
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {rows.length === 0 && (
-          <div className={`p-10 text-center ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-            No records found in {tabs.find(t => t.id === activeTab)?.label}.
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  }, [recordsData, searchTerm]);
 
   // --- COLUMN DEFINITIONS ---
   const getColumns = () => {
     switch (activeTab) {
       case 'routerMake':
+      case 'routerMac':
       case 'ontMake':
       case 'ontType':
+      case 'ontMac':
       case 'oltIp':
         return [
           { header: 'ID', accessor: 'id' },
-          { header: 'Name', accessor: 'name', render: (row) => <span className={`${isDark ? 'text-white' : 'text-gray-900'} font-medium`}>{row.name}</span> },
+          { header: 'Name / Value', accessor: 'name', render: (row: any) => <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span> },
         ];
       
       case 'plan':
         return [
           { header: 'ID', accessor: 'id' },
-          { header: 'Plan Name', accessor: 'name', render: (row) => <span className={`${isDark ? 'text-white' : 'text-gray-900'} font-medium`}>{row.name}</span> },
-          { header: 'Plan Price', accessor: 'price', render: (row) => `₹${row.price}` },
-          { header: 'GST (%)', accessor: 'gst' },
-          { header: 'Total Amount', accessor: 'total', render: (row) => <span className={`${isDark ? 'text-green-400' : 'text-green-600'} font-medium`}>₹{row.total}</span> },
+          { header: 'Plan Name', accessor: 'name', render: (row: any) => <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span> },
+          { header: 'Price', accessor: 'price', render: (row: any) => `₹${row.price}` },
+          { header: 'GST', accessor: 'gst', render: (row: any) => `${row.gst}%` },
+          { header: 'Total', accessor: 'total', render: (row: any) => <span className="text-green-500 font-bold">₹{row.total}</span> },
         ];
 
       case 'employee':
         return [
           { header: 'ID', accessor: 'id' },
-          { header: 'Name', accessor: 'name', render: (row) => <span className={`${isDark ? 'text-white' : 'text-gray-900'} font-medium`}>{row.name}</span> },
-          { header: 'Phone Number', accessor: 'mobile' },
-          { header: 'Address', accessor: 'address', render: (row) => <span className="truncate max-w-[200px] block" title={row.address}>{row.address}</span> },
-          { header: 'Aadhaar Number', accessor: 'aadhaar', render: (row) => <span className={`font-mono tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{row.aadhaar}</span> },
+          { header: 'Name', accessor: 'name', render: (row: any) => <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span> },
+          { header: 'Phone', accessor: 'mobile' },
+          { header: 'Address', accessor: 'address', render: (row: any) => <span className="truncate max-w-[200px] block">{row.address}</span> },
+          { header: 'Aadhaar', accessor: 'aadhaar' },
         ];
       
       case 'department':
         return [
           { header: 'ID', accessor: 'id' },
-          { header: 'Department Name', accessor: 'name' },
+          { header: 'Department', accessor: 'name' },
           { header: 'Head', accessor: 'head' },
           { header: 'Location', accessor: 'location' },
         ];
@@ -402,38 +181,20 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   };
 
   return (
-    <div className={`w-full ${isDark ? 'bg-[#1a1f2c]' : 'bg-gray-50'} p-6 min-h-screen ${isDark ? 'text-gray-200' : 'text-gray-900'} font-sans`}>
+    <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mb-6`}>Master Records</h1>
+      <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Master Records</h1>
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <span className="ml-3 text-sm text-gray-600">Loading records...</span>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && !loading && (
-        <div className="p-4 bg-yellow-100 border border-yellow-300 rounded-lg mb-6">
-          <p className="text-yellow-600 text-sm">{error}</p>
-        </div>
-      )}
-
-      {/* Main Content */}
-      {!loading && (
-        <>
-          {/* TABS NAVIGATION - Scrollable horizontal list */}
+      {/* TABS NAVIGATION */}
       <div className="mb-6 w-full overflow-x-auto pb-2 custom-scrollbar">
-        <div className={`${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-300'} p-1 rounded-lg inline-flex border min-w-max`}>
+        <div className={`p-1 rounded-lg inline-flex border min-w-max ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-[#0ea5e9] text-white shadow-lg'
+                  ? 'bg-blue-600 text-white shadow-lg'
                   : isDark
                     ? 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -446,43 +207,39 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
         </div>
       </div>
 
-      {/* CONTROLS (Search + Filter + Add) */}
-      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-300'} p-4 rounded-lg border`}>
+      {/* CONTROLS */}
+      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
         
-        {/* Search Bar */}
+        {/* Search */}
         <div className="relative w-full md:w-96">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
-          </div>
+          <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
           <input
             type="text"
-            className={`block w-full pl-10 pr-3 py-2.5 border rounded-md leading-5 ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300 placeholder-gray-500 focus:border-blue-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-500'} focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm`}
+            className={`block w-full pl-10 pr-3 py-2.5 border rounded-md outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-900'}`}
             placeholder={`Search ${tabs.find(t => t.id === activeTab)?.label}...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* Right Side Controls */}
+        {/* Actions */}
         <div className="flex gap-3 w-full md:w-auto">
           <div className="relative">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`appearance-none ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-900'} py-2.5 px-4 pr-8 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium min-w-[140px]`}
+              className={`appearance-none py-2.5 px-4 pr-8 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium min-w-[140px] border ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-900'}`}
             >
               <option value="All">All Status</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-              <Filter className="h-4 w-4" />
-            </div>
+            <Filter className="absolute right-2 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
           </div>
 
           <button 
             onClick={handleAddRecord}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg shadow-blue-900/20 capitalize whitespace-nowrap"
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg"
           >
             <Plus className="h-4 w-4" />
             <span>Add {tabs.find(t => t.id === activeTab)?.label}</span>
@@ -490,57 +247,72 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
         </div>
       </div>
 
-      {/* RENDER TABLE */}
-      <RenderTable columns={getColumns()} rows={currentData} />
+      {/* TABLE */}
+      <div className={`w-full overflow-hidden rounded-lg border shadow-xl ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}>
+        <div className="overflow-x-auto w-full">
+          <table className="w-full whitespace-nowrap text-left text-sm">
+            <thead className={`font-bold uppercase tracking-wider ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+              <tr>
+                {getColumns().map((col, idx) => (
+                  <th key={idx} className="px-6 py-4 border-b border-inherit">{col.header}</th>
+                ))}
+                <th className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-20 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Status</th>
+                <th className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-20 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Options</th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+              {loading ? (
+                 <tr>
+                  <td colSpan={10} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading records...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : currentData.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="p-10 text-center text-gray-500">
+                    No records found. Add a new record to get started.
+                  </td>
+                </tr>
+              ) : (
+                currentData.map((row, index) => (
+                  <tr key={index} className={`transition-colors group ${isDark ? 'hover:bg-[#2d3546]' : 'hover:bg-gray-50'}`}>
+                    {getColumns().map((col, colIdx) => (
+                      <td key={colIdx} className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
+                        {col.render ? col.render(row) : row[col.accessor]}
+                      </td>
+                    ))}
+                    <td className={`px-6 py-4 sticky right-[110px] z-10 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                        row.status === 'Active' 
+                        ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                        : 'bg-red-500/10 text-red-500 border-red-500/20'
+                      }`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className={`px-6 py-4 text-center sticky right-0 z-10 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => handleViewRecord(row)} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => handleEditRecord(row)} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded"><Edit className="h-4 w-4" /></button>
+                        <button onClick={() => { setSelectedRecord(row); setIsDeleteModalOpen(true); }} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Modals */}
-      {isAddModalOpen && (
-        <MasterRecordModal
-          mode="add"
-          recordType={activeTab}
-          data={null}
-          theme={theme}
-          onClose={() => setIsAddModalOpen(false)}
-          onSave={handleSaveRecord}
-        />
-      )}
-
-      {isViewModalOpen && selectedRecord && (
-        <MasterRecordModal
-          mode="view"
-          recordType={activeTab}
-          data={selectedRecord}
-          theme={theme}
-          onClose={() => setIsViewModalOpen(false)}
-          onSave={handleSaveRecord}
-        />
-      )}
-
-      {isEditModalOpen && selectedRecord && (
-        <MasterRecordModal
-          mode="edit"
-          recordType={activeTab}
-          data={selectedRecord}
-          theme={theme}
-          onClose={() => setIsEditModalOpen(false)}
-          onSave={handleSaveRecord}
-        />
-      )}
-
-      {isDeleteModalOpen && (
-        <DeleteConfirmModal
-          title={`Delete ${tabs.find(t => t.id === activeTab)?.label}`}
-          message={`Are you sure you want to delete ${selectedRecord?.name || selectedRecord?.id}? This action cannot be undone.`}
-          theme={theme}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => {
-            setIsDeleteModalOpen(false);
-            setSelectedRecord(null);
-          }}
-        />
-      )}
-        </>
-      )}
+      {isAddModalOpen && <MasterRecordModal mode="add" recordType={activeTab} data={null} theme={theme} onClose={() => setIsAddModalOpen(false)} onSave={handleSaveRecord} />}
+      {isViewModalOpen && selectedRecord && <MasterRecordModal mode="view" recordType={activeTab} data={selectedRecord} theme={theme} onClose={() => setIsViewModalOpen(false)} onSave={handleSaveRecord} />}
+      {isEditModalOpen && selectedRecord && <MasterRecordModal mode="edit" recordType={activeTab} data={selectedRecord} theme={theme} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveRecord} />}
+      {isDeleteModalOpen && <DeleteConfirmModal title={`Delete ${tabs.find(t => t.id === activeTab)?.label}`} message="Are you sure?" theme={theme} onConfirm={handleDeleteRecord} onCancel={() => setIsDeleteModalOpen(false)} />}
     </div>
   );
 };

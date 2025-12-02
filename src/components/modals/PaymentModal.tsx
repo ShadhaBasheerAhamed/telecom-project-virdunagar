@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, Search } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 import type { Payment } from '../../types';
 import { toast } from 'sonner';
 
 interface PaymentModalProps {
-  mode: 'add' | 'edit';
+  mode: 'add'; // Edit removed as per requirement
   data?: Payment | null;
   theme: 'light' | 'dark';
   onClose: () => void;
-  onSave: (payment: Payment) => void;
+  onSave: (payment: any) => void;
 }
 
 export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModalProps) {
@@ -20,7 +20,7 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
     rechargePlan: '',
     duration: '30',
     billAmount: '',
-    commission: '',
+    commission: '0',
     status: 'Unpaid' as 'Paid' | 'Unpaid',
     paidDate: new Date().toISOString().split('T')[0],
     modeOfPayment: 'CASH',
@@ -28,44 +28,23 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
     source: 'BSNL'
   });
 
-  // Load Data on Edit
-  useEffect(() => {
-    if (mode === 'edit' && data) {
-      setFormData({
-        landlineNo: data.landlineNo,
-        customerName: data.customerName,
-        rechargePlan: data.rechargePlan,
-        duration: data.duration,
-        billAmount: data.billAmount.toString(),
-        commission: data.commission.toString(),
-        status: data.status,
-        paidDate: data.paidDate,
-        modeOfPayment: data.modeOfPayment,
-        renewalDate: data.renewalDate,
-        source: data.source
-      });
-    } else if (mode === 'add') {
-        // Trigger date calculation for default
-        calculateRenewalDate(new Date().toISOString().split('T')[0], 'BSNL');
-    }
-  }, [mode, data]);
-
   // --- 1. AUTO-CALCULATE DATES (BSNL vs RMAX) ---
   const calculateRenewalDate = (dateStr: string, source: string) => {
       if (!dateStr) return;
       const date = new Date(dateStr);
       
       if (source === 'BSNL') {
-          // BSNL = 1 Month exactly
+          // BSNL = 1 Month exactly (Postpaid Cycle)
+          // e.g., 01/01 -> 01/02
           date.setMonth(date.getMonth() + 1);
       } else {
-          // RMAX = 30 Days strictly
+          // RMAX = 30 Days strictly (Prepaid)
           date.setDate(date.getDate() + 30);
       }
       setFormData(prev => ({ ...prev, renewalDate: date.toISOString().split('T')[0] }));
   };
 
-  // Watch changes
+  // Watch changes to update Renewal Date
   useEffect(() => {
       calculateRenewalDate(formData.paidDate, formData.source);
   }, [formData.paidDate, formData.source]);
@@ -85,7 +64,9 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
                     ...prev,
                     customerName: found.name,
                     rechargePlan: found.plan || prev.rechargePlan,
-                    source: found.source || prev.source
+                    source: found.source || prev.source,
+                    // Auto calculate commission (e.g., 10% of plan amount if available)
+                    commission: found.offerPrize ? (parseFloat(found.offerPrize) * 0.10).toString() : '0'
                 }));
                 toast.success("Customer found!");
             }
@@ -100,7 +81,7 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
     if (formData.billAmount) {
       const amount = parseFloat(formData.billAmount);
       if (!isNaN(amount)) {
-        // Example Logic: 30% Commission
+        // Logic: 30% Commission default
         const comm = (amount * 0.30).toFixed(2);
         setFormData(prev => ({ ...prev, commission: comm }));
       }
@@ -110,19 +91,12 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const paymentData: Payment = {
-        id: mode === 'edit' && data ? data.id : Date.now().toString(),
-        landlineNo: formData.landlineNo,
-        customerName: formData.customerName,
-        rechargePlan: formData.rechargePlan,
-        duration: formData.duration,
+    const paymentData = {
+        ...formData,
+        id: Date.now().toString(), // Generate temporary ID
         billAmount: parseFloat(formData.billAmount),
         commission: parseFloat(formData.commission),
-        status: formData.status,
-        paidDate: formData.paidDate,
-        modeOfPayment: formData.modeOfPayment,
-        renewalDate: formData.renewalDate,
-        source: formData.source
+        duration: formData.source === 'BSNL' ? '1 Month' : '30 Days'
     };
     onSave(paymentData);
   };
@@ -139,7 +113,7 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
         
         <div className="flex items-center justify-between p-6 border-b border-inherit">
           <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {mode === 'add' ? 'Add New Payment' : 'Edit Payment'}
+            Add New Payment
           </h2>
           <button onClick={onClose}><X className="w-6 h-6 text-gray-500" /></button>
         </div>
@@ -149,7 +123,7 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase">Landline No (Auto-Fetch)</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Landline No (Search)</label>
                     <div className="relative">
                         <input 
                             type="text" 
@@ -173,12 +147,12 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
                     />
                 </div>
                 
-                {/* Source Selection Triggering Logic */}
+                {/* Source Selection - Determines Date Logic */}
                 <div>
                     <label className="text-xs font-bold text-gray-500 uppercase">Source</label>
                     <select value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} className={inputClasses}>
-                        <option value="BSNL">BSNL (Monthly)</option>
-                        <option value="RMAX">RMAX (30 Days)</option>
+                        <option value="BSNL">BSNL (Monthly Cycle)</option>
+                        <option value="RMAX">RMAX (30 Days Validity)</option>
                     </select>
                 </div>
 
@@ -196,7 +170,7 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
                 </div>
 
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase">Commission (₹)</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase">Commission (Admin Only)</label>
                     <input type="number" value={formData.commission} readOnly className={`${inputClasses} opacity-70`} />
                 </div>
 

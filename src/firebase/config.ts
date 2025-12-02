@@ -12,7 +12,8 @@ import {
   orderBy,
   getDoc,
   setDoc,
-  limit
+  limit,
+  onSnapshot // Important for real-time updates
 } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
@@ -52,5 +53,6 @@ export {
   orderBy,
   limit,
   getDoc,
-  setDoc
+  setDoc,
+  onSnapshot
 };
