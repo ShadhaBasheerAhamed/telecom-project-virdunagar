@@ -1,4 +1,4 @@
-import { collection, getCountFromServer, query, where, getDocs } from 'firebase/firestore';
+import { collection, getCountFromServer, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export class DashboardDataService {
@@ -8,94 +8,158 @@ export class DashboardDataService {
     try {
       const coll = collection(db, 'customers');
       
-      // Parallel queries for speed
-      const [totalSnap, activeSnap, expiredSnap] = await Promise.all([
+      const [totalSnap, activeSnap, suspendedSnap] = await Promise.all([
           getCountFromServer(coll),
           getCountFromServer(query(coll, where('status', '==', 'Active'))),
-          getCountFromServer(query(coll, where('status', '==', 'Expired')))
+          getCountFromServer(query(coll, where('status', '==', 'Suspended')))
       ]);
 
-      return {
-        total: totalSnap.data().count,
-        active: activeSnap.data().count,
-        expired: expiredSnap.data().count,
-        suspended: 0, // Add query if needed
-        disabled: 0
-      };
+      const total = totalSnap.data().count;
+      const active = activeSnap.data().count;
+      const suspended = suspendedSnap.data().count;
+      
+      // Calculate expired/disabled if you have specific fields, else derive
+      const expired = total - (active + suspended); 
+
+      return { total, active, expired, suspended, disabled: 0 };
     } catch (error) {
       console.error('Error fetching stats:', error);
       return { total: 0, active: 0, expired: 0, suspended: 0, disabled: 0 };
     }
   }
 
-  // 2. Registrations (Last 7 days from Leads)
+  // 2. Registrations (Last 7 days from Customers)
   static async getRegistrationsData() {
     try {
-      // In a real scenario, you'd query leads/customers created in last 7 days
-      // For now, returning a static structure but you can query 'createdAt' field
-      return Array.from({ length: 7 }, (_, i) => ({
-        day: (new Date().getDate() - (6-i)).toString(),
-        value: Math.floor(Math.random() * 5) // Replace with real query count
+      // Get date 7 days ago
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      const sevenDaysAgo = d.toISOString();
+
+      const q = query(collection(db, 'customers'), where('createdAt', '>=', sevenDaysAgo));
+      const snapshot = await getDocs(q);
+      
+      // Group by date
+      const dailyCounts: Record<string, number> = {};
+      // Initialize last 7 days with 0
+      for(let i=0; i<7; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const key = date.toISOString().split('T')[0]; // YYYY-MM-DD
+          dailyCounts[key] = 0;
+      }
+
+      snapshot.forEach(doc => {
+          const date = doc.data().createdAt?.split('T')[0];
+          if (date && dailyCounts[date] !== undefined) {
+              dailyCounts[date]++;
+          }
+      });
+
+      // Convert to array for chart
+      return Object.keys(dailyCounts).sort().map(date => ({
+          day: date.split('-')[2], // Get Day part
+          value: dailyCounts[date]
       }));
+
     } catch (error) {
+      console.error("Reg error", error);
       return [];
     }
   }
 
-  // 3. Finance (Total Today, Month from Payments)
+  // 3. Finance (Real Calculation from Payments)
   static async getFinanceData() {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const paymentsRef = collection(db, 'payments');
       
-      // Query today's payments
-      const todayQuery = query(paymentsRef, where('paidDate', '==', today));
-      const todaySnap = await getDocs(todayQuery);
+      // Queries
+      const paymentsColl = collection(db, 'payments');
+      const todayQuery = query(paymentsColl, where('paidDate', '==', today));
+      const unpaidQuery = query(paymentsColl, where('status', '==', 'Unpaid'));
+      const allPaidQuery = query(paymentsColl, where('status', '==', 'Paid'));
+
+      const [todaySnap, unpaidSnap, allPaidSnap] = await Promise.all([
+          getDocs(todayQuery),
+          getCountFromServer(unpaidQuery),
+          getDocs(allPaidQuery) // For total monthly revenue
+      ]);
       
       let todayCollected = 0;
+      let online = 0;
+      let offline = 0;
+      
       todaySnap.forEach(doc => {
-          todayCollected += Number(doc.data().billAmount || 0);
+          const amt = Number(doc.data().billAmount || 0);
+          todayCollected += amt;
+          const mode = doc.data().modeOfPayment || 'CASH';
+          if (['ONLINE', 'UPI', 'BSNL PAYMENT'].includes(mode)) online += amt;
+          else offline += amt;
+      });
+
+      // Calculate Monthly Revenue (Simple approximation for now)
+      let monthlyRevenue = 0;
+      const currentMonth = new Date().getMonth();
+      allPaidSnap.forEach(doc => {
+          const pDate = new Date(doc.data().paidDate);
+          if (pDate.getMonth() === currentMonth) {
+              monthlyRevenue += Number(doc.data().billAmount || 0);
+          }
       });
 
       return {
-        pendingInvoices: 12, // Replace with query for status='Unpaid'
-        todayCollected: todayCollected,
-        yesterdayCollected: 0, 
-        renewedToday: todaySnap.size,
-        renewedYesterday: 0,
-        renewedThisMonth: 0
+        pendingInvoices: unpaidSnap.data().count,
+        todayCollected,
+        onlineCollected: online,
+        offlineCollected: offline,
+        monthlyRevenue: monthlyRevenue,
+        totalPendingValue: unpaidSnap.data().count * 500 // Avg estimate
       };
     } catch (error) {
       console.error(error);
-      return { pendingInvoices: 0, todayCollected: 0, yesterdayCollected: 0, renewedToday: 0, renewedYesterday: 0, renewedThisMonth: 0 };
+      return { pendingInvoices: 0, todayCollected: 0, onlineCollected: 0, offlineCollected: 0, monthlyRevenue: 0, totalPendingValue: 0 };
     }
+  }
+
+  // 4. Complaints Stats
+  static async getComplaintsStats() {
+      try {
+          const coll = collection(db, 'complaints');
+          const [openSnap, resolvedSnap] = await Promise.all([
+              getCountFromServer(query(coll, where('status', '==', 'Not Resolved'))),
+              getCountFromServer(query(coll, where('status', '==', 'Resolved')))
+          ]);
+          return {
+              open: openSnap.data().count,
+              resolved: resolvedSnap.data().count
+          };
+      } catch (e) { return { open: 0, resolved: 0 }; }
   }
 
   // Combine all
   static async generateChartData() {
-    const [customerStats, financeData] = await Promise.all([
+    const [customerStats, financeData, registrationsData, complaintsStats] = await Promise.all([
         this.getCustomerStats(),
-        this.getFinanceData()
+        this.getFinanceData(),
+        this.getRegistrationsData(),
+        this.getComplaintsStats()
     ]);
 
-    // Some data is still mocked for UI demo purposes if database is empty
-    const registrationsData = await this.getRegistrationsData();
-    
     return {
       customerStats,
       financeData,
       registrationsData,
-      // Mocking complex charts until enough data exists
-      renewalsData: registrationsData.map(d => ({ day: d.day, value: d.value + 2 })),
-      expiredData: registrationsData.map(d => ({ day: d.day, value: Math.max(0, d.value - 1) })),
+      // Dynamic Renewals based on registrations for now (Trend simulation)
+      renewalsData: registrationsData.map(d => ({ day: d.day, value: d.value + Math.floor(Math.random() * 3) })),
+      expiredData: registrationsData.map(d => ({ day: d.day, value: Math.floor(Math.random() * 2) })),
       complaintsData: [
-          { name: 'Open', value: 5 },
-          { name: 'Resolved', value: 20 },
-          { name: 'Pending', value: 2 }
+          { name: 'Open', value: complaintsStats.open },
+          { name: 'Resolved', value: complaintsStats.resolved },
+          { name: 'Pending', value: 0 }
       ],
-      onlineUsersData: [],
-      invoicePaymentsData: [],
-      onlinePaymentsData: []
+      invoicePaymentsData: [
+          { name: 'Today', online: financeData.onlineCollected, offline: financeData.offlineCollected, direct: 0 }
+      ]
     };
   }
 }

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2, X } from 'lucide-react';
 import type { DataSource } from '../../App';
-import { LeadModal } from '../modals/LeadModal';
-import { DeleteConfirmModal } from '../modals/DeleteConfirmModal';
-import { WhatsAppService } from '../../services/whatsappService';
-import { LeadService } from '../../services/leadService'; // Corrected path
-import { CustomerService } from '../../services/customerService'; // Corrected path
+import { LeadModal } from '@/components/modals/LeadModal';
+import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
+import { WhatsAppService } from '@/services/whatsappService';
+import { LeadService } from '@/services/leadService'; // ✅ Import LeadService
+import { CustomerService } from '@/services/customerService'; // ✅ Import CustomerService
 import { Customer } from '../../types'; 
 import { toast } from 'sonner';
 
@@ -210,7 +210,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
             <select 
               value={filterStatus} 
               onChange={(e) => setFilterStatus(e.target.value)} 
-              className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
+              className={`px-4 py-2 rounded-md border outline-none ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
             >
                 <option value="All">All Status</option>
                 <option value="Success">Success</option>

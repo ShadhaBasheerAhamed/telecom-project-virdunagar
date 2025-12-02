@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, Plus } from 'lucide-react';
 import type { Customer } from '../../types';
 import { MasterRecordService } from '../../services/masterRecordService';
-import { MasterRecordModal } from './MasterRecordModal'; // ✅ Import Master Modal for quick add
+import { MasterRecordModal } from './MasterRecordModal'; // ✅ Import for Quick Add
 import { toast } from 'sonner';
 
 interface CustomerModalProps {
@@ -18,7 +18,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
   const isDark = theme === 'dark';
   const [loading, setLoading] = useState(false);
   
-  // Master Record Modal State (Controls which master modal is open)
+  // ✅ Controls which Master Modal is open (routerMac or ontMac)
   const [activeMasterType, setActiveMasterType] = useState<string | null>(null);
 
   // Dynamic Data States
@@ -27,7 +27,6 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
   const [routerMakes, setRouterMakes] = useState<any[]>([]);
   const [ontMakes, setOntMakes] = useState<any[]>([]);
   const [ontTypes, setOntTypes] = useState<any[]>([]);
-  // ✅ States for MACs
   const [routerMacs, setRouterMacs] = useState<any[]>([]);
   const [ontMacs, setOntMacs] = useState<any[]>([]);
 
@@ -39,17 +38,17 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
     plan: '', ottSubscription: '', email: ''
   });
 
-  // 1. Fetch Master Records
+  // 1. Fetch Master Records (Re-usable function)
   const loadMasterData = async () => {
     try {
       const [p, i, rMake, rMac, oMake, oType, oMac] = await Promise.all([
           MasterRecordService.getRecords('plan'),
           MasterRecordService.getRecords('oltIp'),
           MasterRecordService.getRecords('routerMake'),
-          MasterRecordService.getRecords('routerMac'), // ✅ Fetch Router Mac
+          MasterRecordService.getRecords('routerMac'), // ✅ Router Mac
           MasterRecordService.getRecords('ontMake'),
           MasterRecordService.getRecords('ontType'),
-          MasterRecordService.getRecords('ontMac')     // ✅ Fetch ONT Mac
+          MasterRecordService.getRecords('ontMac')     // ✅ ONT Mac
       ]);
       setPlans(p.filter((x: any) => x.status === 'Active'));
       setOltIps(i.filter((x: any) => x.status === 'Active'));
@@ -87,11 +86,11 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
     }
   };
 
-  // Callback when a new master record is added via the "+" button
+  // ✅ Callback when new record is added
   const handleMasterSave = async () => {
-    await loadMasterData(); // Refresh dropdowns to show new record
-    setActiveMasterType(null); // Close modal
-    toast.success("New record added!");
+    await loadMasterData(); // Refresh Dropdowns
+    setActiveMasterType(null); // Close Modal
+    toast.success("New record added successfully!");
   };
 
   const inputClasses = `w-full px-4 py-2.5 rounded-xl border text-sm font-medium ${isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-gray-300 text-gray-900'} focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-colors`;
@@ -196,7 +195,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
                       </select>
                   </div>
 
-                  {/* ONT MAC with ADD Button */}
+                  {/* ✅ ONT MAC with ADD Button */}
                   <div>
                       <label className={labelClasses}>ONT Mac</label>
                       <div className="flex gap-2">
@@ -204,7 +203,6 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
                             <option value="">Select MAC</option>
                             {ontMacs.map((o: any) => <option key={o.id} value={o.name}>{o.name}</option>)}
                         </select>
-                        {/* Click to Open Master Record Modal for ONT Mac */}
                         <button type="button" onClick={() => setActiveMasterType('ontMac')} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center transition-colors" title="Add New ONT Mac">
                             <Plus className="w-4 h-4" />
                         </button>
@@ -234,7 +232,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
                       </select>
                   </div>
                   
-                  {/* ROUTER MAC with ADD Button */}
+                  {/* ✅ ROUTER MAC with ADD Button */}
                   <div>
                       <label className={labelClasses}>Router Mac</label>
                       <div className="flex gap-2">
@@ -242,7 +240,6 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
                             <option value="">Select MAC</option>
                             {routerMacs.map((r: any) => <option key={r.id} value={r.name}>{r.name}</option>)}
                         </select>
-                        {/* Click to Open Master Record Modal for Router Mac */}
                         <button type="button" onClick={() => setActiveMasterType('routerMac')} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center justify-center transition-colors" title="Add New Router Mac">
                             <Plus className="w-4 h-4" />
                         </button>
@@ -263,7 +260,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
         </div>
       </div>
 
-      {/* MASTER RECORD MODAL for Quick Add */}
+      {/* ✅ MASTER RECORD MODAL for Quick Add */}
       {activeMasterType && (
         <MasterRecordModal
           mode="add"
