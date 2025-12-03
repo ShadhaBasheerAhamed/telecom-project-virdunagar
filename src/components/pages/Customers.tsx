@@ -91,6 +91,33 @@ export function Customers({ dataSource, theme }: CustomersProps) {
     }
   };
 
+  // 5. Toggle Customer Status
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  
+  const handleStatusToggle = async (customerId: string, currentStatus: string) => {
+    if (updatingStatus === customerId) return; // Prevent multiple clicks
+    
+    setUpdatingStatus(customerId);
+    try {
+      const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+      await CustomerService.updateCustomer(customerId, { status: newStatus });
+      
+      // Update local state immediately for better UX
+      setCustomers(prev => prev.map(customer => 
+        customer.id === customerId 
+          ? { ...customer, status: newStatus }
+          : customer
+      ));
+      
+      toast.success(`Customer status changed to ${newStatus}`);
+    } catch (error) {
+      toast.error("Failed to update customer status");
+      console.error('Status update error:', error);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
   const filteredCustomers = customers.filter(customer => {
     const searchLower = searchTerm.toLowerCase();
     let matchesSearch = false;
@@ -221,15 +248,25 @@ export function Customers({ dataSource, theme }: CustomersProps) {
 
                   {/* Sticky Status Column */}
                   <td className={`px-6 py-4 sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                    <button
+                      onClick={() => handleStatusToggle(customer.id, customer.status)}
+                      disabled={updatingStatus === customer.id}
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-md ${
                         customer.status === 'Active'
-                          ? 'bg-green-900/30 text-green-400 border-green-800'
-                          : 'bg-red-900/30 text-red-400 border-red-800'
-                      }`}
+                          ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-800/50'
+                          : 'bg-red-900/30 text-red-400 border-red-800 hover:bg-red-800/50'
+                      } ${updatingStatus === customer.id ? 'cursor-wait' : 'cursor-pointer'}`}
+                      title={`Click to change status to ${customer.status === 'Active' ? 'Inactive' : 'Active'}`}
                     >
-                      {customer.status}
-                    </span>
+                      {updatingStatus === customer.id ? (
+                        <div className="flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Updating...</span>
+                        </div>
+                      ) : (
+                        customer.status
+                      )}
+                    </button>
                   </td>
 
                   {/* Sticky Options Column */}

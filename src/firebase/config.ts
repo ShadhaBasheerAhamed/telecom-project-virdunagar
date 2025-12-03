@@ -13,7 +13,11 @@ import {
   getDoc,
   setDoc,
   limit,
-  onSnapshot // Important for real-time updates
+  onSnapshot, // Important for real-time updates
+  writeBatch,
+  Timestamp,
+  startAt,
+  endAt
 } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
@@ -54,5 +58,9 @@ export {
   limit,
   getDoc,
   setDoc,
-  onSnapshot
+  onSnapshot,
+  writeBatch,
+  Timestamp,
+  startAt,
+  endAt
 };

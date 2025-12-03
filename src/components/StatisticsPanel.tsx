@@ -16,9 +16,10 @@ interface StatisticsPanelProps {
   showRefresh?: boolean;
   theme: 'light' | 'dark';
   className?: string; // Added className prop
+  onExport?: () => Promise<void>;
 }
 
-export function StatisticsPanel({ title, items, showRefresh = false, theme, className = '' }: StatisticsPanelProps) {
+export function StatisticsPanel({ title, items, showRefresh = false, theme, className = '', onExport }: StatisticsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isDark = theme === 'dark';

@@ -9,9 +9,10 @@ interface ChartPanelProps {
   children: React.ReactNode;
   className?: string;
   theme: 'light' | 'dark';
+  exportOptions?: { label: string; onClick: () => Promise<void> }[];
 }
 
-export function ChartPanel({ title, children, className = '', theme }: ChartPanelProps) {
+export function ChartPanel({ title, children, className = '', theme, exportOptions }: ChartPanelProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const isDark = theme === 'dark';

@@ -1,5 +1,5 @@
 import { X, Mail, Phone, Calendar, Package, Activity, Tag } from 'lucide-react';
-import type { Customer } from '../pages/Customers';
+import type { Customer } from '../../types';
 
 interface ViewCustomerModalProps {
   customer: Customer;

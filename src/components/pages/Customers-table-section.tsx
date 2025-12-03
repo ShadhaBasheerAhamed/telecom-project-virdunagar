@@ -1,5 +1,5 @@
 import { Eye, Edit, Trash2 } from 'lucide-react';
-import type { Customer } from './Customers';
+import type { Customer } from '../../types';
 
 interface CustomerTableSectionProps {
   customers: Customer[];

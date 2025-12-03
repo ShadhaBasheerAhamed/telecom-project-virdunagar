@@ -19,7 +19,7 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
     address: '',
     remarks: '',
     followupDate: '',
-    status: 'Success' as 'Success' | 'Rejected',
+    status: 'Pending' as 'Success' | 'Rejected' | 'Sale' | 'Pending',
     source: '',
   });
 
@@ -154,20 +154,22 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
               <select
                 required
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Success' | 'Rejected' })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Success' | 'Rejected' | 'Sale' | 'Pending' })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
               >
+                <option value="Pending">Pending</option>
+                <option value="Sale">Sale</option>
                 <option value="Success">Success</option>
                 <option value="Rejected">Rejected</option>
               </select>
             </div>
 
             {/* Source */}
-            <div className="md:col-span-2">
+            {/* <div className="md:col-span-2">
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 Source *
               </label>
@@ -183,7 +185,7 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
                 placeholder="Enter source (e.g., BSNL, Private)"
               />
-            </div>
+            </div> */}
 
             {/* Remarks */}
             <div className="md:col-span-2">

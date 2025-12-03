@@ -9,7 +9,7 @@ import {
   orderBy 
 } from '../firebase/config';
 import { db } from '../firebase/config';
-import type { Lead } from '../components/pages/Leads'; // Import Lead type
+import type { Lead } from '../types'; // Import Lead type from types
 
 const LEADS_COLLECTION = 'leads';
 

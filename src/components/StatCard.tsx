@@ -7,6 +7,8 @@ interface StatCardProps {
   value: string | number;
   color: string;
   theme: 'light' | 'dark';
+  trend?: string;
+  trendUp?: boolean;
   details?: Array<{ label: string; value: string | number }>;
 }
 
@@ -56,7 +58,7 @@ const getBoxColors = (colorClass: string, isDark: boolean) => {
   };
 };
 
-export function StatCard({ title, value, color, theme, details }: StatCardProps) {
+export function StatCard({ title, value, color, theme, trend, trendUp, details }: StatCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const isDark = theme === 'dark';
   
