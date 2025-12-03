@@ -60,6 +60,15 @@ export interface User extends MasterRecord {
 // OLT IP specific fields
 export interface OltIp extends MasterRecord {}
 
+// Network Provider specific fields
+export interface NetworkProvider {
+  id: string;
+  name: string;
+  status: 'Active' | 'Inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Inventory Product
 export interface Product {
   id: string;
@@ -350,6 +359,10 @@ export interface ConversionData {
 }
 
 // ==================== UTILITY TYPES ====================
+export type DataSource = 'BSNL' | 'RMAX' | 'Private' | 'All';
+export type Page = 'dashboard' | 'customers' | 'complaints' | 'leads' | 'payment' | 'master-records' | 'reports' | 'inventory' | 'network-providers';
+export type UserRole = 'admin' | 'manager' | 'operator' | 'viewer' | 'Super Admin';
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

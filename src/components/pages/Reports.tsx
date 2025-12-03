@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import type { DataSource } from '../../App';
+import type { DataSource } from '../../types';
 
 // --- Types & Interfaces ---
 

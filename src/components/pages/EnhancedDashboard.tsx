@@ -9,7 +9,7 @@ import { exportService } from '../../services/enhancedExportService';
 import { EnhancedStatusToggler } from '../../utils/enhancedStatusTogglers';
 import { useDashboard, useDashboardMetrics, useQuickMetrics } from '../../contexts/DashboardContext';
 import { useNotificationActions } from '../../contexts/NotificationContext';
-import type { DataSource } from '../../App';
+import type { DataSource } from '../../types';
 import { SubHeader } from '../SubHeader'; 
 import { Download, RefreshCw, Filter, Calendar, TrendingUp, Users, DollarSign, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2, X } from 'lucide-react';
-import type { DataSource } from '../../App';
+import type { DataSource } from '../../types';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
 import { WhatsAppService } from '@/services/whatsappService';

@@ -7,7 +7,7 @@ import {
 import { MasterRecordModal } from '@/components/modals/MasterRecordModal';
 import { MasterRecordService } from '@/services/masterRecordService';
 import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
-import type { DataSource } from '../../App';
+import type { DataSource } from '../../types';
 import { toast } from 'sonner';
 
 interface MasterRecordsProps {

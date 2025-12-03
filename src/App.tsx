@@ -1,147 +1,122 @@
 import { useState, useEffect } from 'react';
-// ✅ ENHANCED IMPORTS: Using dynamic components with full backend integration
-import { Sidebar } from './components/Sidebar'; 
-import { Header } from './components/Header';   
-import { Login } from './components/Login';
-import { NotificationProvider } from './contexts/NotificationContext';
-import { DashboardProvider } from './contexts/DashboardContext';
-
-// Enhanced Pages with Dynamic Features
-import { EnhancedDashboard } from './components/pages/EnhancedDashboard';
-import { EnhancedCustomers } from './components/pages/EnhancedCustomers';
-import { Complaints } from './components/pages/Complaints';
+import { Sidebar } from './components/Sidebar';
+import { Header } from './components/Header';
+import { Dashboard } from './components/pages/Dashboard';
+import { Customers } from './components/pages/Customers';
 import { Leads } from './components/pages/Leads';
 import { Payment } from './components/pages/Payment';
+import { Complaints } from './components/pages/Complaints';
+import { Inventory } from './components/pages/Inventory';
 import { MasterRecords } from './components/pages/MasterRecords';
 import { Reports } from './components/pages/Reports';
-import { Inventory } from './components/pages/Inventory';
+import { NetworkProviders } from './components/pages/NetworkProviders';
+import type { Page, UserRole, DataSource } from './types';
 
-export type DataSource = 'All' | 'BSNL' | 'RMAX';
-export type Page = 'dashboard' | 'customers' | 'complaints' | 'leads' | 'payment' | 'master-records' | 'reports' | 'inventory';
-export type UserRole = 'Super Admin' | 'Sales' | 'Maintenance' | null;
-
-export default function App() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [dataSource, setDataSource] = useState<DataSource>('All');
+function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [userRole, setUserRole] = useState<UserRole>('Super Admin');
+  const [dataSource, setDataSource] = useState<DataSource>('All');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // --- AUTH STATE ---
-  const [userRole, setUserRole] = useState<UserRole>(null);
-
-  // Load user preferences
+  // Initialize theme from localStorage or system preference
   useEffect(() => {
-    const savedTheme = localStorage.getItem('dashboard-theme') as 'light' | 'dark';
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
     if (savedTheme) {
       setTheme(savedTheme);
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setTheme(prefersDark ? 'dark' : 'light');
     }
-    
-    // Apply theme to document
-    const root = window.document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
+  }, []);
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.className = theme;
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('dashboard-theme', newTheme);
+  const handlePageChange = (page: Page) => {
+    setCurrentPage(page);
   };
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+  const handleThemeToggle = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const closeSidebar = () => {
-    setSidebarOpen(false);
+  const handleLogout = () => {
+    if (confirm('Are you sure you want to log out?')) {
+      // Reset to initial state or redirect to login
+      setCurrentPage('dashboard');
+      setUserRole('Super Admin');
+      setDataSource('All');
+      // You could also clear localStorage or redirect to login page here
+    }
   };
 
-  // If no user is logged in, show Login Screen
-  if (!userRole) {
-    return <Login onLogin={(role) => setUserRole(role)} />;
-  }
+  const renderCurrentPage = () => {
+    const commonProps = {
+      theme,
+      userRole,
+      dataSource
+    };
 
-  const renderPage = () => {
-    try {
-      switch (currentPage) {
-        case 'dashboard':
-          return <EnhancedDashboard dataSource={dataSource} theme={theme} />;
-        case 'customers':
-          return <EnhancedCustomers dataSource={dataSource} theme={theme} />;
-        case 'complaints':
-          return <Complaints dataSource={dataSource} theme={theme} />;
-        case 'leads':
-          return <Leads dataSource={dataSource} theme={theme} />;
-        case 'payment':
-          return <Payment dataSource={dataSource} theme={theme} userRole={userRole} />;
-        case 'master-records':
-          return <MasterRecords dataSource={dataSource} theme={theme} />;
-        case 'reports':
-          return <Reports dataSource={dataSource} theme={theme} />;
-        case 'inventory':
-          return <Inventory theme={theme} />;
-        default:
-          return <EnhancedDashboard dataSource={dataSource} theme={theme} />;
-      }
-    } catch (error) {
-      console.error('Error rendering page:', error);
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Error Loading Page</h2>
-            <p className="text-gray-600 mb-4">An error occurred while loading this page.</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Reload Application
-            </button>
-          </div>
-        </div>
-      );
+    switch (currentPage) {
+      case 'dashboard':
+        return <Dashboard {...commonProps} />;
+      case 'customers':
+        return <Customers {...commonProps} />;
+      case 'leads':
+        return <Leads {...commonProps} />;
+      case 'payment':
+        return <Payment {...commonProps} />;
+      case 'complaints':
+        return <Complaints {...commonProps} />;
+      case 'inventory':
+        return <Inventory {...commonProps} />;
+      case 'master-records':
+        return <MasterRecords {...commonProps} />;
+      case 'reports':
+        return <Reports {...commonProps} />;
+      case 'network-providers':
+        return <NetworkProviders {...commonProps} />;
+      default:
+        return <Dashboard {...commonProps} />;
     }
   };
 
   return (
-    <NotificationProvider>
-      <DashboardProvider>
-        <div className={`min-h-screen w-full flex flex-col ${theme === 'dark' ? 'bg-[#0F172A]' : 'bg-[#F1F5F9]'} transition-colors duration-300`}>
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0f172a] text-white' : 'bg-gray-50 text-gray-900'}`}>
+      {/* Sidebar */}
+      <Sidebar
+        theme={theme}
+        currentPage={currentPage}
+        userRole={userRole}
+        onPageChange={handlePageChange}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-          {/* Sidebar */}
-          <Sidebar
-            theme={theme}
-            currentPage={currentPage}
-            userRole={userRole}
-            onPageChange={(page: any) => {
-              setCurrentPage(page);
-              closeSidebar();
-            }}
-            isOpen={sidebarOpen}
-            onClose={closeSidebar}
-          />
+      {/* Main Content */}
+      <div className="md:ml-64">
+        {/* Header */}
+        <Header
+          theme={theme}
+          userRole={userRole}
+          dataSource={dataSource}
+          onThemeToggle={handleThemeToggle}
+          onDataSourceChange={setDataSource}
+          onMenuClick={() => setSidebarOpen(true)}
+          onLogout={handleLogout}
+        />
 
-          {/* Main Layout */}
-          <div className="flex-1 flex flex-col min-h-screen transition-all duration-300 md:ml-64">
-
-            {/* Header */}
-            <Header
-              theme={theme}
-              dataSource={dataSource}
-              onThemeToggle={toggleTheme}
-              onDataSourceChange={setDataSource}
-              onMenuClick={toggleSidebar}
-              userRole={userRole}
-              onLogout={() => setUserRole(null)}
-            />
-
-            {/* Page Content */}
-            <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
-              {renderPage()}
-            </main>
-          </div>
-
-        </div>
-      </DashboardProvider>
-    </NotificationProvider>
+        {/* Page Content */}
+        <main className="p-4 md:p-6">
+          {renderCurrentPage()}
+        </main>
+      </div>
+    </div>
   );
 }
+
+export default App;

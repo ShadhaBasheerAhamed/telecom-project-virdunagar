@@ -1,6 +1,6 @@
 import { TrendingUp, Users, DollarSign, UserPlus, Download } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import type { DataSource } from '../../App';
+import type { DataSource } from '../../types';
 
 interface DashboardProps {
   dataSource: DataSource;

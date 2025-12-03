@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Eye, Upload } from 'lucide-react';
-import type { DataSource, UserRole } from '../../App';
+import type { DataSource } from '../../types';
+import type { UserRole } from '../../types';
 import type { Payment } from '../../types';
 import { ViewPaymentModal } from '../modals/ViewPaymentModal';
 import { PaymentModal } from '../modals/PaymentModal';

@@ -1,6 +1,6 @@
 import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Page, UserRole } from '../App';
+import type { Page, UserRole } from '../types';
 
 interface SidebarProps {
   theme: 'light' | 'dark';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
-import type { DataSource } from '../../App';
+import type { DataSource } from '../../types';
 import { CustomerModal } from '@/components/modals/CustomerModal';
 import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
 import { ViewCustomerModal } from '@/components/modals/ViewCustomerModal';

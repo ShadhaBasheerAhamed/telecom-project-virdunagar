@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { toast } from 'sonner';
 // ✅ FIXED IMPORT PATH: Adjusted to go up two levels to src/App.tsx
-import type { DataSource, UserRole } from '../App';
+import type { DataSource, UserRole } from '../types';
 import {
   DropdownMenu,
   DropdownMenuContent,

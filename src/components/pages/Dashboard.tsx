@@ -4,7 +4,7 @@ import { ChartPanel } from '../ChartPanel';
 import { StatisticsPanel, StatItem } from '../StatisticsPanel';
 import { motion } from 'framer-motion';
 import { DashboardDataService } from '../../services/dashboardDataService';
-import type { DataSource } from '../../App';
+import type { DataSource } from '../../types';
 import { SubHeader } from '../SubHeader'; 
 
 import {
