@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Dashboard } from './components/pages/Dashboard';
@@ -13,6 +14,7 @@ import { NetworkProviders } from './components/pages/NetworkProviders';
 import type { Page, UserRole, DataSource } from './types';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [userRole, setUserRole] = useState<UserRole>('Super Admin');
@@ -44,13 +46,18 @@ function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
+  const handleLogin = (role: UserRole) => {
+    setUserRole(role);
+    setIsAuthenticated(true);
+  };
+
   const handleLogout = () => {
     if (confirm('Are you sure you want to log out?')) {
-      // Reset to initial state or redirect to login
+      setIsAuthenticated(false);
       setCurrentPage('dashboard');
       setUserRole('Super Admin');
       setDataSource('All');
-      // You could also clear localStorage or redirect to login page here
+      setSidebarOpen(false);
     }
   };
 
@@ -84,6 +91,11 @@ function App() {
         return <Dashboard {...commonProps} />;
     }
   };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0f172a] text-white' : 'bg-gray-50 text-gray-900'}`}>
