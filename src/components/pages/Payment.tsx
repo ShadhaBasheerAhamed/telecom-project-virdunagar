@@ -126,16 +126,14 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
 
   // --- HANDLERS ---
   const handleStatusToggle = async (payment: Payment, newStatus: 'Paid' | 'Unpaid') => {
-      if (!confirm(`Change payment status to ${newStatus}?`)) return;
-
       try {
         // 1. Update in Firebase
         await PaymentService.updatePayment(payment.id, { status: newStatus });
-        
+
         // 2. Update UI Locally
         const updated = payments.map(p => p.id === payment.id ? { ...p, status: newStatus } : p);
         setPayments(updated);
-        
+
         // 3. Sync Customer Status
         syncCustomerStatus(payment.landlineNo, newStatus);
 
@@ -143,12 +141,14 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
         if (newStatus === 'Paid') {
              const mobileNo = getCustomerMobile(payment.landlineNo);
              WhatsAppService.sendPaymentAck(payment, mobileNo);
-             toast.success("Payment Marked Paid & WhatsApp sent!");
-        } else {
-             toast.info("Status marked as Unpaid");
         }
+
+        toast.success("Payment status updated successfully");
       } catch (error) {
-        toast.error("Failed to update status");
+        toast.error("Failed to update payment status", {
+          description: "Please try again later",
+          duration: 5000,
+        });
       }
   };
 
@@ -317,18 +317,16 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                             
                             {/* Status Toggle */}
                             <td className="px-6 py-4">
-                                <select 
-                                    value={p.status} 
-                                    onChange={(e) => handleStatusToggle(p, e.target.value as any)}
-                                    className={`px-2 py-1 rounded text-xs font-bold cursor-pointer outline-none border-0 ${
-                                        p.status === 'Paid' 
-                                        ? 'bg-green-900/30 text-green-400' 
-                                        : 'bg-red-900/30 text-red-400'
+                                <button
+                                    onClick={() => handleStatusToggle(p, p.status === 'Paid' ? 'Unpaid' : 'Paid')}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                                        p.status === 'Paid'
+                                        ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20'
+                                        : 'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
                                     }`}
                                 >
-                                    <option value="Paid" className="bg-gray-800 text-green-500">Paid</option>
-                                    <option value="Unpaid" className="bg-gray-800 text-red-500">Unpaid</option>
-                                </select>
+                                    {p.status}
+                                </button>
                             </td>
                             
                             {/* Action - View Only (Delete/Edit removed) */}

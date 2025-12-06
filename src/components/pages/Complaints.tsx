@@ -130,7 +130,8 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const handleStatusChange = (id: string, newStatus: 'Resolved' | 'Not Resolved') => {
       const updated = complaints.map(c => c.id === id ? { ...c, status: newStatus } : c);
       updateComplaints(updated);
-      toast.success(`Status updated to ${newStatus}`);
+
+      toast.success("Complaint status updated successfully");
   };
 
   // --- BULK UPLOAD HANDLER ---
@@ -274,20 +275,18 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.bookingDate}</td>
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.resolveDate || '-'}</td>
 
-                  {/* Dynamic Status Dropdown */}
+                  {/* Dynamic Status Toggle */}
                   <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
-                    <select
-                      value={complaint.status}
-                      onChange={(e) => handleStatusChange(complaint.id, e.target.value as any)}
-                      className={`text-xs font-bold px-2 py-1 rounded border-0 cursor-pointer outline-none ${
+                    <button
+                      onClick={() => handleStatusChange(complaint.id, complaint.status === 'Resolved' ? 'Not Resolved' : 'Resolved')}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
                         complaint.status === 'Resolved'
-                          ? 'bg-green-900/30 text-green-400'
-                          : 'bg-red-900/30 text-red-400'
+                        ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20'
+                        : 'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
                       }`}
                     >
-                      <option value="Resolved" className="bg-gray-800 text-green-500">Resolved</option>
-                      <option value="Not Resolved" className="bg-gray-800 text-red-500">Not Resolved</option>
-                    </select>
+                      {complaint.status}
+                    </button>
                   </td>
 
                   <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} text-center sticky right-0 ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10`}>

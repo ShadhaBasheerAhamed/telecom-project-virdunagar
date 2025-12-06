@@ -97,9 +97,10 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   const handleStatusToggle = async (customerId: string, currentStatus: string) => {
     if (updatingStatus === customerId) return; // Prevent multiple clicks
     
+    const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
     setUpdatingStatus(customerId);
+    
     try {
-      const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
       await CustomerService.updateCustomer(customerId, { status: newStatus });
       
       // Update local state immediately for better UX
@@ -109,9 +110,15 @@ export function Customers({ dataSource, theme }: CustomersProps) {
           : customer
       ));
       
-      toast.success(`Customer status changed to ${newStatus}`);
+      toast.success(`Customer ${customerId} status changed to ${newStatus}`, {
+        description: `${currentStatus} → ${newStatus}`,
+        duration: 3000,
+      });
     } catch (error) {
-      toast.error("Failed to update customer status");
+      toast.error("Failed to update customer status", {
+        description: "Please try again later",
+        duration: 5000,
+      });
       console.error('Status update error:', error);
     } finally {
       setUpdatingStatus(null);
