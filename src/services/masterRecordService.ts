@@ -14,10 +14,10 @@ import { db } from '../firebase/config';
 // Master record collection names mapping
 const COLLECTION_MAPPING: { [key: string]: string } = {
   'routerMake': 'router_makes',
-  'routerMac': 'router_macs', // ✅ Added
-  'ontMake': 'ont_makes', 
+  'routerMac': 'router_macs',
+  'ontMake': 'ont_makes',
   'ontType': 'ont_types',
-  'ontMac': 'ont_macs', // ✅ Added
+  'ontMac': 'ont_macs',
   'plan': 'plans',
   'oltIp': 'olt_ips',
   'employee': 'employees',

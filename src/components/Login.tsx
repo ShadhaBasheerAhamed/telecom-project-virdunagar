@@ -1,11 +1,24 @@
 import { useState } from 'react';
-import { Shield, Users, Wrench } from 'lucide-react';
+import { Shield, Users, Wrench, Database } from 'lucide-react';
+import { seedDatabase } from '../utils/seedData'; // Import the script
+
 
 interface LoginProps {
   onLogin: (role: 'Super Admin' | 'Sales' | 'Maintenance') => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeed = async () => {
+    setSeeding(true);
+    try {
+      await seedDatabase();
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
       <div className="w-full max-w-md p-8 bg-slate-800 rounded-2xl shadow-2xl border border-slate-700">
@@ -36,6 +49,20 @@ export function Login({ onLogin }: LoginProps) {
             <Wrench className="w-6 h-6" />
             <span className="font-bold text-lg">Maintenance Team</span>
           </button>
+
+
+          <div className="pt-6 border-t border-slate-700 mt-6">
+            <button 
+              onClick={handleSeed}
+              disabled={seeding}
+              className={`w-full p-3 border border-slate-600 rounded-xl flex items-center justify-center gap-2 text-sm text-slate-400 hover:bg-slate-700 transition-colors ${seeding ? 'opacity-50 cursor-wait' : ''}`}
+            >
+              <Database className="w-4 h-4" />
+              {seeding ? 'Seeding Database...' : 'Initialize Master Data (Run Once)'}
+            </button>
+          </div>
+
+
         </div>
       </div>
     </div>
