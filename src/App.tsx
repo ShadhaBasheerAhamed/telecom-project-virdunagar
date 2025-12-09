@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNetworkProvider } from './contexts/NetworkProviderContext';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -18,8 +19,22 @@ function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [userRole, setUserRole] = useState<UserRole>('Super Admin');
-  const [dataSource, setDataSource] = useState<DataSource>('All');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Custom Hook for Global Network Provider
+  const { selectedProvider, setSelectedProvider, availableProviders } = useNetworkProvider();
+
+  // Derived state for legacy compatibility
+  const dataSource = selectedProvider ? selectedProvider.name : 'All';
+
+  const handleDataSourceChange = (sourceName: string) => {
+    if (sourceName === 'All') {
+      setSelectedProvider(null);
+    } else {
+      const provider = availableProviders.find(p => p.name === sourceName);
+      if (provider) setSelectedProvider(provider);
+    }
+  };
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
@@ -56,7 +71,7 @@ function App() {
       setIsAuthenticated(false);
       setCurrentPage('dashboard');
       setUserRole('Super Admin');
-      setDataSource('All');
+      setSelectedProvider(null);
       setSidebarOpen(false);
     }
   };
@@ -116,8 +131,9 @@ function App() {
           theme={theme}
           userRole={userRole}
           dataSource={dataSource}
+          availableProviders={availableProviders}
           onThemeToggle={handleThemeToggle}
-          onDataSourceChange={setDataSource}
+          onDataSourceChange={handleDataSourceChange}
           onMenuClick={() => setSidebarOpen(true)}
           onLogout={handleLogout}
         />

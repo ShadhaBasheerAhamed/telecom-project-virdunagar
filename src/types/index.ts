@@ -58,7 +58,10 @@ export interface User extends MasterRecord {
 }
 
 // OLT IP specific fields
-export interface OltIp extends MasterRecord {}
+export interface OltIp extends MasterRecord { }
+
+// OTT specific fields
+export interface Ott extends MasterRecord { }
 
 // Network Provider specific fields
 export interface NetworkProvider {
@@ -78,9 +81,9 @@ export interface Product {
   buyPrice: number;
   sellPrice: number;
   stock: number;
-  unit: 'Nos' | 'Mtr'; 
+  unit: 'Nos' | 'Mtr';
   gst: number; // Percentage (e.g., 18)
-  image: string; 
+  image: string;
 }
 
 // --- SHARED CUSTOMER INTERFACE ---
@@ -94,28 +97,28 @@ export interface Customer {
   vlanId: string;
   bbId: string;
   voipPassword: string;
-  
+
   // Dynamic Master Record Links
-  ontMake: string; 
+  ontMake: string;
   ontType: string;
   ontMacAddress: string;
   ontBillNo: string;
-  
+
   // ONT Status Logic
   ont: 'Paid ONT' | 'Free ONT' | 'Offer Price' | 'Rented ONT';
   offerPrize: string; // Only if 'Offer Price' is selected
-  
+
   routerMake: string;
   routerMacId: string;
   oltIp: string; // Dropdown from Master Records
-  
+
   installationDate: string;
-  
+
   // Status Logic Update
-  status: 'Active' | 'Inactive' | 'Suspended' | 'Expired'; 
+  status: 'Active' | 'Inactive' | 'Suspended' | 'Expired';
   planStatus?: string; // e.g., "Plan Active", "Plan Expired"
   ottSubscription?: string; // New Field
-  
+
   source: 'BSNL' | 'RMAX' | 'Private';
   email?: string;
   plan?: string;
@@ -359,7 +362,7 @@ export interface ConversionData {
 }
 
 // ==================== UTILITY TYPES ====================
-export type DataSource = 'BSNL' | 'RMAX' | 'Private' | 'All';
+export type DataSource = string;
 export type Page = 'dashboard' | 'customers' | 'complaints' | 'leads' | 'payment' | 'master-records' | 'reports' | 'inventory' | 'network-providers';
 export type UserRole = 'Super Admin' | 'Sales' | 'Maintenance';
 

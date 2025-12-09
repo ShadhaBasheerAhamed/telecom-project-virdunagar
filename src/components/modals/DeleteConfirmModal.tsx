@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from 'lucide-react';
+import { useState } from 'react';
 
 interface DeleteConfirmModalProps {
   title: string;
@@ -11,13 +12,25 @@ interface DeleteConfirmModalProps {
 export function DeleteConfirmModal({ title, message, theme, onConfirm, onCancel }: DeleteConfirmModalProps) {
   const isDark = theme === 'dark';
 
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirm = async () => {
+    try {
+      setIsDeleting(true);
+      await onConfirm();
+    } catch (error) {
+      console.error("Delete failed", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className={`w-full max-w-md rounded-xl border ${
-        isDark
+      <div className={`w-full max-w-md rounded-xl border ${isDark
           ? 'bg-[#1e293b]/95 border-[#334155]'
           : 'bg-white/95 border-gray-200'
-      } backdrop-blur-xl shadow-2xl`}>
+        } backdrop-blur-xl shadow-2xl`}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-inherit">
           <h2 className={`text-xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -25,9 +38,9 @@ export function DeleteConfirmModal({ title, message, theme, onConfirm, onCancel 
           </h2>
           <button
             onClick={onCancel}
-            className={`p-2 rounded-lg transition-all ${
-              isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'
-            }`}
+            disabled={isDeleting}
+            className={`p-2 rounded-lg transition-all ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'
+              }`}
           >
             <X className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
           </button>
@@ -51,19 +64,20 @@ export function DeleteConfirmModal({ title, message, theme, onConfirm, onCancel 
         <div className="flex items-center justify-end gap-4 p-6 border-t border-inherit">
           <button
             onClick={onCancel}
-            className={`px-6 py-2 rounded-lg transition-all ${
-              isDark
+            disabled={isDeleting}
+            className={`px-6 py-2 rounded-lg transition-all ${isDark
                 ? 'bg-white/10 hover:bg-white/20 text-white'
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
-            }`}
+              }`}
           >
             Cancel
           </button>
           <button
-            onClick={onConfirm}
-            className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all"
+            onClick={handleConfirm}
+            disabled={isDeleting}
+            className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all flex items-center gap-2"
           >
-            Delete
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </button>
         </div>
       </div>

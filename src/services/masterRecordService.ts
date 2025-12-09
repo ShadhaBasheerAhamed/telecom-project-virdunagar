@@ -1,13 +1,13 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy 
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  query,
+  where,
+  orderBy
 } from '../firebase/config';
 import { db } from '../firebase/config';
 
@@ -23,11 +23,12 @@ const COLLECTION_MAPPING: { [key: string]: string } = {
   'employee': 'employees',
   'department': 'departments',
   'designation': 'designations',
-  'user': 'users'
+  'user': 'users',
+  'ott': 'otts'
 };
 
 export class MasterRecordService {
-  
+
   static async addRecord(type: string, record: any): Promise<void> {
     try {
       const collectionName = COLLECTION_MAPPING[type];
@@ -83,12 +84,12 @@ export class MasterRecordService {
 
       const q = query(collection(db, collectionName), orderBy('name', 'asc'));
       const querySnapshot = await getDocs(q);
-      
+
       const records: any[] = [];
       querySnapshot.forEach((doc) => {
         records.push({ id: doc.id, ...doc.data() });
       });
-      
+
       return records;
     } catch (error) {
       console.error(`Error fetching ${type} records:`, error);
@@ -103,12 +104,12 @@ export class MasterRecordService {
 
       const q = query(collection(db, collectionName), where('status', '==', status), orderBy('name', 'asc'));
       const querySnapshot = await getDocs(q);
-      
+
       const records: any[] = [];
       querySnapshot.forEach((doc) => {
         records.push({ id: doc.id, ...doc.data() });
       });
-      
+
       return records;
     } catch (error) {
       console.error(`Error fetching ${type} records by status:`, error);
