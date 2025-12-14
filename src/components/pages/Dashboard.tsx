@@ -5,7 +5,10 @@ import { StatisticsPanel, StatItem } from '../StatisticsPanel';
 import { motion } from 'framer-motion';
 import { DashboardDataService } from '../../services/dashboardDataService';
 import type { DataSource } from '../../types';
-import { SubHeader } from '../SubHeader'; 
+// Import Header, WalletCard and Icons
+import { DashboardHeader } from '../DashboardHeader'; 
+import { WalletCard } from '../WalletCard';
+import { Calendar } from 'lucide-react';
 
 import {
   ResponsiveContainer,
@@ -37,6 +40,9 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   
+  // 1. DATE STATE (Defaults to Today)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
   const [panelStats, setPanelStats] = useState<PanelStats>({
     customers: [], expiry: [], finance: [], complaints: []
   });
@@ -46,29 +52,21 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
   const [areaData, setAreaData] = useState<TimeSeriesData[]>([]);
   const [expiredChartData, setExpiredChartData] = useState<any[]>([]);
   const [invoiceData, setInvoiceData] = useState<PaymentChartData[]>([]);
-  
-  // Filter State
   const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'year'>('week');
   
   const isDark = theme === 'dark';
 
-  // 1. MAIN DATA FETCH (Live from Firebase)
+  // 2. MAIN DATA FETCH
   const fetchLiveDashboardData = async () => {
       setLoading(true);
       try {
-        // This service now fetches REAL data from Firestore
-        const data = await DashboardDataService.generateChartData();
-        
-        // A. Update Main Stats Cards
+        const data = await DashboardDataService.generateChartData(selectedDate);
         setStats(data.customerStats);
-
-        // B. Update 4 Statistics Panels (Fully Dynamic)
         setPanelStats({
             customers: [
                 { label: 'Total Customers', value: data.customerStats.total },
                 { label: 'Active Now', value: data.customerStats.active },
-                // Calculating new registrations from the registrations data array
-                { label: 'New (7 Days)', value: data.registrationsData.reduce((a: any, b: any) => a + b.value, 0) },
+                { label: 'New (Selected Day)', value: data.registrationsData[0]?.value || 0 },
                 { label: 'Expiring Soon', value: data.customerStats.expired, textColor: 'text-orange-500' },
             ],
             expiry: [
@@ -90,34 +88,14 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
                 { label: 'Efficiency', value: '98%' },
             ]
         });
-
-        // C. Update Charts
         setPieData(data.complaintsData);
-        
-        // Registrations Chart
-        const areaChart = data.registrationsData.map((item: any) => ({
-          name: `Day ${item.day}`, uv: item.value, pv: 0, amt: 0
-        }));
+        const areaChart = data.registrationsData.map((item: any) => ({ name: `Day ${item.day}`, uv: item.value, pv: 0, amt: 0 }));
         setAreaData(areaChart);
-        
-        // Expired Chart
-        const expiredChart = data.expiredData.map((item: any) => ({
-          name: `Day ${item.day}`, value: item.value
-        }));
+        const expiredChart = data.expiredData.map((item: any) => ({ name: `Day ${item.day}`, value: item.value }));
         setExpiredChartData(expiredChart);
-
-        // Payment Modes Chart (Today)
-        const invChart = [
-            { name: 'Today', online: data.financeData.onlineCollected, offline: data.financeData.offlineCollected, direct: 0 },
-        ];
-        setInvoiceData(invChart);
-        
-        // Renewals Trend
-        const renewalChart = data.renewalsData.map((item: any) => ({
-          name: `Day ${item.day}`, uv: item.value, pv: 0, amt: 0
-        }));
+        setInvoiceData(data.invoicePaymentsData);
+        const renewalChart = data.renewalsData.map((item: any) => ({ name: `Day ${item.day}`, uv: item.value, pv: 0, amt: 0 }));
         setRenewalData(renewalChart);
-
       } catch (error) {
         console.error("Dashboard Fetch Error:", error);
       } finally {
@@ -127,46 +105,12 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
 
   useEffect(() => {
     fetchLiveDashboardData();
-  }, [dataSource]);
+  }, [dataSource, selectedDate]);
 
-  // --- FILTERING LOGIC (Charts Only - Simulated as full history API not available) ---
-  useEffect(() => {
-    if (!stats) return;
-
-    let newData: TimeSeriesData[] = [];
-
-    // This logic simulates time filtering for the "Renewals Trend" chart
-    // In a production app, you would fetch new data from API here based on timeFilter
-    if (timeFilter === 'today') {
-      const base = Math.floor(stats.active / 24); 
-      newData = [
-        { name: '8am', uv: base + 2, pv: 0, amt: 0 },
-        { name: '12pm', uv: base + 5, pv: 0, amt: 0 },
-        { name: '4pm', uv: base + 3, pv: 0, amt: 0 },
-        { name: '8pm', uv: base + 1, pv: 0, amt: 0 },
-      ];
-    } else if (timeFilter === 'week') {
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const dailyAvg = Math.floor(stats.total / 30); 
-      newData = days.map(day => ({
-        name: day, uv: dailyAvg + Math.floor(Math.random() * 5), pv: 0, amt: 0
-      }));
-    } else if (timeFilter === 'month') {
-      newData = [
-        { name: 'Wk 1', uv: stats.active * 0.2, pv: 0, amt: 0 },
-        { name: 'Wk 2', uv: stats.active * 0.25, pv: 0, amt: 0 },
-        { name: 'Wk 3', uv: stats.active * 0.3, pv: 0, amt: 0 },
-        { name: 'Wk 4', uv: stats.active * 0.25, pv: 0, amt: 0 },
-      ];
-    } else if (timeFilter === 'year') {
-       const months = ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'];
-       newData = months.map(m => ({
-        name: m, uv: stats.total * (0.8 + Math.random() * 0.4), pv: 0, amt: 0
-       }));
-    }
-    
-    setRenewalData(newData);
-  }, [timeFilter, stats]);
+  // Header Handlers (Dummy for now as functionality moved or removed)
+  const handleMenuClick = () => {}; 
+  const handleSearch = (q: string) => console.log(q);
+  const handleThemeToggle = () => {}; 
 
   if (loading || !stats) {
     return (
@@ -178,6 +122,7 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
   
   const tickFill = isDark ? '#94a3b8' : '#64748b';
   const strokeColor = isDark ? '#334155' : '#e2e8f0';
+  const isComplaintsEmpty = !pieData || pieData.every(item => item.value === 0);
 
   return (
     <motion.div
@@ -186,19 +131,49 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
       transition={{ duration: 0.5 }}
       className="space-y-5 pb-10"
     >
-      <SubHeader theme={theme} />
+     
 
-      {/* 1. Summary Cards (LIVE DATA) */}
+      {/* 5. OVERVIEW + DATE + WALLET ROW */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-2 -mt-4 px-1">
+        
+        {/* LEFT: Overview & Standard Date Input */}
+        <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                <span className={`text-xs font-bold tracking-widest uppercase ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Overview
+                </span>
+            </div>
+
+            {/* DATE PICKER (Standard Clickable Input) */}
+            <div className={`flex items-center px-4 py-2 rounded-xl border transition-all ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
+                <Calendar className={`w-4 h-4 mr-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                <input
+                    type="date"
+                    value={selectedDate.toISOString().split('T')[0]}
+                    onChange={(e) => e.target.value && setSelectedDate(new Date(e.target.value))}
+                    className={`bg-transparent border-none text-sm font-bold outline-none cursor-pointer ${isDark ? 'text-slate-200' : 'text-slate-700'}`}
+                    style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                />
+            </div>
+        </div>
+
+        {/* RIGHT: Wallet Card */}
+        <div className="w-full md:w-auto min-w-[250px]">
+             <WalletCard theme={theme} />
+        </div>
+      </div>
+
+      {/* 6. STAT CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {/* Note: 'details' here are small badges, calculated from live data where possible */}
-        <StatCard title="TOTAL" value={stats.total} color="text-blue-400" theme={theme} details={[{ label: 'New', value: '+' + panelStats.customers[2].value }]} />
-        <StatCard title="ACTIVE" value={stats.active} color="text-cyan-400" theme={theme} details={[{ label: 'Rate', value: ((stats.active/stats.total)*100).toFixed(0)+'%' }]} />
+        <StatCard title="TOTAL CUSTOMERS" value={stats.total} color="text-blue-400" theme={theme} details={[{ label: 'New', value: '+' + panelStats.customers[2].value }]} />
+        <StatCard title="ACTIVE" value={stats.active} color="text-cyan-400" theme={theme} details={[{ label: 'Rate', value: stats.total > 0 ? ((stats.active/stats.total)*100).toFixed(0)+'%' : '0%' }]} />
         <StatCard title="EXPIRED" value={stats.expired} color="text-yellow-400" theme={theme} details={[{ label: 'Pending', value: stats.expired }]} />
         <StatCard title="SUSPENDED" value={stats.suspended} color="text-red-500" theme={theme} />
         <StatCard title="DISABLED" value={stats.disabled} color="text-slate-500" theme={theme} />
       </div>
 
-      {/* 2. Text Stats (LIVE DATA PANELS) */}
+      {/* 7. PANELS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         <StatisticsPanel title="Customers" theme={theme} items={panelStats.customers} />
         <StatisticsPanel title="Expiry Alerts" theme={theme} items={panelStats.expiry} />
@@ -206,10 +181,11 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
         <StatisticsPanel title="Complaints" theme={theme} items={panelStats.complaints} />
       </div>
 
-      {/* 3. Charts - Row 1 */}
+      {/* 8. CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
-            <ChartPanel title="Payment Modes (Today)" theme={theme}>
+            <ChartPanel title={`Payment Modes (${selectedDate.toLocaleDateString()})`} theme={theme}>
+            <style>{`.recharts-wrapper + button { display: none !important; }`}</style>
             <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={invoiceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={strokeColor} vertical={false} />
@@ -225,45 +201,32 @@ export function Dashboard({ dataSource, theme }: DashboardProps) {
         </div>
         
         <ChartPanel title="Complaints Distribution" theme={theme}>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-                stroke="none"
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', borderRadius: '8px', border: 'none' }} />
-              <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-            </PieChart>
-          </ResponsiveContainer>
+          {isComplaintsEmpty ? (
+             <div className="flex flex-col items-center justify-center h-[250px] text-gray-400">
+                <p className="text-sm">No complaints data available</p>
+                <p className="text-xs opacity-70">for selected date</p>
+             </div>
+          ) : (
+             <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
+                    {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                </Pie>
+                <Tooltip contentStyle={{ backgroundColor: isDark ? '#1e293b' : '#ffffff', borderRadius: '8px', border: 'none' }} />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                </PieChart>
+             </ResponsiveContainer>
+          )}
         </ChartPanel>
       </div>
 
-      {/* 4. Charts - Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <ChartPanel title="Renewals Trend" theme={theme}>
            <div className="flex justify-end gap-1 mb-2">
              {['today', 'week', 'month', 'year'].map((f) => (
-               <button
-                 key={f}
-                 onClick={() => setTimeFilter(f as any)}
-                 className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded transition-all ${
-                    timeFilter === f 
-                    ? 'bg-blue-500 text-white' 
-                    : 'text-gray-500 bg-slate-800/50 hover:bg-slate-700'
-                 }`}
-               >
-                 {f}
-               </button>
+               <button key={f} onClick={() => setTimeFilter(f as any)} className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded transition-all ${timeFilter === f ? 'bg-blue-500 text-white' : 'text-gray-500 bg-slate-800/50 hover:bg-slate-700'}`}>{f}</button>
              ))}
            </div>
           <ResponsiveContainer width="100%" height={200}>
