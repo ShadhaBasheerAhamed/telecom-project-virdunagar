@@ -133,7 +133,6 @@ function App() {
               theme={theme}
               userRole={userRole}
               dataSource={dataSource}
-              availableProviders={availableProviders}
               onThemeToggle={handleThemeToggle}
               onDataSourceChange={handleDataSourceChange}
               onMenuClick={() => setSidebarOpen(true)}

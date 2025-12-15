@@ -1,8 +1,8 @@
-import { Sun, Moon, User, Search, Bell, Menu, Settings, LogOut } from 'lucide-react';
+import { Sun, Moon, User, Search, Bell, Menu, Settings, LogOut, Database, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { toast } from 'sonner';
-// ✅ FIXED IMPORT PATH: Adjusted to go up two levels to src/App.tsx
+import { useNetworkProviders } from '../hooks/useNetworkProviders'; // ✅ Import the hook
 import type { DataSource, UserRole } from '../types';
 import {
   DropdownMenu,
@@ -23,7 +23,6 @@ interface HeaderProps {
   onMenuClick?: () => void;
   userRole: UserRole;
   onLogout: () => void;
-  availableProviders?: { name: string }[]; // Optional prop for now to avoid break if not passed
 }
 
 export function Header({
@@ -34,23 +33,23 @@ export function Header({
   onMenuClick,
   userRole,
   onLogout,
-  availableProviders = []
 }: HeaderProps) {
   const isDark = theme === 'dark';
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // ✅ Fetch Providers Directly (No need to pass from parent)
+  const { activeProviders } = useNetworkProviders();
+
   const notifications = [
     { id: 1, message: 'New customer registered', time: '5 min ago' },
     { id: 2, message: 'Payment received: INR 1,500', time: '10 min ago' },
-    { id: 3, message: 'Complaint resolved #CR-1234', time: '1 hour ago' },
   ];
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
       toast.success(`Searching for: ${searchQuery}`);
-      console.log('Searching for:', searchQuery);
     }
     setSearchOpen(false);
     setSearchQuery('');
@@ -62,56 +61,84 @@ export function Header({
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3 }}
-        className={`sticky top-0 z-40 h-16 border-b ${isDark
-            ? 'bg-[#1e293b]/80 border-[#334155]'
-            : 'bg-white/80 border-gray-200'
-          } backdrop-blur-xl`}>
+        className={`sticky top-0 z-40 h-16 border-b ${
+          isDark ? 'bg-[#1e293b]/80 border-[#334155]' : 'bg-white/80 border-gray-200'
+        } backdrop-blur-xl`}
+      >
         <div className="h-full flex items-center justify-between gap-4 px-6">
-          {/* Left side - Menu button (mobile) + Data Source */}
+          {/* Left side - Menu & Data Source */}
           <div className="flex items-center gap-4">
             {onMenuClick && (
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={onMenuClick}
-                className={`md:hidden p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
+                className={`md:hidden p-2 rounded-lg transition-colors ${
+                  isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
               >
                 <Menu className="w-5 h-5" />
               </motion.button>
             )}
 
-            {/* Data Source Dropdown */}
-            <div className="flex items-center gap-2">
-              <label className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Data:
-              </label>
-              <motion.select
-                whileHover={{ scale: 1.02 }}
-                value={dataSource}
-                onChange={(e) => onDataSourceChange(e.target.value as DataSource)}
-                className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${isDark
-                    ? 'bg-[#0F172A] border-[#334155] text-white hover:border-cyan-500/50'
-                    : 'bg-white border-gray-300 text-gray-900 hover:border-cyan-500/50'
-                  } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-              >
-                <option value="All">All Sources</option>
-                {availableProviders.map((provider, index) => (
-                  <option key={index} value={provider.name}>{provider.name}</option>
+            {/* ✅ NEAT DATA SOURCE DROPDOWN */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
+                    isDark 
+                      ? 'bg-[#0F172A] border-[#334155] text-white hover:border-blue-500/50' 
+                      : 'bg-white border-gray-300 text-gray-900 hover:border-blue-500/50'
+                  }`}
+                >
+                  <Database className={`w-4 h-4 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <span className="text-sm font-medium">
+                    {dataSource === 'All' ? 'All Sources' : dataSource}
+                  </span>
+                  <ChevronDown className="w-3 h-3 opacity-50" />
+                </motion.button>
+              </DropdownMenuTrigger>
+              
+              <DropdownMenuContent align="start" className={`w-48 ${isDark ? 'bg-[#1e293b] border-[#334155] text-gray-200' : 'bg-white'}`}>
+                <DropdownMenuLabel className="text-xs uppercase tracking-wider opacity-70">Select Data Source</DropdownMenuLabel>
+                <DropdownMenuSeparator className={isDark ? 'bg-[#334155]' : ''} />
+                
+                {/* Option: All Sources */}
+                <DropdownMenuItem 
+                  onClick={() => onDataSourceChange('All')}
+                  className={`cursor-pointer gap-2 ${dataSource === 'All' ? (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600') : ''}`}
+                >
+                  {dataSource === 'All' && <Check className="w-3 h-3" />}
+                  <span className={dataSource !== 'All' ? 'pl-5' : ''}>All Sources</span>
+                </DropdownMenuItem>
+
+                {/* Dynamic Options from Firebase */}
+                {activeProviders.map((provider) => (
+                  <DropdownMenuItem 
+                    key={provider.id} 
+                    onClick={() => onDataSourceChange(provider.name)}
+                    className={`cursor-pointer gap-2 ${dataSource === provider.name ? (isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-600') : ''}`}
+                  >
+                    {dataSource === provider.name && <Check className="w-3 h-3" />}
+                    <span className={dataSource !== provider.name ? 'pl-5' : ''}>{provider.name}</span>
+                  </DropdownMenuItem>
                 ))}
-              </motion.select>
-            </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          {/* Right side - Actions and Profile */}
+          {/* Right side - Actions */}
           <div className="flex items-center gap-3">
             {/* Search */}
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setSearchOpen(true)}
-              className={`p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
+              className={`p-2 rounded-lg transition-colors ${
+                isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
             >
               <Search className="w-5 h-5" />
             </motion.button>
@@ -122,52 +149,13 @@ export function Header({
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`relative p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
+                className={`relative p-2 rounded-lg transition-colors ${
+                  isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
               >
                 <Bell className="w-5 h-5" />
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center"
-                >
-                  {notifications.length}
-                </motion.span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
               </motion.button>
-
-              <AnimatePresence>
-                {showNotifications && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className={`absolute right-0 mt-2 w-80 border rounded-lg shadow-xl overflow-hidden z-50 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'
-                      }`}
-                  >
-                    <div className={`p-4 border-b ${isDark ? 'border-[#334155]' : 'border-gray-200'}`}>
-                      <h3 className={`${isDark ? 'text-white' : 'text-gray-900'} font-medium`}>Notifications</h3>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.map((notif) => (
-                        <motion.div
-                          key={notif.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          whileHover={{ x: 5 }}
-                          className={`p-4 border-b transition-all cursor-pointer ${isDark
-                              ? 'border-[#334155] hover:bg-white/5'
-                              : 'border-gray-200 hover:bg-gray-50'
-                            }`}
-                        >
-                          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{notif.message}</p>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{notif.time}</p>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
 
             {/* Theme Toggle */}
@@ -175,67 +163,44 @@ export function Header({
               whileHover={{ scale: 1.1, rotate: 180 }}
               whileTap={{ scale: 0.9 }}
               onClick={onThemeToggle}
-              className={`p-2 rounded-lg transition-all ${isDark
-                  ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
-                  : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
-                }`}
-              aria-label="Toggle theme"
+              className={`p-2 rounded-lg transition-all ${
+                isDark ? 'bg-yellow-500/20 text-yellow-400' : 'bg-indigo-100 text-indigo-600'
+              }`}
             >
-              <motion.div
-                initial={false}
-                animate={{ rotate: isDark ? 0 : 180 }}
-                transition={{ duration: 0.3 }}
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </motion.div>
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </motion.button>
 
             {/* User Profile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${isDark ? 'bg-[#0F172A] hover:bg-[#0F172A]/80' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                >
-                  <motion.div
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-100 text-cyan-600'
-                      }`}
-                  >
-                    <User className="w-5 h-5" />
-                  </motion.div>
-                  {/* ✅ Dynamic User Role Display */}
-                  <div className="hidden md:flex flex-col items-start">
-                    <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                      {userRole || 'Guest'}
-                    </span>
-                    <span className={`text-[10px] uppercase tracking-wider ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                      Authorized
-                    </span>
+                <motion.button whileHover={{ scale: 1.05 }} className="flex items-center gap-3 pl-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isDark ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    <User className="w-4 h-4" />
                   </div>
-                </motion.div>
+                  <div className="hidden md:block text-left">
+                    <p className={`text-sm font-bold leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      {userRole}
+                    </p>
+                    <p className={`text-[10px] uppercase font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                      Authorized
+                    </p>
+                  </div>
+                </motion.button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className={`w-56 ${isDark ? 'bg-[#1e293b] border-[#334155] text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+              <DropdownMenuContent className={`w-56 ${isDark ? 'bg-[#1e293b] border-[#334155] text-gray-200' : 'bg-white'}`} align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator className={isDark ? 'bg-[#334155]' : 'bg-gray-200'} />
-                <DropdownMenuItem className={`hover:${isDark ? 'bg-[#334155]' : 'bg-gray-100'} cursor-pointer`}>
-                  <User className="w-4 h-4 mr-2" />
-                  Profile
+                <DropdownMenuSeparator className={isDark ? 'bg-[#334155]' : ''} />
+                <DropdownMenuItem className="cursor-pointer">
+                  <User className="w-4 h-4 mr-2" /> Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem className={`hover:${isDark ? 'bg-[#334155]' : 'bg-gray-100'} cursor-pointer`}>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
+                <DropdownMenuItem className="cursor-pointer">
+                  <Settings className="w-4 h-4 mr-2" /> Settings
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className={isDark ? 'bg-[#334155]' : 'bg-gray-200'} />
-                {/* ✅ Logout Connected */}
-                <DropdownMenuItem
-                  onClick={onLogout}
-                  className="hover:bg-red-500/10 text-red-400 cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
+                <DropdownMenuSeparator className={isDark ? 'bg-[#334155]' : ''} />
+                <DropdownMenuItem onClick={onLogout} className="text-red-500 cursor-pointer focus:text-red-500">
+                  <LogOut className="w-4 h-4 mr-2" /> Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -245,32 +210,38 @@ export function Header({
 
       {/* Search Dialog */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className={`${isDark ? 'bg-[#1e293b] border-[#334155] text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}>
+        <DialogContent className={`${isDark ? 'bg-[#1e293b] border-[#334155] text-gray-200' : 'bg-white'}`}>
           <DialogHeader>
-            <DialogTitle>Search Dashboard</DialogTitle>
-            <DialogDescription className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-              Search for customers, invoices, reports, and more
-            </DialogDescription>
+            <DialogTitle>Search</DialogTitle>
+            <DialogDescription>Search for customers, payments, or leads.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Input
-              placeholder="Search customers, invoices, reports..."
+            <Input 
+              placeholder="Type to search..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className={`${isDark ? 'bg-[#0F172A] border-[#334155] text-gray-300' : 'bg-white border-gray-300 text-gray-900'}`}
+              className={isDark ? 'bg-[#0F172A] border-[#334155]' : ''}
             />
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleSearch}
-              className="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Search
-            </motion.button>
+            <button onClick={handleSearch} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
+              Search Results
+            </button>
           </div>
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Helper icon component
+function ChevronDown({ className }: { className?: string }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" height="24" viewBox="0 0 24 24" 
+      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+      className={className}
+    >
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
   );
 }

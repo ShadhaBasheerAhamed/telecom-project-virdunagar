@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { NetworkProviderService } from '@/services/networkProviderService';
-import type { NetworkProvider } from '@/types';
+import { NetworkProviderService } from '../services/networkProviderService';
+import type { NetworkProvider } from '../types';
 import { toast } from 'sonner';
 
 export const useNetworkProviders = () => {

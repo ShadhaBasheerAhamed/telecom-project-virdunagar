@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Real Complaints to Firebase</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .complaint {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Real Complaints Data Setup</h1>
+        <p>This page will add the 2 real complaints to Firebase and clear any existing data.</p>
+        
+        <div id="status"></div>
+        
+        <button onclick="initializeAndAddData()">🚀 Initialize & Add Real Complaints</button>
+        <button onclick="clearAllComplaints()">🗑️ Clear All Complaints</button>
+        <button onclick="showCurrentData()">📊 Show Current Data</button>
+        
+        <div id="output"></div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCP6cvVrFmYgekRbm5titNYPJpP4iWH3EE",
+            authDomain: "telecomproject-virudhunagar.firebaseapp.com",
+            projectId: "telecomproject-virudhunagar",
+            storageBucket: "telecomproject-virudhunagar.firebasestorage.app",
+            messagingSenderId: "1080285921059",
+            appId: "1:1080285921059:web:f09f84e52371158e3c1696"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Real complaints data
+        const realComplaints = [
+            {
+                customerName: "RAJAPPA NADAR",
+                landlineNo: "04562-206767",
+                address: "",
+                plan: "30MBPS 399 FIBER EXPERIENCE BSNL",
+                complaints: "los",
+                employee: "saarra safeka",
+                bookingDate: "2025-12-10",
+                resolveDate: "2025-12-15",
+                status: "Resolved",
+                source: "BSNL",
+                createdAt: new Date('2025-12-10T10:00:00Z').toISOString()
+            },
+            {
+                customerName: "M PANDIAN",
+                landlineNo: "04562-266001",
+                address: "NO4,MANINAGARAM STREET,VIRUDHUNAGAR,,626001",
+                plan: "",
+                complaints: "LOS",
+                employee: "R.ULAGANATHAN",
+                bookingDate: "2025-10-27",
+                resolveDate: "",
+                status: "Not Resolved",
+                source: "BSNL",
+                createdAt: new Date('2025-10-27T14:30:00Z').toISOString()
+            }
+        ];
+
+        function log(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const outputDiv = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.innerHTML = `[${timestamp}] ${message}`;
+            
+            outputDiv.appendChild(messageDiv);
+            statusDiv.innerHTML = `<span class="${type}">${message}</span>`;
+            
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        async function clearAllComplaints() {
+            try {
+                log('🗑️ Starting to clear all complaints...', 'info');
+                
+                const snapshot = await db.collection('complaints').get();
+                
+                if (snapshot.empty) {
+                    log('✅ Complaints collection is already empty', 'success');
+                    return;
+                }
+
+                const batch = db.batch();
+                let deleteCount = 0;
+
+                snapshot.forEach((doc) => {
+                    batch.delete(doc.ref);
+                    deleteCount++;
+                });
+
+                await batch.commit();
+                log(`✅ Successfully deleted ${deleteCount} existing complaints`, 'success');
+                
+            } catch (error) {
+                log(`❌ Error clearing complaints: ${error.message}`, 'error');
+            }
+        }
+
+        async function addRealComplaints() {
+            try {
+                log('🚀 Adding real complaints to Firebase...', 'info');
+                
+                let successCount = 0;
+                let errorCount = 0;
+
+                for (const complaint of realComplaints) {
+                    try {
+                        const docRef = await db.collection('complaints').add(complaint);
+                        log(`✅ Added complaint: ${complaint.customerName} (${complaint.status}) - ID: ${docRef.id}`, 'success');
+                        successCount++;
+                    } catch (error) {
+                        log(`❌ Error adding complaint ${complaint.customerName}: ${error.message}`, 'error');
+                        errorCount++;
+                    }
+                }
+
+                log(`📊 Summary: ${successCount} added, ${errorCount} errors`, 'info');
+                
+                // Show status distribution
+                const statusDistribution = realComplaints.reduce((acc, complaint) => {
+                    acc[complaint.status] = (acc[complaint.status] || 0) + 1;
+                    return acc;
+                }, {});
+
+                log('📊 Status Distribution:', 'info');
+                Object.entries(statusDistribution).forEach(([status, count]) => {
+                    log(`   ${status}: ${count} complaints`, 'info');
+                });
+
+                return successCount > 0;
+                
+            } catch (error) {
+                log(`❌ Fatal error adding real complaints: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function showCurrentData() {
+            try {
+                log('📊 Fetching current complaints data...', 'info');
+                
+                const snapshot = await db.collection('complaints').get();
+                const complaints = [];
+                
+                snapshot.forEach((doc) => {
+                    complaints.push({ id: doc.id, ...doc.data() });
+                });
+                
+                log(`📊 Total complaints in Firebase: ${complaints.length}`, 'info');
+                
+                complaints.forEach((complaint) => {
+                    const complaintDiv = document.createElement('div');
+                    complaintDiv.className = 'complaint';
+                    complaintDiv.innerHTML = `
+                        <strong>${complaint.customerName}</strong> (${complaint.status})<br>
+                        Phone: ${complaint.landlineNo}<br>
+                        Date: ${complaint.bookingDate}<br>
+                        Employee: ${complaint.employee}
+                    `;
+                    outputDiv.appendChild(complaintDiv);
+                });
+                
+                return complaints.length;
+            } catch (error) {
+                log(`❌ Error fetching data: ${error.message}`, 'error');
+                return 0;
+            }
+        }
+
+        async function initializeAndAddData() {
+            try {
+                log('🎯 Starting real complaints data implementation...', 'info');
+                
+                // Step 1: Clear existing data
+                await clearAllComplaints();
+                
+                // Step 2: Add real complaints
+                const success = await addRealComplaints();
+                
+                if (success) {
+                    // Step 3: Verify the data
+                    const count = await showCurrentData();
+                    
+                    if (count === realComplaints.length) {
+                        log('🎉 Real complaints data implemented successfully!', 'success');
+                        log('📱 The complaints management system now uses 100% Firebase data.', 'success');
+                        log('🔄 Dashboard will automatically sync with real-time data updates.', 'success');
+                    } else {
+                        log('⚠️ Data added but verification failed. Please check manually.', 'error');
+                    }
+                } else {
+                    log('❌ Failed to add real complaints data.', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Fatal error: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize on page load
+        log('🔥 Real Complaints Data Setup Ready!', 'success');
+        log('Click "Initialize & Add Real Complaints" to start.', 'info');
+    </script>
+</body>
+</html>

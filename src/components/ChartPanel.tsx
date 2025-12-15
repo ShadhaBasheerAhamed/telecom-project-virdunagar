@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Expand, Download, Filter } from 'lucide-react';
-import { toast } from 'sonner';
+import { Expand, Filter } from 'lucide-react'; // Removed Download icon
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 
 interface ChartPanelProps {
@@ -9,19 +8,22 @@ interface ChartPanelProps {
   children: React.ReactNode;
   className?: string;
   theme: 'light' | 'dark';
-  exportOptions?: { label: string; onClick: () => Promise<void> }[];
+  // New props for filtering
+  timeRange?: string;
+  onTimeRangeChange?: (range: string) => void;
 }
 
-export function ChartPanel({ title, children, className = '', theme, exportOptions }: ChartPanelProps) {
+export function ChartPanel({ 
+  title, 
+  children, 
+  className = '', 
+  theme, 
+  timeRange = 'week',
+  onTimeRangeChange 
+}: ChartPanelProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const isDark = theme === 'dark';
-
-  const handleDownload = () => {
-    toast.success(`Downloading ${title} chart...`);
-    // Simulate download
-    setTimeout(() => toast.success("Download complete"), 1000);
-  };
 
   return (
     <>
@@ -47,13 +49,25 @@ export function ChartPanel({ title, children, className = '', theme, exportOptio
           </h3>
           
           <div className="flex items-center gap-1">
-            <ActionButton icon={Filter} onClick={() => setShowFilters(!showFilters)} isDark={isDark} colorClass="cyan" />
-            <ActionButton icon={Download} onClick={handleDownload} isDark={isDark} colorClass="green" />
-            <ActionButton icon={Expand} onClick={() => setIsFullscreen(true)} isDark={isDark} colorClass="blue" />
+            {/* Filter Toggle */}
+            <ActionButton 
+              icon={Filter} 
+              onClick={() => setShowFilters(!showFilters)} 
+              isDark={isDark} 
+              colorClass="cyan" 
+              active={showFilters}
+            />
+            {/* Expand Button */}
+            <ActionButton 
+              icon={Expand} 
+              onClick={() => setIsFullscreen(true)} 
+              isDark={isDark} 
+              colorClass="blue" 
+            />
           </div>
         </div>
         
-        {/* Filter Section */}
+        {/* Filter Section (Toggleable) */}
         {showFilters && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -65,15 +79,19 @@ export function ChartPanel({ title, children, className = '', theme, exportOptio
           >
             <div className="flex items-center gap-3">
               <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Time Range:</span>
-              <select className={`px-2 py-1.5 text-xs rounded-md border outline-none cursor-pointer ${
-                isDark 
-                  ? 'bg-slate-800 border-slate-600 text-slate-200 focus:border-blue-500' 
-                  : 'bg-white border-gray-200 text-gray-700 focus:border-blue-500'
-              }`}>
-                <option>Today</option>
-                <option>This Week</option>
-                <option>This Month</option>
-                <option>This Year</option>
+              <select 
+                value={timeRange}
+                onChange={(e) => onTimeRangeChange?.(e.target.value)}
+                className={`px-2 py-1.5 text-xs rounded-md border outline-none cursor-pointer ${
+                  isDark 
+                    ? 'bg-slate-800 border-slate-600 text-slate-200 focus:border-blue-500' 
+                    : 'bg-white border-gray-200 text-gray-700 focus:border-blue-500'
+                }`}
+              >
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
               </select>
             </div>
           </motion.div>
@@ -87,7 +105,7 @@ export function ChartPanel({ title, children, className = '', theme, exportOptio
 
       {/* Fullscreen Dialog */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className={`max-w-[90vw] w-full h-[85vh] flex flex-col z-9999 ${
+        <DialogContent className={`max-w-[90vw] w-full h-[85vh] flex flex-col z-[9999] ${
           isDark 
             ? 'bg-slate-800 border-slate-700 text-slate-100' 
             : 'bg-white border-gray-200 text-gray-900'
@@ -97,7 +115,7 @@ export function ChartPanel({ title, children, className = '', theme, exportOptio
               {title}
             </DialogTitle>
             <DialogDescription className={isDark ? 'text-slate-400' : 'text-gray-500'}>
-              Expanded view of the {title.toLowerCase()} data
+              Expanded view
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 h-full w-full p-4 min-h-0">
@@ -110,10 +128,9 @@ export function ChartPanel({ title, children, className = '', theme, exportOptio
 }
 
 // Helper component for header buttons
-function ActionButton({ icon: Icon, onClick, isDark, colorClass }: any) {
+function ActionButton({ icon: Icon, onClick, isDark, colorClass, active }: any) {
   const colors: Record<string, string> = {
     blue: isDark ? 'hover:text-blue-400 hover:bg-blue-500/10' : 'hover:text-blue-600 hover:bg-blue-50',
-    green: isDark ? 'hover:text-green-400 hover:bg-green-500/10' : 'hover:text-green-600 hover:bg-green-50',
     cyan: isDark ? 'hover:text-cyan-400 hover:bg-cyan-500/10' : 'hover:text-cyan-600 hover:bg-cyan-50',
   };
 
@@ -124,7 +141,7 @@ function ActionButton({ icon: Icon, onClick, isDark, colorClass }: any) {
       onClick={onClick}
       className={`p-1.5 rounded-md transition-colors ${
         isDark ? 'text-slate-400' : 'text-gray-400'
-      } ${colors[colorClass]}`}
+      } ${colors[colorClass]} ${active ? 'bg-white/10 text-white' : ''}`}
     >
       <Icon className="w-4 h-4" />
     </motion.button>

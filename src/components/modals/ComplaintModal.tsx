@@ -23,7 +23,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
     employee: '',
     bookingDate: new Date().toISOString().split('T')[0],
     resolveDate: '',
-    status: 'Not Resolved' as 'Resolved' | 'Not Resolved',
+    status: 'Open' as 'Open' | 'Resolved' | 'Pending' | 'Not Resolved',
     source: 'BSNL',
   });
 
@@ -219,11 +219,13 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
               <select
                 required
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Resolved' | 'Not Resolved' })}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'Open' | 'Resolved' | 'Pending' | 'Not Resolved' })}
                 className={inputClasses}
               >
-                <option value="Not Resolved">Not Resolved</option>
+                <option value="Open">Open</option>
+                <option value="Pending">Pending</option>
                 <option value="Resolved">Resolved</option>
+                <option value="Not Resolved">Not Resolved</option>
               </select>
             </div>
 

@@ -151,7 +151,9 @@ export function ViewComplaintModal({ complaint, theme, onClose }: ViewComplaintM
                     Status
                   </h3>
                   <span className={`px-3 py-1 rounded-full text-sm ${
-                    complaint.status === 'Resolved'
+                    complaint.status === 'Open'
+                      ? 'bg-yellow-500/20 text-yellow-400'
+                      : complaint.status === 'Resolved'
                       ? 'bg-green-500/20 text-green-400'
                       : 'bg-red-500/20 text-red-400'
                   }`}>

@@ -5,6 +5,8 @@ import { ComplaintModal } from '../modals/ComplaintModal';
 import { ViewComplaintModal } from '../modals/ViewComplaintModal';
 import { DeleteConfirmModal } from '../modals/DeleteConfirmModal';
 import { toast } from 'sonner';
+import { ComplaintsService } from '../../services/complaintsService';
+import { collection, onSnapshot, query, orderBy, db } from '../../firebase/config';
 
 interface ComplaintsProps {
   dataSource: DataSource;
@@ -15,38 +17,21 @@ export interface Complaint {
   id: string;
   customerName: string;
   landlineNo: string;
-  address: string;
+  address?: string;
+  plan?: string;
   complaints: string;
   employee: string;
   bookingDate: string;
   resolveDate: string;
-  status: 'Resolved' | 'Not Resolved';
+  status: 'Open' | 'Resolved' | 'Pending' | 'Not Resolved';
   source: string;
+  createdAt?: string;
 }
-
-// Key for persisting data
-const COMPLAINT_STORAGE_KEY = 'complaints-data';
-
-// Keep mock data for fallback
-const mockComplaints: Complaint[] = [
-  { 
-    id: '645', 
-    customerName: 'M PANDIAN', 
-    landlineNo: '04562-266001', 
-    address: 'NO4,MANINAGARAM STREET,VIRUDHUNAGAR,,626001', 
-    complaints: 'LOS', 
-    employee: 'R.ULAGANATHAN', 
-    bookingDate: '2025-10-27', 
-    resolveDate: '2025-10-27', 
-    status: 'Not Resolved', 
-    source: 'BSNL' 
-  },
-  // ... (other mocks kept for initialization)
-];
 
 export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const isDark = theme === 'dark';
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchField, setSearchField] = useState('All');
@@ -58,22 +43,39 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   // File Input Ref for Upload
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load Data
+  // Load Data from Firebase with real-time updates
   useEffect(() => {
-    const stored = localStorage.getItem(COMPLAINT_STORAGE_KEY);
-    if (stored) {
-        setComplaints(JSON.parse(stored));
-    } else {
-        setComplaints(mockComplaints);
-        localStorage.setItem(COMPLAINT_STORAGE_KEY, JSON.stringify(mockComplaints));
-    }
-  }, []);
+    setLoading(true);
+    
+    // Set up real-time listener for complaints collection
+    const complaintsQuery = query(
+      collection(db, 'complaints'), 
+      orderBy('createdAt', 'desc')
+    );
 
-  // Save Data Helper
-  const updateComplaints = (newData: Complaint[]) => {
-      setComplaints(newData);
-      localStorage.setItem(COMPLAINT_STORAGE_KEY, JSON.stringify(newData));
-  };
+    const unsubscribe = onSnapshot(complaintsQuery, 
+      (snapshot) => {
+        const complaintsData: Complaint[] = [];
+        snapshot.forEach((doc) => {
+          complaintsData.push({ id: doc.id, ...doc.data() } as Complaint);
+        });
+        setComplaints(complaintsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to complaints:', error);
+        setLoading(false);
+        toast.error('Failed to sync with Firebase');
+      }
+    );
+
+    return () => {
+      // Cleanup listener when component unmounts
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   const filteredComplaints = complaints.filter(complaint => {
     const searchLower = searchTerm.toLowerCase();
@@ -98,66 +100,88 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     return matchesSearch && matchesStatus && matchesSource;
   });
 
-  const handleAddComplaint = (complaint: Omit<Complaint, 'id'>) => {
-    const newComplaint = {
-      ...complaint,
-      id: String(Date.now()).slice(-6), // Generate simple unique ID
-    };
-    updateComplaints([newComplaint, ...complaints]);
-    setModalMode(null);
-    toast.success("Complaint added successfully");
-  };
-
-  const handleEditComplaint = (complaint: Complaint) => {
-    const updated = complaints.map(c => c.id === complaint.id ? complaint : c);
-    updateComplaints(updated);
-    setModalMode(null);
-    setSelectedComplaint(null);
-    toast.success("Complaint updated");
-  };
-
-  const handleDeleteComplaint = () => {
-    if (selectedComplaint) {
-      const updated = complaints.filter(c => c.id !== selectedComplaint.id);
-      updateComplaints(updated);
-      setDeleteModalOpen(false);
-      setSelectedComplaint(null);
-      toast.success("Complaint deleted");
+  const handleAddComplaint = async (complaint: Omit<Complaint, 'id'>) => {
+    try {
+      await ComplaintsService.addComplaint(complaint);
+      setModalMode(null);
+      toast.success("Complaint added successfully");
+    } catch (error) {
+      console.error('Error adding complaint:', error);
+      toast.error('Failed to add complaint');
     }
   };
 
-  // --- DYNAMIC STATUS CHANGE ---
-  const handleStatusChange = (id: string, newStatus: 'Resolved' | 'Not Resolved') => {
-      const updated = complaints.map(c => c.id === id ? { ...c, status: newStatus } : c);
-      updateComplaints(updated);
-
-      toast.success("Complaint status updated successfully");
+  const handleEditComplaint = async (complaint: Complaint) => {
+    try {
+      await ComplaintsService.updateComplaint(complaint.id, complaint);
+      setModalMode(null);
+      setSelectedComplaint(null);
+      toast.success("Complaint updated successfully");
+    } catch (error) {
+      console.error('Error updating complaint:', error);
+      toast.error('Failed to update complaint');
+    }
   };
 
-  // --- BULK UPLOAD HANDLER ---
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDeleteComplaint = async () => {
+    if (selectedComplaint) {
+      try {
+        await ComplaintsService.deleteComplaint(selectedComplaint.id);
+        setDeleteModalOpen(false);
+        setSelectedComplaint(null);
+        toast.success("Complaint deleted successfully");
+      } catch (error) {
+        console.error('Error deleting complaint:', error);
+        toast.error('Failed to delete complaint');
+      }
+    }
+  };
+
+  // Dynamic Status Change with Firebase sync - cycle through Open -> Pending -> Resolved
+  const handleStatusChange = async (id: string, currentStatus: 'Open' | 'Resolved' | 'Pending' | 'Not Resolved') => {
+    let newStatus: 'Open' | 'Resolved' | 'Pending';
+    
+    // Handle legacy 'Not Resolved' status by treating it as 'Open' in the cycle
+    if (currentStatus === 'Not Resolved' || currentStatus === 'Open') {
+      newStatus = 'Pending';
+    } else if (currentStatus === 'Pending') {
+      newStatus = 'Resolved';
+    } else {
+      newStatus = 'Open';
+    }
+    
+    try {
+      await ComplaintsService.updateComplaint(id, { status: newStatus });
+      toast.success(`Complaint status updated: ${currentStatus} → ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update complaint status');
+    }
+  };
+
+  // Bulk Upload Handler - Now saves to Firebase
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const text = e.target?.result as string;
       // Simple CSV parser (Assumes Header: Name,Landline,Address,Complaint,Source)
       const lines = text.split('\n');
-      const newComplaints: Complaint[] = [];
+      const newComplaints: Omit<Complaint, 'id'>[] = [];
       
       // Skip header row (i=1)
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         if (cols.length >= 4) {
             newComplaints.push({
-                id: String(Date.now() + i),
                 customerName: cols[0]?.trim() || 'Unknown',
                 landlineNo: cols[1]?.trim() || '',
                 address: cols[2]?.trim() || '',
                 complaints: cols[3]?.trim() || 'Bulk Uploaded',
                 source: cols[4]?.trim() || 'BSNL',
-                status: 'Not Resolved',
+                status: 'Open',
                 employee: 'Unassigned',
                 bookingDate: new Date().toISOString().split('T')[0],
                 resolveDate: ''
@@ -166,8 +190,16 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
       }
 
       if (newComplaints.length > 0) {
-          updateComplaints([...newComplaints, ...complaints]);
-          toast.success(`Uploaded ${newComplaints.length} complaints successfully!`);
+          try {
+            // Add each complaint to Firebase
+            for (const complaint of newComplaints) {
+              await ComplaintsService.addComplaint(complaint);
+            }
+            toast.success(`Uploaded ${newComplaints.length} complaints successfully!`);
+          } catch (error) {
+            console.error('Error uploading complaints:', error);
+            toast.error('Failed to upload some complaints');
+          }
       } else {
           toast.error("No valid data found in CSV");
       }
@@ -176,11 +208,33 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     event.target.value = '';
   };
 
+  if (loading) {
+    return (
+      <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-lg">Loading complaints from Firebase...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
       <div className="mb-6">
-        <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Complaints Management</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Complaints Management</h1>
+          <div className="flex items-center gap-2">
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              isDark ? 'bg-green-900/20 text-green-400' : 'bg-green-100 text-green-800'
+            }`}>
+              🔥 Firebase Live Data
+            </div>
+          </div>
+        </div>
         
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           
@@ -216,7 +270,9 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               className={`px-4 py-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium min-w-[140px] ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
             >
               <option value="All">All Status</option>
+              <option value="Open">Open</option>
               <option value="Resolved">Resolved</option>
+              <option value="Pending">Pending</option>
               <option value="Not Resolved">Not Resolved</option>
             </select>
 
@@ -269,7 +325,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                   <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.id}</td>
                   <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.customerName}</td>
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.landlineNo}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.address}</td>
+                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.address || '-'}</td>
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.complaints}</td>
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.employee}</td>
                   <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.bookingDate}</td>
@@ -278,9 +334,11 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                   {/* Dynamic Status Toggle */}
                   <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
                     <button
-                      onClick={() => handleStatusChange(complaint.id, complaint.status === 'Resolved' ? 'Not Resolved' : 'Resolved')}
+                      onClick={() => handleStatusChange(complaint.id, complaint.status)}
                       className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
-                        complaint.status === 'Resolved'
+                        complaint.status === 'Open'
+                        ? 'bg-yellow-500 text-white border-yellow-600 shadow-md shadow-yellow-500/20'
+                        : complaint.status === 'Resolved'
                         ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20'
                         : 'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
                       }`}
@@ -309,7 +367,10 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
         </div>
         <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
             <div className="text-sm">
-                Showing {filteredComplaints.length} results
+                Showing {filteredComplaints.length} of {complaints.length} results (Firebase Live Data)
+            </div>
+            <div className="text-xs opacity-70">
+                🔥 Real-time sync enabled
             </div>
         </div>
       </div>
