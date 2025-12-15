@@ -1,11 +1,19 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import { NetworkProviderProvider } from './contexts/NetworkProviderContext';
+import { DashboardProvider } from './contexts/DashboardContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import './index.css'; // MUST BE HERE
 
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import { NetworkProviderProvider } from "./contexts/NetworkProviderContext";
-import "./index.css";
-
-createRoot(document.getElementById("root")!).render(
-  <NetworkProviderProvider>
-    <App />
-  </NetworkProviderProvider>
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <NetworkProviderProvider>
+      <DashboardProvider>
+        <NotificationProvider>
+          <App />
+        </NotificationProvider>
+      </DashboardProvider>
+    </NetworkProviderProvider>
+  </React.StrictMode>
 );

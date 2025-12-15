@@ -11,7 +11,6 @@ interface SubHeaderProps {
 
 export function SubHeader({ theme }: SubHeaderProps) {
   const [date, setDate] = useState<Date>(new Date());
-  const [walletBalance] = useState(585.52);
   const isDark = theme === 'dark';
 
   // Update date dynamically
@@ -84,14 +83,7 @@ export function SubHeader({ theme }: SubHeaderProps) {
               Wallet Balance
             </span>
           </div>
-          <motion.div
-            key={walletBalance}
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="text-3xl font-bold text-white tracking-tight"
-          >
-            INR <span className="font-mono">{walletBalance.toFixed(2)}</span>
-          </motion.div>
+          
         </div>
         
         {/* Decorative elements */}

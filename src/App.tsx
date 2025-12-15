@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNetworkProvider } from './contexts/NetworkProviderContext';
+import { DashboardProvider } from './contexts/DashboardContext';
+import { NotificationProvider } from './contexts/NotificationContext'; // ✅ Added Import
+
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { Dashboard } from './components/pages/Dashboard';
+
+import { EnhancedDashboard } from './components/pages/EnhancedDashboard';
 import { Customers } from './components/pages/Customers';
 import { Leads } from './components/pages/Leads';
 import { Payment } from './components/pages/Payment';
@@ -12,7 +16,8 @@ import { Inventory } from './components/pages/Inventory';
 import { MasterRecords } from './components/pages/MasterRecords';
 import { Reports } from './components/pages/Reports';
 import { NetworkProviders } from './components/pages/NetworkProviders';
-import type { Page, UserRole, DataSource } from './types';
+
+import type { Page, UserRole } from './types';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -21,10 +26,9 @@ function App() {
   const [userRole, setUserRole] = useState<UserRole>('Super Admin');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Custom Hook for Global Network Provider
-  const { selectedProvider, setSelectedProvider, availableProviders } = useNetworkProvider();
+  const { selectedProvider, setSelectedProvider, availableProviders } =
+    useNetworkProvider();
 
-  // Derived state for legacy compatibility
   const dataSource = selectedProvider ? selectedProvider.name : 'All';
 
   const handleDataSourceChange = (sourceName: string) => {
@@ -36,7 +40,6 @@ function App() {
     }
   };
 
-  // Initialize theme from localStorage or system preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
     if (savedTheme) {
@@ -47,7 +50,6 @@ function App() {
     }
   }, []);
 
-  // Apply theme to document
   useEffect(() => {
     document.documentElement.className = theme;
     localStorage.setItem('theme', theme);
@@ -58,7 +60,7 @@ function App() {
   };
 
   const handleThemeToggle = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const handleLogin = (role: UserRole) => {
@@ -77,73 +79,72 @@ function App() {
   };
 
   const renderCurrentPage = () => {
-    const commonProps = {
-      theme,
-      userRole,
-      dataSource
-    };
-
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard {...commonProps} />;
+        return <EnhancedDashboard dataSource={dataSource} theme={theme} />;
       case 'customers':
-        return <Customers {...commonProps} />;
+        return <Customers dataSource={dataSource} theme={theme} />;
       case 'leads':
-        return <Leads {...commonProps} />;
+        return <Leads dataSource={dataSource} theme={theme} />;
       case 'payment':
-        return <Payment {...commonProps} />;
+        return <Payment dataSource={dataSource} theme={theme} userRole={userRole} />;
       case 'complaints':
-        return <Complaints {...commonProps} />;
+        return <Complaints dataSource={dataSource} theme={theme} />;
       case 'inventory':
-        return <Inventory {...commonProps} />;
+        return <Inventory theme={theme} />;
       case 'master-records':
-        return <MasterRecords {...commonProps} />;
+        return <MasterRecords dataSource={dataSource} theme={theme} />;
       case 'reports':
-        return <Reports {...commonProps} />;
+        return <Reports dataSource={dataSource} theme={theme} />;
       case 'network-providers':
-        return <NetworkProviders {...commonProps} />;
+        return <NetworkProviders theme={theme} />;
       default:
-        return <Dashboard {...commonProps} />;
+        return <EnhancedDashboard dataSource={dataSource} theme={theme} />;
     }
   };
 
-  // Show login screen if not authenticated
+  // 🔐 Login screen
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
   }
 
+  // ✅ DashboardProvider -> NotificationProvider -> Layout
   return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-[#0f172a] text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* Sidebar */}
-      <Sidebar
-        theme={theme}
-        currentPage={currentPage}
-        userRole={userRole}
-        onPageChange={handlePageChange}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
+    <DashboardProvider>
+      <NotificationProvider> {/* ✅ Added NotificationProvider here */}
+        <div
+          className={`min-h-screen ${
+            theme === 'dark'
+              ? 'bg-[#0f172a] text-white'
+              : 'bg-gray-50 text-gray-900'
+          }`}
+        >
+          <Sidebar
+            theme={theme}
+            currentPage={currentPage}
+            userRole={userRole}
+            onPageChange={handlePageChange}
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
 
-      {/* Main Content */}
-      <div className="md:ml-64">
-        {/* Header */}
-        <Header
-          theme={theme}
-          userRole={userRole}
-          dataSource={dataSource}
-          availableProviders={availableProviders}
-          onThemeToggle={handleThemeToggle}
-          onDataSourceChange={handleDataSourceChange}
-          onMenuClick={() => setSidebarOpen(true)}
-          onLogout={handleLogout}
-        />
+          <div className="md:ml-64">
+            <Header
+              theme={theme}
+              userRole={userRole}
+              dataSource={dataSource}
+              availableProviders={availableProviders}
+              onThemeToggle={handleThemeToggle}
+              onDataSourceChange={handleDataSourceChange}
+              onMenuClick={() => setSidebarOpen(true)}
+              onLogout={handleLogout}
+            />
 
-        {/* Page Content */}
-        <main className="p-4 md:p-6">
-          {renderCurrentPage()}
-        </main>
-      </div>
-    </div>
+            <main className="p-4 md:p-6">{renderCurrentPage()}</main>
+          </div>
+        </div>
+      </NotificationProvider> {/* ✅ Closed NotificationProvider */}
+    </DashboardProvider>
   );
 }
 

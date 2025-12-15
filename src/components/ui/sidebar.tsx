@@ -1,7 +1,7 @@
 import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X, ShoppingCart, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ✅ FIXED IMPORT PATH: Adjusted to go up two levels to src/App.tsx
-import type { Page, UserRole } from '../../App';
+// ✅ FIXED IMPORT PATH: Types are actually in src/types/index.ts
+import type { Page, UserRole } from '../../types';
 
 interface SidebarProps {
   theme: 'light' | 'dark';

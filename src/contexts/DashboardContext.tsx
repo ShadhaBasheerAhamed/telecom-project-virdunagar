@@ -1,125 +1,196 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  ReactNode
+} from 'react';
+
 import type {
   DashboardMetrics,
   DateFilter,
-  TableFilters,
-  LoadingState,
-  DashboardState
+  TableFilters
 } from '../types';
-import { DashboardService } from '../services/dashboardService';
-import { getDateFilter } from '../utils/dateFilters';
 
-interface DashboardContextType extends DashboardState {
-  setDateRange: (dateRange: DateFilter) => void;
-  setFilters: (filters: TableFilters) => void;
+import { DashboardService } from '../services/dashboardService';
+
+/* ------------------------------------------------------------------ */
+/* TYPES */
+/* ------------------------------------------------------------------ */
+
+interface DashboardContextType {
+  metrics: DashboardMetrics | null;
+  selectedDate: Date;
+  isLoading: boolean;
+  error: string | null;
+  lastUpdated: string | null;
+
+  setSelectedDate: (date: Date) => void;
   refreshData: () => Promise<void>;
   resetState: () => void;
 }
+
+/* ------------------------------------------------------------------ */
+/* STATE */
+/* ------------------------------------------------------------------ */
+
+interface DashboardState {
+  metrics: DashboardMetrics | null;
+  selectedDate: Date;
+  isLoading: boolean;
+  error: string | null;
+  lastUpdated: string | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* ACTIONS */
+/* ------------------------------------------------------------------ */
 
 type DashboardAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_METRICS'; payload: DashboardMetrics | null }
-  | { type: 'SET_DATE_RANGE'; payload: DateFilter }
-  | { type: 'SET_FILTERS'; payload: TableFilters }
+  | { type: 'SET_SELECTED_DATE'; payload: Date }
   | { type: 'SET_LAST_UPDATED'; payload: string }
   | { type: 'RESET_STATE' };
 
+/* ------------------------------------------------------------------ */
+/* INITIAL STATE */
+/* ------------------------------------------------------------------ */
+
 const initialState: DashboardState = {
   metrics: null,
-  filters: {},
-  dateRange: getDateFilter('thisMonth'),
+  selectedDate: new Date(), // ✅ SINGLE SOURCE OF TRUTH
   isLoading: false,
   error: null,
   lastUpdated: null
 };
 
-const dashboardReducer = (state: DashboardState, action: DashboardAction): DashboardState => {
+/* ------------------------------------------------------------------ */
+/* REDUCER */
+/* ------------------------------------------------------------------ */
+
+const dashboardReducer = (
+  state: DashboardState,
+  action: DashboardAction
+): DashboardState => {
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
-    
+
     case 'SET_ERROR':
       return { ...state, error: action.payload, isLoading: false };
-    
+
     case 'SET_METRICS':
-      return { ...state, metrics: action.payload, isLoading: false, error: null };
-    
-    case 'SET_DATE_RANGE':
-      return { ...state, dateRange: action.payload };
-    
-    case 'SET_FILTERS':
-      return { ...state, filters: action.payload };
-    
+      return { ...state, metrics: action.payload, isLoading: false };
+
+    case 'SET_SELECTED_DATE':
+      return { ...state, selectedDate: action.payload };
+
     case 'SET_LAST_UPDATED':
       return { ...state, lastUpdated: action.payload };
-    
+
     case 'RESET_STATE':
       return initialState;
-    
+
     default:
       return state;
   }
 };
 
-const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
+/* ------------------------------------------------------------------ */
+/* CONTEXT */
+/* ------------------------------------------------------------------ */
+
+const DashboardContext = createContext<DashboardContextType | undefined>(
+  undefined
+);
+
+/* ------------------------------------------------------------------ */
+/* PROVIDER */
+/* ------------------------------------------------------------------ */
 
 interface DashboardProviderProps {
   children: ReactNode;
 }
 
-export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }) => {
+export const DashboardProvider: React.FC<DashboardProviderProps> = ({
+  children
+}) => {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
-  // Subscribe to real-time dashboard data
+  /* -------------------------------------------------------------- */
+  /* HELPER: build DateFilter from selectedDate */
+  /* -------------------------------------------------------------- */
+
+  const buildDateRange = (date: Date): DateFilter => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+
+    const start = new Date(d);
+    const end = new Date(d);
+    end.setHours(23, 59, 59, 999);
+
+    return {
+      startDate: start,
+      endDate: end,
+      label: d.toDateString(),
+      type: 'custom'
+    };
+  };
+
+  /* -------------------------------------------------------------- */
+  /* FIREBASE REAL-TIME SUBSCRIPTION (NO LOOP) */
+  /* -------------------------------------------------------------- */
+
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
-    const subscribeToData = async () => {
-      try {
-        dispatch({ type: 'SET_LOADING', payload: true });
-        
-        unsubscribe = DashboardService.subscribeToDashboardMetrics(
-          state.dateRange,
-          (metrics) => {
-            dispatch({ type: 'SET_METRICS', payload: metrics });
-            dispatch({ type: 'SET_LAST_UPDATED', payload: new Date().toISOString() });
-          }
-        );
-      } catch (error) {
-        console.error('Error subscribing to dashboard data:', error);
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load dashboard data' });
-      }
-    };
+    const dateRange = buildDateRange(state.selectedDate);
 
-    subscribeToData();
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    unsubscribe = DashboardService.subscribeToDashboardMetrics(
+      dateRange,
+      (metrics) => {
+        dispatch({ type: 'SET_METRICS', payload: metrics });
+        dispatch({
+          type: 'SET_LAST_UPDATED',
+          payload: new Date().toISOString()
+        });
+      }
+    );
 
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      if (unsubscribe) unsubscribe();
     };
-  }, [state.dateRange]);
+  }, [state.selectedDate]);
 
-  const setDateRange = (dateRange: DateFilter) => {
-    dispatch({ type: 'SET_DATE_RANGE', payload: dateRange });
-  };
+  /* -------------------------------------------------------------- */
+  /* ACTIONS */
+  /* -------------------------------------------------------------- */
 
-  const setFilters = (filters: TableFilters) => {
-    dispatch({ type: 'SET_FILTERS', payload: filters });
+  const setSelectedDate = (date: Date) => {
+    dispatch({ type: 'SET_SELECTED_DATE', payload: date });
   };
 
   const refreshData = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      
-      // Force refresh by calling the metrics calculation directly
-      const metrics = await DashboardService.calculateMetrics([], state.dateRange);
+
+      const dateRange = buildDateRange(state.selectedDate);
+      const metrics = await DashboardService.calculateMetrics([], dateRange);
+
       dispatch({ type: 'SET_METRICS', payload: metrics });
-      dispatch({ type: 'SET_LAST_UPDATED', payload: new Date().toISOString() });
+      dispatch({
+        type: 'SET_LAST_UPDATED',
+        payload: new Date().toISOString()
+      });
     } catch (error) {
-      console.error('Error refreshing dashboard data:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to refresh data' });
+      dispatch({
+        type: 'SET_ERROR',
+        payload: 'Failed to refresh dashboard data'
+      });
     }
   };
 
@@ -127,10 +198,17 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
     dispatch({ type: 'RESET_STATE' });
   };
 
+  /* -------------------------------------------------------------- */
+  /* CONTEXT VALUE */
+  /* -------------------------------------------------------------- */
+
   const value: DashboardContextType = {
-    ...state,
-    setDateRange,
-    setFilters,
+    metrics: state.metrics,
+    selectedDate: state.selectedDate,
+    isLoading: state.isLoading,
+    error: state.error,
+    lastUpdated: state.lastUpdated,
+    setSelectedDate,
     refreshData,
     resetState
   };
@@ -142,59 +220,16 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({ children }
   );
 };
 
+/* ------------------------------------------------------------------ */
+/* HOOK */
+/* ------------------------------------------------------------------ */
+
 export const useDashboard = (): DashboardContextType => {
   const context = useContext(DashboardContext);
-  if (context === undefined) {
-    throw new Error('useDashboard must be used within a DashboardProvider');
+  if (!context) {
+    throw new Error(
+      'useDashboard must be used within a DashboardProvider'
+    );
   }
   return context;
-};
-
-// ==================== CUSTOM HOOKS ====================
-
-export const useDashboardMetrics = () => {
-  const { metrics, isLoading, error } = useDashboard();
-  return { metrics, isLoading, error };
-};
-
-export const useDashboardFilters = () => {
-  const { filters, dateRange, setFilters, setDateRange } = useDashboard();
-  return { filters, dateRange, setFilters, setDateRange };
-};
-
-export const useDashboardActions = () => {
-  const { refreshData, resetState } = useDashboard();
-  return { refreshData, resetState };
-};
-
-// ==================== QUICK ACTIONS ====================
-
-export const useQuickMetrics = () => {
-  const { refreshData } = useDashboard();
-  
-  const getTodaysMetrics = async () => {
-    const todayFilter = getDateFilter('today');
-    try {
-      return await DashboardService.calculateMetrics([], todayFilter);
-    } catch (error) {
-      console.error('Error fetching today metrics:', error);
-      return null;
-    }
-  };
-
-  const getMonthlyMetrics = async () => {
-    const monthlyFilter = getDateFilter('thisMonth');
-    try {
-      return await DashboardService.calculateMetrics([], monthlyFilter);
-    } catch (error) {
-      console.error('Error fetching monthly metrics:', error);
-      return null;
-    }
-  };
-
-  return {
-    refreshData,
-    getTodaysMetrics,
-    getMonthlyMetrics
-  };
 };
