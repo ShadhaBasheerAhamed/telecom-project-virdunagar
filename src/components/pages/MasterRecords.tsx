@@ -33,7 +33,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   // Load data from Firebase when tab or filters change
   useEffect(() => {
     loadRecordsData();
-  }, [activeTab, statusFilter]); // Removed searchTerm from dependency to prevent excessive api calls
+  }, [activeTab, statusFilter, dataSource]); // Added dataSource dependency for network provider filtering
 
   const loadRecordsData = async () => {
     setLoading(true);

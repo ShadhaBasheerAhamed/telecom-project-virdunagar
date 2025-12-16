@@ -7,11 +7,12 @@ interface ComplaintModalProps {
   mode: 'add' | 'edit';
   complaint: Complaint | null;
   theme: 'light' | 'dark';
+  dataSource: string;
   onClose: () => void;
   onSave: (complaint: any) => void;
 }
 
-export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: ComplaintModalProps) {
+export function ComplaintModal({ mode, complaint, theme, dataSource, onClose, onSave }: ComplaintModalProps) {
   const isDark = theme === 'dark';
   
   const [formData, setFormData] = useState({
@@ -24,7 +25,7 @@ export function ComplaintModal({ mode, complaint, theme, onClose, onSave }: Comp
     bookingDate: new Date().toISOString().split('T')[0],
     resolveDate: '',
     status: 'Open' as 'Open' | 'Resolved' | 'Pending' | 'Not Resolved',
-    source: 'BSNL',
+    source: dataSource === 'All' ? 'BSNL' : dataSource, // Default to active network provider
   });
 
   useEffect(() => {

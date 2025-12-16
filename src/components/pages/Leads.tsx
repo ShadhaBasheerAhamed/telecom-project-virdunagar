@@ -58,7 +58,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
 
   useEffect(() => {
     fetchLeads();
-  }, []);
+  }, [dataSource]);
 
   // 2. Add Lead Logic
   const handleAddLead = async (leadData: Omit<Lead, 'id'>) => {
@@ -340,7 +340,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
       </div>
 
       {/* MODALS */}
-      {modalMode && <LeadModal mode={modalMode} lead={selectedLead} theme={theme} onClose={() => setModalMode(null)} onSave={(l) => {
+      {modalMode && <LeadModal mode={modalMode} lead={selectedLead} theme={theme} dataSource={dataSource} onClose={() => setModalMode(null)} onSave={(l) => {
         if (modalMode === 'add') {
           handleAddLead(l as Omit<Lead, 'id'>);
         } else {

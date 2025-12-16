@@ -6,11 +6,12 @@ interface LeadModalProps {
   mode: 'add' | 'edit';
   lead: Lead | null;
   theme: 'light' | 'dark';
+  dataSource: string;
   onClose: () => void;
   onSave: (lead: Omit<Lead, 'id'> | Lead) => void;
 }
 
-export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps) {
+export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: LeadModalProps) {
   const isDark = theme === 'dark';
   
   const [formData, setFormData] = useState({
@@ -20,7 +21,7 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
     remarks: '',
     followupDate: '',
     status: 'Pending' as 'Success' | 'Rejected' | 'Sale' | 'Pending',
-    source: '',
+    source: dataSource === 'All' ? 'BSNL' : dataSource, // Default to active network provider
   });
 
   useEffect(() => {
@@ -169,12 +170,11 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
             </div>
 
             {/* Source */}
-            {/* <div className="md:col-span-2">
+            <div className="md:col-span-2">
               <label className={`block text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 Source *
               </label>
-              <input
-                type="text"
+              <select
                 required
                 value={formData.source}
                 onChange={(e) => setFormData({ ...formData, source: e.target.value })}
@@ -183,9 +183,11 @@ export function LeadModal({ mode, lead, theme, onClose, onSave }: LeadModalProps
                     ? 'bg-[#0F172A] border-[#334155] text-white'
                     : 'bg-white border-gray-300 text-gray-900'
                 } focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                placeholder="Enter source (e.g., BSNL, Private)"
-              />
-            </div> */}
+              >
+                <option value="BSNL">BSNL</option>
+                <option value="RMAX">RMAX</option>
+              </select>
+            </div>
 
             {/* Remarks */}
             <div className="md:col-span-2">

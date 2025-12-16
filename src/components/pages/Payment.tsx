@@ -344,12 +344,13 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
 
       {/* Modals */}
       {paymentModalOpen && (
-        <PaymentModal 
-            mode='add' 
-            data={null} 
-            theme={theme} 
-            onClose={() => setPaymentModalOpen(false)} 
-            onSave={handleSavePayment} 
+        <PaymentModal
+            mode='add'
+            data={null}
+            theme={theme}
+            dataSource={dataSource}
+            onClose={() => setPaymentModalOpen(false)}
+            onSave={handleSavePayment}
         />
       )}
       

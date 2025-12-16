@@ -49,11 +49,11 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     
     // Set up real-time listener for complaints collection
     const complaintsQuery = query(
-      collection(db, 'complaints'), 
+      collection(db, 'complaints'),
       orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(complaintsQuery, 
+    const unsubscribe = onSnapshot(complaintsQuery,
       (snapshot) => {
         const complaintsData: Complaint[] = [];
         snapshot.forEach((doc) => {
@@ -75,7 +75,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
         unsubscribe();
       }
     };
-  }, []);
+  }, [dataSource]); // Added dataSource dependency for network provider filtering
 
   const filteredComplaints = complaints.filter(complaint => {
     const searchLower = searchTerm.toLowerCase();
@@ -381,6 +381,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
           mode={modalMode}
           complaint={selectedComplaint}
           theme={theme}
+          dataSource={dataSource}
           onClose={() => { setModalMode(null); setSelectedComplaint(null); }}
           onSave={modalMode === 'add' ? handleAddComplaint : handleEditComplaint}
         />

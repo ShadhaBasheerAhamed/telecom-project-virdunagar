@@ -26,11 +26,13 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
 
-  // 1. Load Customers from Firebase (Live)
+  // 1. Load Customers from Firebase (Live) - Client-side filtering
   const fetchCustomers = async () => {
       setLoading(true);
       try {
-          const data = await CustomerService.getCustomers();
+          console.log('Fetching customers with dataSource:', dataSource);
+          const data = await CustomerService.getCustomers(); // Get all customers
+          console.log('Fetched customers:', data.length, 'total, filtering for:', dataSource);
           setCustomers(data);
       } catch (error) {
           toast.error("Failed to load customers");
@@ -40,10 +42,10 @@ export function Customers({ dataSource, theme }: CustomersProps) {
       }
   };
 
-  // Initial Load
+  // Initial Load and re-fetch when dataSource changes
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [dataSource]); // Added dataSource as dependency
 
   // 2. Add Customer
   const handleAddCustomer = async (customerData: any) => {
@@ -125,6 +127,7 @@ export function Customers({ dataSource, theme }: CustomersProps) {
     }
   };
 
+  // Filter customers locally (includes dataSource filtering)
   const filteredCustomers = customers.filter(customer => {
     const searchLower = searchTerm.toLowerCase();
     let matchesSearch = false;
@@ -154,7 +157,9 @@ export function Customers({ dataSource, theme }: CustomersProps) {
       
       {/* Header Section */}
       <div className="mb-6">
-        <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Customer Management</h1>
+        <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Customer Management {dataSource !== 'All' && `(${dataSource})`}
+        </h1>
         
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           
@@ -235,7 +240,9 @@ export function Customers({ dataSource, theme }: CustomersProps) {
               ) : filteredCustomers.length === 0 ? (
                  <tr>
                   <td colSpan={10} className="py-12 text-center">
-                    <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>No customers found. Add a new customer to get started.</p>
+                    <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {dataSource === 'All' ? 'No customers found. Add a new customer to get started.' : `No ${dataSource} customers found.`}
+                    </p>
                   </td>
                 </tr>
               ) : (

@@ -7,11 +7,12 @@ interface PaymentModalProps {
   mode: 'add'; // Edit removed as per requirement
   data?: Payment | null;
   theme: 'light' | 'dark';
+  dataSource: string;
   onClose: () => void;
   onSave: (payment: any) => void;
 }
 
-export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModalProps) {
+export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }: PaymentModalProps) {
   const isDark = theme === 'dark';
   
   const [formData, setFormData] = useState({
@@ -25,7 +26,7 @@ export function PaymentModal({ mode, data, theme, onClose, onSave }: PaymentModa
     paidDate: new Date().toISOString().split('T')[0],
     modeOfPayment: 'CASH',
     renewalDate: '',
-    source: 'BSNL'
+    source: dataSource === 'All' ? 'BSNL' : dataSource // Default to active network provider
   });
 
   // --- 1. AUTO-CALCULATE DATES (BSNL vs RMAX) ---
