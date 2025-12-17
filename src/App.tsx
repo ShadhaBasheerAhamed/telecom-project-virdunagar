@@ -16,6 +16,7 @@ import { Inventory } from './components/pages/Inventory';
 import { MasterRecords } from './components/pages/MasterRecords';
 import { Reports } from './components/pages/Reports';
 import { NetworkProviders } from './components/pages/NetworkProviders';
+import { SearchProvider } from './contexts/SearchContext';
 
 import type { Page, UserRole } from './types';
 
@@ -110,6 +111,7 @@ function App() {
 
   // ✅ DashboardProvider -> NotificationProvider -> Layout
   return (
+    <SearchProvider>
     <DashboardProvider>
       <NotificationProvider> {/* ✅ Added NotificationProvider here */}
         <div
@@ -144,6 +146,7 @@ function App() {
         </div>
       </NotificationProvider> {/* ✅ Closed NotificationProvider */}
     </DashboardProvider>
+  </SearchProvider>
   );
 }
 

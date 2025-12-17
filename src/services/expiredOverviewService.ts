@@ -179,10 +179,15 @@ export const ExpiredOverviewService = {
         });
     },
 
-    // Get Chart Data for Expired Overview (for Dashboard)
-    getExpiredChartData: async (startDate: Date, endDate: Date, groupPeriod: 'day' | 'week' | 'month' | 'year' = 'day'): Promise<any[]> => {
+    // Get Chart Data for Expired Overview (for Dashboard) - Updated with source filtering
+    getExpiredChartData: async (startDate: Date, endDate: Date, groupPeriod: 'day' | 'week' | 'month' | 'year' = 'day', dataSource: string = 'All'): Promise<any[]> => {
         try {
-            const records = await ExpiredOverviewService.getExpiredRecordsByDateRange(startDate, endDate);
+            let records = await ExpiredOverviewService.getExpiredRecordsByDateRange(startDate, endDate);
+            
+            // Filter by source if not 'All'
+            if (dataSource !== 'All') {
+                records = records.filter(record => record.source === dataSource);
+            }
             
             const groupedData: { [key: string]: number } = {};
             

@@ -10,6 +10,8 @@ import { CustomerService } from '@/services/customerService'; // ✅ Import Cust
 import { Customer } from '../../types';
 import { toast } from 'sonner';
 
+import { useSearch } from '../../contexts/SearchContext';
+
 interface LeadsProps {
   dataSource: DataSource;
   theme: 'light' | 'dark';
@@ -35,9 +37,16 @@ const generateCustomerId = (): string => {
 export function Leads({ dataSource, theme }: LeadsProps) {
   const isDark = theme === 'dark';
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  
   const [filterStatus, setFilterStatus] = useState('All');
+
   const [searchField, setSearchField] = useState('All');
+  const { searchQuery } = useSearch();
+  
+
+
+
+
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -187,8 +196,19 @@ export function Leads({ dataSource, theme }: LeadsProps) {
   };
 
   // Filtering Logic (Same as before)
+// Filtering Logic
   const filteredLeads = leads.filter(lead => {
-    const searchLower = searchTerm.toLowerCase();
+    // 1. Check Status & Source Filters (First check these)
+    const matchesStatus = filterStatus === 'All' || lead.status === filterStatus;
+    const matchesSource = dataSource === 'All' || lead.source === dataSource;
+
+    // 2. If NO Search Query, return based on filters only
+    if (!searchQuery) {
+      return matchesStatus && matchesSource;
+    }
+
+    // 3. If Search Query EXISTS, check matching text
+    const searchLower = searchQuery.toLowerCase();
     let matchesSearch = false;
 
     if (searchField === 'All') {
@@ -196,7 +216,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
         lead.customerName.toLowerCase().includes(searchLower) ||
         (lead.id && lead.id.includes(searchLower)) ||
         lead.phoneNo.includes(searchLower) ||
-        lead.remarks.toLowerCase().includes(searchLower);
+        (lead.remarks && lead.remarks.toLowerCase().includes(searchLower)); // Added check for remarks existence
     } else if (searchField === 'Name') {
       matchesSearch = lead.customerName.toLowerCase().includes(searchLower);
     } else if (searchField === 'ID') {
@@ -205,9 +225,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
       matchesSearch = lead.phoneNo.includes(searchLower);
     }
 
-    const matchesStatus = filterStatus === 'All' || lead.status === filterStatus;
-    const matchesSource = dataSource === 'All' || lead.source === dataSource;
-
+    // Return combination of ALL checks
     return matchesSearch && matchesStatus && matchesSource;
   });
 
@@ -216,16 +234,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
 
       {/* Header & Controls */}
       <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border bg-inherit border-inherit shadow-sm">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
-            placeholder={`Search in ${searchField}...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+        
 
         <div className="flex gap-3 w-full md:w-auto">
           {/* Search Field Dropdown */}

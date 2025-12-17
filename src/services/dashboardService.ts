@@ -30,7 +30,7 @@ export class DashboardService {
     // "YYYY-MM-DD" String for Payments (Local Time) - Used for specific single-day queries if needed
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const day = String(d.getDate()).toString().padStart(2, '0');
     const dateString = `${year}-${month}-${day}`;
 
     return { startOfDay, endOfDay, dateString };
@@ -59,19 +59,25 @@ export class DashboardService {
       };
   }
 
-  // === GET COMPLAINTS STATUS DATA (NEW METHOD) ===
-  static async getComplaintsStatusData(selectedDate: Date = new Date(), range: string = 'week'): Promise<any[]> {
+  // === GET COMPLAINTS STATUS DATA (UPDATED WITH SOURCE FILTERING) ===
+  static async getComplaintsStatusData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All'): Promise<any[]> {
     try {
       const complaintsSnap = await getDocs(collection(db, 'complaints'));
       const complaints = complaintsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Complaint));
       
       const { startOfDay, endOfDay } = this.getDateBoundaries(selectedDate, range);
       
-      // Filter complaints by date range
+      // Filter complaints by date range AND source
       const filteredComplaints = complaints.filter(complaint => {
         if (!complaint.bookingDate) return false;
         const complaintDate = new Date(complaint.bookingDate);
-        return complaintDate >= startOfDay && complaintDate <= endOfDay;
+        const isInDateRange = complaintDate >= startOfDay && complaintDate <= endOfDay;
+        
+        // Filter by source (network provider)
+        const complaintSource = complaint.source || '';
+        const matchesSource = dataSource === 'All' || complaintSource === dataSource;
+        
+        return isInDateRange && matchesSource;
       });
 
       // Count by status - handle 'Not Resolved' by mapping it to 'Open'
@@ -103,8 +109,8 @@ export class DashboardService {
     }
   }
 
-  // === GET EXPIRED OVERVIEW DATA (UPDATED TO USE REAL FIREBASE DATA) ===
-  static async getExpiredOverviewData(selectedDate: Date = new Date(), range: string = 'week'): Promise<any[]> {
+  // === GET EXPIRED OVERVIEW DATA (UPDATED WITH SOURCE FILTERING) ===
+  static async getExpiredOverviewData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All'): Promise<any[]> {
     try {
       const { startOfDay, endOfDay } = this.getDateBoundaries(selectedDate, range);
       
@@ -120,8 +126,8 @@ export class DashboardService {
         groupPeriod = 'day';
       }
 
-      // Use real Firebase data from expired_overview collection
-      const chartData = await ExpiredOverviewService.getExpiredChartData(startOfDay, endOfDay, groupPeriod);
+      // Use real Firebase data from expired_overview collection with source filtering
+      const chartData = await ExpiredOverviewService.getExpiredChartData(startOfDay, endOfDay, groupPeriod, dataSource);
       
       return chartData;
 
@@ -352,7 +358,7 @@ export class DashboardService {
     }
   }
 
-  // === GENERATE CHART DATA (UPDATED WITH REAL COMPLAINTS AND EXPIRED DATA) ===
+  // === GENERATE CHART DATA (UPDATED WITH SOURCE FILTERING FOR COMPLAINTS AND EXPIRED) ===
   static async generateChartData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All') {
        
     // 1. STRICT FUTURE DATE CHECK
@@ -483,9 +489,9 @@ export class DashboardService {
              }
         });
 
-        // --- 5. FETCH REAL COMPLAINTS AND EXPIRED DATA ---
-        const complaintsData = await this.getComplaintsStatusData(selectedDate, range);
-        const expiredData = await this.getExpiredOverviewData(selectedDate, range);
+        // --- 5. FETCH REAL COMPLAINTS AND EXPIRED DATA (WITH SOURCE FILTERING) ---
+        const complaintsData = await this.getComplaintsStatusData(selectedDate, range, dataSource);
+        const expiredData = await this.getExpiredOverviewData(selectedDate, range, dataSource);
 
         // Format Chart Data
         const chartData = labels.map(label => ({
@@ -511,3 +517,4 @@ export class DashboardService {
     }
   }
 }
+

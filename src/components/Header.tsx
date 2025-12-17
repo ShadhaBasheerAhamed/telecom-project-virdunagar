@@ -1,8 +1,12 @@
 import { Sun, Moon, User, Search, Bell, Menu, Settings, LogOut, Database, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useNetworkProviders } from '../hooks/useNetworkProviders'; // ✅ Import the hook
+
+import { useSearch } from '../contexts/SearchContext'; // ✅ GLOBAL SEARCH CONTEXT
+
+
 import type { DataSource, UserRole } from '../types';
 import {
   DropdownMenu,
@@ -36,27 +40,50 @@ export function Header({
 }: HeaderProps) {
   const isDark = theme === 'dark';
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // ✅ GLOBAL SEARCH
+  const { setSearchQuery } = useSearch();
+
+  const [localQuery, setLocalQuery] = useState('');
+  
 
   // ✅ Fetch Providers Directly (No need to pass from parent)
   const { activeProviders } = useNetworkProviders();
+
+
+
+
+
+  const handleSearch = () => {
+    setSearchQuery(localQuery);
+    setSearchOpen(false);
+
+    if (localQuery.trim()) {
+      toast.success(`Showing results for: ${localQuery}`);
+    } else {
+      setSearchQuery('');
+      toast.info('Search cleared');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+
 
   const notifications = [
     { id: 1, message: 'New customer registered', time: '5 min ago' },
     { id: 2, message: 'Payment received: INR 1,500', time: '10 min ago' },
   ];
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      toast.success(`Searching for: ${searchQuery}`);
-    }
-    setSearchOpen(false);
-    setSearchQuery('');
-  };
 
   return (
     <>
+    {/* ================= HEADER ================= */}
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -210,21 +237,41 @@ export function Header({
 
       {/* Search Dialog */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className={`${isDark ? 'bg-[#1e293b] border-[#334155] text-gray-200' : 'bg-white'}`}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Search</DialogTitle>
-            <DialogDescription>Search for customers, payments, or leads.</DialogDescription>
+            <DialogTitle>Global Search</DialogTitle>
+            <DialogDescription>
+              Search across customers, leads, payments, reports
+            </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
-            <Input 
-              placeholder="Type to search..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={isDark ? 'bg-[#0F172A] border-[#334155]' : ''}
+            <Input
+              placeholder="Type and press Enter..."
+              value={localQuery}
+              onChange={e => setLocalQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              autoFocus
             />
-            <button onClick={handleSearch} className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
-              Search Results
-            </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setLocalQuery('');
+                  setSearchQuery('');
+                  setSearchOpen(false);
+                }}
+                className="flex-1 bg-gray-500 text-white py-2 rounded"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleSearch}
+                className="flex-1 bg-blue-600 text-white py-2 rounded"
+              >
+                Show Results
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
