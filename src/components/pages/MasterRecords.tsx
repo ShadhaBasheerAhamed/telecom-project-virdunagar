@@ -10,6 +10,9 @@ import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
 import type { DataSource } from '../../types';
 import { toast } from 'sonner';
 
+// ✅ 1. Import Search Context
+import { useSearch } from '../../contexts/SearchContext';
+
 interface MasterRecordsProps {
   dataSource: DataSource;
   theme: 'light' | 'dark';
@@ -17,8 +20,12 @@ interface MasterRecordsProps {
 
 export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   const isDark = theme === 'dark';
+  
+  // ✅ 2. Use Global Search
+  const { searchQuery, setSearchQuery } = useSearch();
+
   const [activeTab, setActiveTab] = useState('routerMake');
-  const [searchTerm, setSearchTerm] = useState('');
+  // ❌ REMOVED: const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
   // Modal states
@@ -33,7 +40,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   // Load data from Firebase when tab or filters change
   useEffect(() => {
     loadRecordsData();
-  }, [activeTab, statusFilter, dataSource]); // Added dataSource dependency for network provider filtering
+  }, [activeTab, statusFilter, dataSource]); 
 
   const loadRecordsData = async () => {
     setLoading(true);
@@ -50,7 +57,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     } catch (error) {
       console.error(`Error loading ${activeTab} data:`, error);
       toast.error(`Failed to load ${activeTab} records.`);
-      setRecordsData([]); // Clear data on error
+      setRecordsData([]); 
     } finally {
       setLoading(false);
     }
@@ -110,15 +117,16 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     { id: 'user', label: 'User', icon: UserCheck },
   ];
 
-  // Local Filtering for Search
+  // ✅ 3. Local Filtering using Global Search Query
   const currentData = useMemo(() => {
-    if (!searchTerm) return recordsData;
+    if (!searchQuery) return recordsData;
     return recordsData.filter(record => {
+      // Generic search across all values in the record
       return Object.values(record).some(val => 
-        String(val).toLowerCase().includes(searchTerm.toLowerCase())
+        String(val).toLowerCase().includes(searchQuery.toLowerCase())
       );
     });
-  }, [recordsData, searchTerm]);
+  }, [recordsData, searchQuery]);
 
   // --- COLUMN DEFINITIONS ---
   const getColumns = () => {
@@ -191,7 +199,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
+              onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }} // ✅ Clear global search on tab switch
               className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-blue-600 text-white shadow-lg'
@@ -210,15 +218,15 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
       {/* CONTROLS */}
       <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
         
-        {/* Search */}
+        {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
         <div className="relative w-full md:w-96">
           <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
           <input
             type="text"
             className={`block w-full pl-10 pr-3 py-2.5 border rounded-md outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-900'}`}
             placeholder={`Search ${tabs.find(t => t.id === activeTab)?.label}...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={searchQuery} // ✅ Uses Global State
+            onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
           />
         </div>
 
@@ -273,7 +281,9 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
               ) : currentData.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="p-10 text-center text-gray-500">
-                    No records found. Add a new record to get started.
+                    {searchQuery 
+                        ? `No records found matching "${searchQuery}"`
+                        : "No records found. Add a new record to get started."}
                   </td>
                 </tr>
               ) : (

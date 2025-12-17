@@ -8,6 +8,9 @@ import { toast } from 'sonner';
 import { ComplaintsService } from '../../services/complaintsService';
 import { collection, onSnapshot, query, orderBy, db } from '../../firebase/config';
 
+// ✅ 1. Import Search Context
+import { useSearch } from '../../contexts/SearchContext';
+
 interface ComplaintsProps {
   dataSource: DataSource;
   theme: 'light' | 'dark';
@@ -32,7 +35,11 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const isDark = theme === 'dark';
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // ❌ REMOVED: const [searchTerm, setSearchTerm] = useState('');
+  // ✅ 2. Use Global Search
+  const { searchQuery, setSearchQuery } = useSearch();
+
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchField, setSearchField] = useState('All');
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
@@ -75,28 +82,37 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
         unsubscribe();
       }
     };
-  }, [dataSource]); // Added dataSource dependency for network provider filtering
+  }, [dataSource]); 
 
+  // ✅ 3. Updated Filtering Logic (Uses searchQuery)
   const filteredComplaints = complaints.filter(complaint => {
-    const searchLower = searchTerm.toLowerCase();
+    // A. Check Status & Source Filters First
+    const matchesStatus = filterStatus === 'All' || complaint.status === filterStatus;
+    const matchesSource = dataSource === 'All' || complaint.source === dataSource;
+
+    // B. If No Search, return based on filters
+    if (!searchQuery) {
+        return matchesStatus && matchesSource;
+    }
+
+    // C. Search Logic
+    const searchLower = searchQuery.toLowerCase();
     let matchesSearch = false;
 
     if (searchField === 'All') {
         matchesSearch = 
           complaint.customerName.toLowerCase().includes(searchLower) ||
-          complaint.id.includes(searchLower) ||
+          complaint.id.toLowerCase().includes(searchLower) ||
           complaint.landlineNo.includes(searchLower) ||
           complaint.complaints.toLowerCase().includes(searchLower);
     } else if (searchField === 'Name') {
         matchesSearch = complaint.customerName.toLowerCase().includes(searchLower);
     } else if (searchField === 'ID') {
-        matchesSearch = complaint.id.includes(searchLower);
+        matchesSearch = complaint.id.toLowerCase().includes(searchLower);
     } else if (searchField === 'Complaint') {
         matchesSearch = complaint.complaints.toLowerCase().includes(searchLower);
     }
 
-    const matchesStatus = filterStatus === 'All' || complaint.status === filterStatus;
-    const matchesSource = dataSource === 'All' || complaint.source === dataSource;
     return matchesSearch && matchesStatus && matchesSource;
   });
 
@@ -137,11 +153,9 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     }
   };
 
-  // Dynamic Status Change with Firebase sync - cycle through Open -> Pending -> Resolved
   const handleStatusChange = async (id: string, currentStatus: 'Open' | 'Resolved' | 'Pending' | 'Not Resolved') => {
     let newStatus: 'Open' | 'Resolved' | 'Pending';
     
-    // Handle legacy 'Not Resolved' status by treating it as 'Open' in the cycle
     if (currentStatus === 'Not Resolved' || currentStatus === 'Open') {
       newStatus = 'Pending';
     } else if (currentStatus === 'Pending') {
@@ -159,7 +173,6 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     }
   };
 
-  // Bulk Upload Handler - Now saves to Firebase
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -167,11 +180,9 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target?.result as string;
-      // Simple CSV parser (Assumes Header: Name,Landline,Address,Complaint,Source)
       const lines = text.split('\n');
       const newComplaints: Omit<Complaint, 'id'>[] = [];
       
-      // Skip header row (i=1)
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         if (cols.length >= 4) {
@@ -190,18 +201,17 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
       }
 
       if (newComplaints.length > 0) {
-          try {
-            // Add each complaint to Firebase
-            for (const complaint of newComplaints) {
-              await ComplaintsService.addComplaint(complaint);
-            }
-            toast.success(`Uploaded ${newComplaints.length} complaints successfully!`);
-          } catch (error) {
-            console.error('Error uploading complaints:', error);
-            toast.error('Failed to upload some complaints');
+        try {
+          for (const complaint of newComplaints) {
+            await ComplaintsService.addComplaint(complaint);
           }
+          toast.success(`Uploaded ${newComplaints.length} complaints successfully!`);
+        } catch (error) {
+          console.error('Error uploading complaints:', error);
+          toast.error('Failed to upload some complaints');
+        }
       } else {
-          toast.error("No valid data found in CSV");
+        toast.error("No valid data found in CSV");
       }
     };
     reader.readAsText(file);
@@ -238,7 +248,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
         
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           
-          {/* Search Bar */}
+          {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
           <div className="relative w-full md:w-96">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -247,8 +257,8 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               type="text"
               className={`block w-full pl-10 pr-3 py-2.5 border rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300 placeholder-gray-400' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-500'}`}
               placeholder={`Search in ${searchField}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchQuery} // ✅ Uses Global State
+              onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
             />
           </div>
 
@@ -320,7 +330,14 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               </tr>
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-              {filteredComplaints.map((complaint) => (
+              {filteredComplaints.length === 0 ? (
+                 <tr>
+                  <td colSpan={10} className="px-6 py-8 text-center opacity-50">
+                    No complaints found matching "{searchQuery}"
+                  </td>
+                </tr>
+              ) : (
+                filteredComplaints.map((complaint) => (
                 <tr key={complaint.id} className={`hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'} transition-colors`}>
                   <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.id}</td>
                   <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.customerName}</td>
@@ -361,7 +378,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

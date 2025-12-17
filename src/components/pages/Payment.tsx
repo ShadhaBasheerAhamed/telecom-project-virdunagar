@@ -9,6 +9,9 @@ import { PaymentService } from '../../services/paymentService';
 import { WhatsAppService } from '../../services/whatsappService';
 import { toast } from 'sonner';
 
+// ✅ 1. Import Search Context
+import { useSearch } from '../../contexts/SearchContext';
+
 interface PaymentProps {
   dataSource: DataSource;
   theme: 'light' | 'dark';
@@ -17,7 +20,7 @@ interface PaymentProps {
 
 const CUSTOMER_STORAGE_KEY = 'customers-data';
 
-// Mock data fallback
+// Mock data fallback (Used ONLY as type safety or initial state, NOT for display if API fails)
 const mockPayments: Payment[] = [
   { 
     id: '792', landlineNo: '04562-206784', customerName: 'PONRAJ C..', 
@@ -31,9 +34,12 @@ const mockPayments: Payment[] = [
 export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   const isDark = theme === 'dark';
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // ✅ 2. Use Global Search
+  const { searchQuery, setSearchQuery } = useSearch();
+
   const [filterStatus, setFilterStatus] = useState('All');
-  const [searchField, setSearchField] = useState('All');
+  const [searchField, setSearchField] = useState('All'); // Can be 'All', 'Name', 'Landline'
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -41,20 +47,38 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Fetch Payments from Firebase
+  // 1. Fetch Payments from Firebase (Enhanced with Debugging)
   const fetchPayments = async () => {
+    console.log(`🔍 PAYMENT DEBUG: fetchPayments called with dataSource: "${dataSource}"`);
     setLoading(true);
+    
     try {
       let data;
+      
+      // Fetch based on Source Filter
       if (dataSource === 'All') {
+        console.log(`🔍 PAYMENT DEBUG: Fetching ALL payments`);
         data = await PaymentService.getPayments();
       } else {
+        console.log(`🔍 PAYMENT DEBUG: Fetching payments for source: "${dataSource}"`);
         data = await PaymentService.getPaymentsBySource(dataSource);
       }
-      setPayments((data as Payment[]).length > 0 ? (data as Payment[]) : mockPayments);
+      
+      console.log(`🔍 PAYMENT DEBUG: Received ${data.length} payments`);
+      console.log(`🔍 PAYMENT DEBUG: First few payment sources:`, data.slice(0, 3).map(p => p.source));
+      
+      // ✅ FIX: Do not fallback to mockPayments if data is empty. 
+      // If data is empty (0 records), show empty table.
+      setPayments(data as Payment[]);
+      
+      if (data.length === 0 && dataSource !== 'All') {
+        console.warn(`⚠️ PAYMENT DEBUG: No payments found for source "${dataSource}" - this might be due to missing Firestore composite index`);
+      }
+      
     } catch (error) {
+      console.error('❌ PAYMENT DEBUG: Error in fetchPayments:', error);
       toast.error("Failed to load payments");
-      setPayments(mockPayments);
+      setPayments([]); // Set empty on error
     } finally {
       setLoading(false);
     }
@@ -64,7 +88,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
     fetchPayments();
   }, [dataSource]);
 
-  // Helper to get Mobile Number from Customer Data using Landline
+  // Helper to get Mobile Number
   const getCustomerMobile = (landline: string) => {
     try {
         const stored = localStorage.getItem(CUSTOMER_STORAGE_KEY);
@@ -77,8 +101,19 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
     return landline;
   };
 
+  // ✅ 3. UPDATED FILTER LOGIC (Uses searchQuery)
   const filteredPayments = payments.filter(payment => {
-    const searchLower = searchTerm.toLowerCase();
+    // A. Check Status & Source Filters First
+    const matchesStatus = filterStatus === 'All' || payment.status === filterStatus;
+    const matchesSource = dataSource === 'All' || payment.source === dataSource;
+
+    // B. If No Search, return based on filters
+    if (!searchQuery) {
+        return matchesStatus && matchesSource;
+    }
+
+    // C. Search Logic
+    const searchLower = searchQuery.toLowerCase();
     let matchesSearch = false;
 
     if (searchField === 'All') {
@@ -92,12 +127,10 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
         matchesSearch = payment.landlineNo.includes(searchLower);
     }
 
-    const matchesStatus = filterStatus === 'All' || payment.status === filterStatus;
-    const matchesSource = dataSource === 'All' || payment.source === dataSource;
     return matchesSearch && matchesStatus && matchesSource;
   });
 
-  // --- SYNC CUSTOMER STATUS (Cloud Update) ---
+  // --- SYNC CUSTOMER STATUS ---
   const syncCustomerStatus = (landline: string, status: 'Paid' | 'Unpaid') => {
       try {
           const storedCustomers = localStorage.getItem(CUSTOMER_STORAGE_KEY);
@@ -107,7 +140,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
               const updatedCustomers = customers.map((c: any) => {
                   if (c.landline === landline) {
                       updated = true;
-                      // Logic: Paid -> Active, Unpaid -> Inactive (or logic for 20th date penalty)
                       return { ...c, status: status === 'Paid' ? 'Active' : 'Inactive' };
                   }
                   return c;
@@ -115,8 +147,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
               
               if (updated) {
                   localStorage.setItem(CUSTOMER_STORAGE_KEY, JSON.stringify(updatedCustomers));
-                  // Only show toast if explicitly toggled, not on load
-                  // toast.success(`Customer status synced to ${status === 'Paid' ? 'Active' : 'Inactive'}`);
               }
           }
       } catch (e) {
@@ -124,47 +154,30 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
       }
   };
 
-  // --- HANDLERS ---
   const handleStatusToggle = async (payment: Payment, newStatus: 'Paid' | 'Unpaid') => {
       try {
-        // 1. Update in Firebase
         await PaymentService.updatePayment(payment.id, { status: newStatus });
-
-        // 2. Update UI Locally
         const updated = payments.map(p => p.id === payment.id ? { ...p, status: newStatus } : p);
         setPayments(updated);
-
-        // 3. Sync Customer Status
         syncCustomerStatus(payment.landlineNo, newStatus);
-
-        // 4. Send WhatsApp Acknowledgement only if changing to PAID
         if (newStatus === 'Paid') {
-             const mobileNo = getCustomerMobile(payment.landlineNo);
-             WhatsAppService.sendPaymentAck(payment, mobileNo);
+              const mobileNo = getCustomerMobile(payment.landlineNo);
+              WhatsAppService.sendPaymentAck(payment, mobileNo);
         }
-
         toast.success("Payment status updated successfully");
       } catch (error) {
-        toast.error("Failed to update payment status", {
-          description: "Please try again later",
-          duration: 5000,
-        });
+        toast.error("Failed to update payment status");
       }
   };
 
   const handleSavePayment = async (paymentData: any) => {
       try {
-        // Add new payment
         await PaymentService.addPayment(paymentData);
         toast.success("Payment Added Successfully!");
-        
-        // If added as Paid immediately, send WhatsApp
         if (paymentData.status === 'Paid') {
-             const mobileNo = getCustomerMobile(paymentData.landlineNo);
-             WhatsAppService.sendPaymentAck(paymentData, mobileNo);
+              const mobileNo = getCustomerMobile(paymentData.landlineNo);
+              WhatsAppService.sendPaymentAck(paymentData, mobileNo);
         }
-        
-        // Refresh List
         fetchPayments(); 
         syncCustomerStatus(paymentData.landlineNo, paymentData.status);
       } catch (error) {
@@ -173,7 +186,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
       setPaymentModalOpen(false);
   };
 
-  // --- BULK UPLOAD ---
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -181,60 +193,47 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target?.result as string;
-      const lines = text.split('\n').filter(line => line.trim()); // Filter empty lines
+      const lines = text.split('\n').filter(line => line.trim()); 
       const validPayments: Omit<Payment, 'id'>[] = [];
       
-      // Expected Format: Landline, Name, Amount, Mode, Date, Plan
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         if (cols.length >= 5) {
             const billAmt = parseFloat(cols[2]) || 0;
             const paidDateStr = cols[4]?.trim() || new Date().toISOString().split('T')[0];
-            
-            // Validate required fields
             const landlineNo = cols[0]?.trim();
             const customerName = cols[1]?.trim();
             
-            if (!landlineNo || !customerName || isNaN(billAmt)) {
-                console.warn(`Skipping invalid row ${i + 1}: ${lines[i]}`);
-                continue;
-            }
+            if (!landlineNo || !customerName || isNaN(billAmt)) continue;
             
-            // Calculate Renewal Date based on source logic (Defaulting to BSNL logic for bulk)
             const pDate = new Date(paidDateStr);
-            if (isNaN(pDate.getTime())) {
-                console.warn(`Invalid date in row ${i + 1}: ${paidDateStr}`);
-                continue;
-            }
-            pDate.setMonth(pDate.getMonth() + 1); // BSNL Default
+            if (isNaN(pDate.getTime())) continue;
+            pDate.setMonth(pDate.getMonth() + 1); 
             
             const newPayment: Omit<Payment, 'id'> = {
                 landlineNo,
                 customerName,
                 billAmount: billAmt,
                 modeOfPayment: cols[3]?.trim() || 'CASH',
-                status: 'Paid' as const, // Fix: Explicitly type as literal 'Paid'
+                status: 'Paid' as const, 
                 paidDate: paidDateStr,
                 renewalDate: pDate.toISOString().split('T')[0],
                 rechargePlan: cols[5]?.trim() || 'Bulk Import',
                 duration: '30',
-                commission: billAmt * 0.30, // Auto calc commission (30%)
-                source: 'BSNL'
+                commission: billAmt * 0.30, 
+                source: dataSource === 'All' ? 'BSNL' : dataSource 
             };
-            
             validPayments.push(newPayment);
         }
       }
       
-      // Use bulk upload for better performance
       if (validPayments.length > 0) {
           try {
               await PaymentService.addBulkPayments(validPayments);
               fetchPayments();
               toast.success(`Imported ${validPayments.length} records successfully!`);
           } catch (error) {
-              console.error('Bulk upload error:', error);
-              toast.error("Failed to import records. Please check the format and try again.");
+              toast.error("Failed to import records.");
           }
       } else {
           toast.error("No valid records found in CSV");
@@ -247,23 +246,27 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       <div className="mb-6">
-        <h1 className={`text-3xl mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Payment Management</h1>
+        <h1 className={`text-3xl mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            Payment Management {dataSource !== 'All' && `(${dataSource})`}
+        </h1>
         
         {/* Search & Filters */}
         <div className={`flex flex-col md:flex-row gap-4 justify-between p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
+            
+            {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
             <div className="relative w-full md:w-96">
                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                 <input
                     type="text"
                     className={`block w-full pl-10 pr-3 py-2.5 border rounded-md ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-white' : 'bg-white border-gray-300'}`}
                     placeholder="Search Landline / Name..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={searchQuery} // ✅ Uses Global State
+                    onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
                 />
             </div>
 
             <div className="flex gap-3">
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 rounded-md bg-gray-800 text-white">
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={`px-4 py-2 rounded-md ${isDark ? 'bg-gray-800 text-white' : 'bg-white border'}`}>
                     <option value="All">All Status</option>
                     <option value="Paid">Paid</option>
                     <option value="Unpaid">Unpaid</option>
@@ -271,11 +274,11 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
 
                 <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition">
-                    <Upload className="h-4 w-4" /> Bulk Upload (CSV)
+                    <Upload className="h-4 w-4" /> <span className="hidden md:inline">Bulk Upload</span>
                 </button>
 
                 <button onClick={() => { setPaymentModalOpen(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
-                    <Plus className="h-4 w-4" /> Add Payment
+                    <Plus className="h-4 w-4" /> <span className="hidden md:inline">Add Payment</span>
                 </button>
             </div>
         </div>
@@ -291,7 +294,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                         <th className="px-6 py-4">Name</th>
                         <th className="px-6 py-4">Plan</th>
                         <th className="px-6 py-4">Amount</th>
-                        {/* Hide commission for non-admins */}
                         {userRole === 'Super Admin' && <th className="px-6 py-4">Commission</th>}
                         <th className="px-6 py-4">Paid Date</th>
                         <th className="px-6 py-4">Renewal</th>
@@ -300,14 +302,20 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                     </tr>
                 </thead>
                 <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                    {filteredPayments.map((p) => (
+                    {filteredPayments.length === 0 ? (
+                        <tr>
+                            <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
+                                No payments found for {dataSource}.
+                            </td>
+                        </tr>
+                    ) : (
+                        filteredPayments.map((p) => (
                         <tr key={p.id} className="hover:bg-gray-800/50 transition">
                             <td className="px-6 py-4 text-gray-300">{p.landlineNo}</td>
                             <td className="px-6 py-4 font-bold">{p.customerName}</td>
                             <td className="px-6 py-4">{p.rechargePlan}</td>
                             <td className="px-6 py-4 text-green-400 font-bold">₹{p.billAmount}</td>
                             
-                            {/* Commission Column - Hidden if not Super Admin */}
                             {userRole === 'Super Admin' && (
                                 <td className="px-6 py-4 text-purple-400 font-medium">₹{p.commission.toFixed(2)}</td>
                             )}
@@ -329,14 +337,13 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                                 </button>
                             </td>
                             
-                            {/* Action - View Only (Delete/Edit removed) */}
                             <td className="px-6 py-4 text-center">
                                 <button onClick={() => { setSelectedPayment(p); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 p-2 rounded hover:bg-blue-900/20">
                                     <Eye className="w-4 h-4" />
                                 </button>
                             </td>
                         </tr>
-                    ))}
+                    )))}
                 </tbody>
             </table>
         </div>
@@ -348,7 +355,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
             mode='add'
             data={null}
             theme={theme}
-            dataSource={dataSource}
+            dataSource={dataSource} 
             onClose={() => setPaymentModalOpen(false)}
             onSave={handleSavePayment}
         />

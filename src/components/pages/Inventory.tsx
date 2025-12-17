@@ -4,6 +4,9 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { WhatsAppService } from '../../services/whatsappService';
 
+// ✅ 1. Import Search Context
+import { useSearch } from '../../contexts/SearchContext';
+
 interface InventoryProps {
   theme: 'light' | 'dark';
 }
@@ -58,6 +61,9 @@ const mockProducts: Product[] = [
 export function Inventory({ theme }: InventoryProps) {
   const isDark = theme === 'dark';
   
+  // ✅ 2. Use Global Search
+  const { searchQuery } = useSearch();
+
   // --- SHARED STATE ---
   const [products, setProducts] = useState<Product[]>([]);
   
@@ -218,15 +224,25 @@ export function Inventory({ theme }: InventoryProps) {
     }
   };
 
-  // Filters
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // ✅ 3. FILTERS (Updated to use Global Search + Local Search)
+  const filteredProducts = products.filter(p => {
+    const globalMatch = !searchQuery || 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.category.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const localMatch = 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.category.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const salesFilteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(salesSearchTerm.toLowerCase())
-  );
+    return globalMatch && localMatch;
+  });
+
+  const salesFilteredProducts = products.filter(p => {
+    const globalMatch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const localMatch = p.name.toLowerCase().includes(salesSearchTerm.toLowerCase());
+    
+    return globalMatch && localMatch;
+  });
 
   const inputClass = `w-full px-4 py-2 rounded-lg border ${isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 outline-none`;
 
@@ -243,7 +259,6 @@ export function Inventory({ theme }: InventoryProps) {
       </div>
 
       <Tabs defaultValue="stock" className="w-full space-y-8">
-        {/* Updated TabsList for better Dark Mode visibility */}
         <TabsList className={`inline-flex h-auto p-1.5 rounded-2xl border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-gray-200 shadow-sm'}`}>
           <TabsTrigger 
             value="stock" 

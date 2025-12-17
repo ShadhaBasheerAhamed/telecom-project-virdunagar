@@ -8,6 +8,9 @@ import { CustomerService } from '@/services/customerService';
 import { Customer } from '../../types'; 
 import { toast } from 'sonner';
 
+// ✅ 1. Import Search Context
+import { useSearch } from '../../contexts/SearchContext';
+
 interface CustomersProps {
   dataSource: DataSource;
   theme: 'light' | 'dark';
@@ -16,8 +19,12 @@ interface CustomersProps {
 export function Customers({ dataSource, theme }: CustomersProps) {
   const isDark = theme === 'dark';
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true); // Loading state added
-  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  
+  // ❌ REMOVED: const [searchTerm, setSearchTerm] = useState('');
+  // ✅ 2. Use Global Search
+  const { searchQuery, setSearchQuery } = useSearch();
+
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchField, setSearchField] = useState('All');
   
@@ -26,13 +33,11 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
 
-  // 1. Load Customers from Firebase (Live) - Client-side filtering
+  // 1. Load Customers from Firebase
   const fetchCustomers = async () => {
       setLoading(true);
       try {
-          console.log('Fetching customers with dataSource:', dataSource);
-          const data = await CustomerService.getCustomers(); // Get all customers
-          console.log('Fetched customers:', data.length, 'total, filtering for:', dataSource);
+          const data = await CustomerService.getCustomers();
           setCustomers(data);
       } catch (error) {
           toast.error("Failed to load customers");
@@ -42,22 +47,18 @@ export function Customers({ dataSource, theme }: CustomersProps) {
       }
   };
 
-  // Initial Load and re-fetch when dataSource changes
   useEffect(() => {
     fetchCustomers();
-  }, [dataSource]); // Added dataSource as dependency
+  }, [dataSource]);
 
   // 2. Add Customer
   const handleAddCustomer = async (customerData: any) => {
     try {
-        // Generate ID: 104562-XXXXXX-CUSTOMER-RECORD
         const random = Math.floor(100000 + Math.random() * 900000);
         const newId = `104562-${random}-CUSTOMER-RECORD`;
-        
         await CustomerService.addCustomer({ ...customerData, id: newId });
-        
         toast.success("Customer added successfully!");
-        fetchCustomers(); // Refresh list from server
+        fetchCustomers();
         setModalMode(null);
     } catch (e) {
         toast.error("Failed to add customer");
@@ -69,9 +70,8 @@ export function Customers({ dataSource, theme }: CustomersProps) {
     try {
         const { id, ...updates } = customer;
         await CustomerService.updateCustomer(id, updates);
-        
         toast.success("Customer details updated!");
-        fetchCustomers(); // Refresh list from server
+        fetchCustomers();
         setModalMode(null);
         setSelectedCustomer(null);
     } catch (e) {
@@ -85,7 +85,7 @@ export function Customers({ dataSource, theme }: CustomersProps) {
     try {
         await CustomerService.deleteCustomer(selectedCustomer.id);
         toast.success("Customer deleted");
-        fetchCustomers(); // Refresh list from server
+        fetchCustomers();
         setDeleteModalOpen(false);
         setSelectedCustomer(null);
     } catch (e) {
@@ -97,39 +97,37 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   
   const handleStatusToggle = async (customerId: string, currentStatus: string) => {
-    if (updatingStatus === customerId) return; // Prevent multiple clicks
+    if (updatingStatus === customerId) return;
     
     const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
     setUpdatingStatus(customerId);
     
     try {
       await CustomerService.updateCustomer(customerId, { status: newStatus });
-      
-      // Update local state immediately for better UX
       setCustomers(prev => prev.map(customer => 
-        customer.id === customerId 
-          ? { ...customer, status: newStatus }
-          : customer
+        customer.id === customerId ? { ...customer, status: newStatus } : customer
       ));
-      
-      toast.success(`Customer ${customerId} status changed to ${newStatus}`, {
-        description: `${currentStatus} → ${newStatus}`,
-        duration: 3000,
-      });
+      toast.success(`Status updated to ${newStatus}`);
     } catch (error) {
-      toast.error("Failed to update customer status", {
-        description: "Please try again later",
-        duration: 5000,
-      });
-      console.error('Status update error:', error);
+      toast.error("Failed to update status");
     } finally {
       setUpdatingStatus(null);
     }
   };
 
-  // Filter customers locally (includes dataSource filtering)
+  // ✅ 3. UPDATED FILTER LOGIC (Uses searchQuery)
   const filteredCustomers = customers.filter(customer => {
-    const searchLower = searchTerm.toLowerCase();
+    // A. Check Status & Source Filters First
+    const matchesStatus = filterStatus === 'All' || customer.status === filterStatus;
+    const matchesSource = dataSource === 'All' || customer.source === dataSource;
+
+    // B. If No Search, return based on filters
+    if (!searchQuery) {
+        return matchesStatus && matchesSource;
+    }
+
+    // C. Search Logic
+    const searchLower = searchQuery.toLowerCase();
     let matchesSearch = false;
 
     if (searchField === 'All') {
@@ -147,8 +145,6 @@ export function Customers({ dataSource, theme }: CustomersProps) {
         matchesSearch = customer.oltIp && customer.oltIp.toLowerCase().includes(searchLower);
     }
 
-    const matchesStatus = filterStatus === 'All' || customer.status === filterStatus;
-    const matchesSource = dataSource === 'All' || customer.source === dataSource;
     return matchesSearch && matchesStatus && matchesSource;
   });
 
@@ -163,15 +159,15 @@ export function Customers({ dataSource, theme }: CustomersProps) {
         
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           
-          {/* Search Bar */}
+          {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
           <div className="relative w-full md:w-96">
             <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
             <input
               type="text"
               className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
               placeholder={`Search in ${searchField}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchQuery} // ✅ Uses Global State
+              onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
             />
           </div>
 
@@ -241,7 +237,7 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                  <tr>
                   <td colSpan={10} className="py-12 text-center">
                     <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {dataSource === 'All' ? 'No customers found. Add a new customer to get started.' : `No ${dataSource} customers found.`}
+                      {dataSource === 'All' ? 'No customers found.' : `No ${dataSource} customers found.`}
                     </p>
                   </td>
                 </tr>

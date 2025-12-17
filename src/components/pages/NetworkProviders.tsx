@@ -4,6 +4,9 @@ import { useNetworkProviders } from '../../hooks/useNetworkProviders';
 import { NetworkProviderModal } from '../modals/NetworkProviderModal';
 import { DeleteConfirmModal } from '../modals/DeleteConfirmModal';
 
+// ✅ 1. Import Search Context
+import { useSearch } from '../../contexts/SearchContext';
+
 interface NetworkProvidersProps {
   theme: 'light' | 'dark';
 }
@@ -11,6 +14,9 @@ interface NetworkProvidersProps {
 export function NetworkProviders({ theme }: NetworkProvidersProps) {
   const isDark = theme === 'dark';
   
+  // ✅ 2. Use Global Search
+  const { searchQuery, setSearchQuery } = useSearch();
+
   const {
     providers,
     isLoading,
@@ -19,21 +25,23 @@ export function NetworkProviders({ theme }: NetworkProvidersProps) {
     updateProvider,
     deleteProvider,
     toggleProviderStatus,
-    getDataSourceOptions,
     refresh
   } = useNetworkProviders();
 
-  const [searchTerm, setSearchTerm] = useState('');
+  // ❌ REMOVED: const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  // Filtering logic
+  // ✅ 3. Updated Filtering logic (Uses searchQuery)
   const filteredProviders = providers.filter(provider => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = provider.name.toLowerCase().includes(searchLower) ||
-                         provider.id.includes(searchLower);
+    const searchLower = searchQuery.toLowerCase();
+    
+    // Search by Name or ID
+    const matchesSearch = 
+      provider.name.toLowerCase().includes(searchLower) ||
+      provider.id.toLowerCase().includes(searchLower);
     
     const matchesStatus = filterStatus === 'All' || provider.status === filterStatus;
     
@@ -90,14 +98,16 @@ export function NetworkProviders({ theme }: NetworkProvidersProps) {
       
       {/* Header & Controls */}
       <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border bg-inherit border-inherit shadow-sm">
+        
+        {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
         <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
             <input
               type="text"
               className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
               placeholder="Search network providers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchQuery} // ✅ Uses Global State
+              onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
             />
         </div>
         
@@ -140,47 +150,55 @@ export function NetworkProviders({ theme }: NetworkProvidersProps) {
                 </tr>
               </thead>
               <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
-                {filteredProviders.map((provider) => (
-                  <tr key={provider.id} className={`transition-colors ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}`}>
-                    <td className="px-6 py-4 font-medium">{provider.id}</td>
-                    <td className="px-6 py-4 font-medium">{provider.name}</td>
-                    
-                    {/* Status Toggle */}
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleToggleStatus(provider.id, provider.status)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
-                            provider.status === 'Active' 
-                            ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20' 
-                            : 'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
-                        }`}
-                      >
-                        {provider.status}
-                      </button>
-                    </td>
-                    
-                    <td className="px-6 py-4">{new Date(provider.createdAt).toLocaleDateString()}</td>
-                    
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button 
-                          onClick={() => { setSelectedProvider(provider); setModalMode('edit'); }} 
-                          className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors" 
-                          title="Edit"
+                {filteredProviders.length === 0 ? (
+                    <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                            No providers found matching "{searchQuery}"
+                        </td>
+                    </tr>
+                ) : (
+                    filteredProviders.map((provider) => (
+                    <tr key={provider.id} className={`transition-colors ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}`}>
+                        <td className="px-6 py-4 font-medium">{provider.id}</td>
+                        <td className="px-6 py-4 font-medium">{provider.name}</td>
+                        
+                        {/* Status Toggle */}
+                        <td className="px-6 py-4">
+                        <button
+                            onClick={() => handleToggleStatus(provider.id, provider.status)}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                                provider.status === 'Active' 
+                                ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20' 
+                                : 'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
+                            }`}
                         >
-                          <Edit className="w-4 h-4"/>
+                            {provider.status}
                         </button>
-                        <button 
-                          onClick={() => { setSelectedProvider(provider); setDeleteModalOpen(true); }} 
-                          className="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors" 
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4"/>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </td>
+                        
+                        <td className="px-6 py-4">{new Date(provider.createdAt).toLocaleDateString()}</td>
+                        
+                        <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                            <button 
+                            onClick={() => { setSelectedProvider(provider); setModalMode('edit'); }} 
+                            className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors" 
+                            title="Edit"
+                            >
+                            <Edit className="w-4 h-4"/>
+                            </button>
+                            <button 
+                            onClick={() => { setSelectedProvider(provider); setDeleteModalOpen(true); }} 
+                            className="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors" 
+                            title="Delete"
+                            >
+                            <Trash2 className="w-4 h-4"/>
+                            </button>
+                        </div>
+                        </td>
+                    </tr>
+                    ))
+                )}
               </tbody>
             </table>
           </div>
