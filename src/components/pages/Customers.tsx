@@ -7,8 +7,6 @@ import { ViewCustomerModal } from '@/components/modals/ViewCustomerModal';
 import { CustomerService } from '@/services/customerService'; 
 import { Customer } from '../../types'; 
 import { toast } from 'sonner';
-
-// ✅ 1. Import Search Context
 import { useSearch } from '../../contexts/SearchContext';
 
 interface CustomersProps {
@@ -21,8 +19,6 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ❌ REMOVED: const [searchTerm, setSearchTerm] = useState('');
-  // ✅ 2. Use Global Search
   const { searchQuery, setSearchQuery } = useSearch();
 
   const [filterStatus, setFilterStatus] = useState('All');
@@ -115,18 +111,15 @@ export function Customers({ dataSource, theme }: CustomersProps) {
     }
   };
 
-  // ✅ 3. UPDATED FILTER LOGIC (Uses searchQuery)
+  // Filter Logic
   const filteredCustomers = customers.filter(customer => {
-    // A. Check Status & Source Filters First
     const matchesStatus = filterStatus === 'All' || customer.status === filterStatus;
     const matchesSource = dataSource === 'All' || customer.source === dataSource;
 
-    // B. If No Search, return based on filters
     if (!searchQuery) {
         return matchesStatus && matchesSource;
     }
 
-    // C. Search Logic
     const searchLower = searchQuery.toLowerCase();
     let matchesSearch = false;
 
@@ -151,6 +144,30 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
+      {/* Dynamic Scrollbar Styles based on Theme */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: ${isDark ? '#2d3748' : '#f1f5f9'};
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: ${isDark ? '#4a5568' : '#cbd5e1'};
+          border-radius: 4px;
+          border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'};
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? '#718096' : '#94a3b8'};
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'};
+        }
+      `}</style>
+
       {/* Header Section */}
       <div className="mb-6">
         <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -159,15 +176,14 @@ export function Customers({ dataSource, theme }: CustomersProps) {
         
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           
-          {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
           <div className="relative w-full md:w-96">
             <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
             <input
               type="text"
               className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
               placeholder={`Search in ${searchField}...`}
-              value={searchQuery} // ✅ Uses Global State
-              onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
@@ -205,24 +221,35 @@ export function Customers({ dataSource, theme }: CustomersProps) {
         </div>
       </div>
 
-      {/* TABLE CONTAINER */}
-      <div className={`w-full rounded-lg border shadow-xl ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}>
-        <div className="overflow-x-auto" style={{ maxWidth: '100%', overflowX: 'auto' }}>
-          <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className={`${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'} font-semibold uppercase tracking-wider`}>
+      {/* TABLE CONTAINER - Fixed Height for Vertical Scroll */}
+      <div className={`w-full rounded-lg border shadow-xl overflow-hidden flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+        
+        {/* Scrollable Area */}
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
+          <table className="w-full whitespace-nowrap text-left text-sm border-separate border-spacing-0">
+            <thead className={`font-semibold uppercase tracking-wider sticky top-0 z-40 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
               <tr>
-                <th className="px-6 py-4 min-w-[180px]">ID</th>
-                <th className="px-6 py-4 min-w-[140px]">Landline</th>
-                <th className="px-6 py-4 min-w-[250px]">Name</th>
-                <th className="px-6 py-4 min-w-[140px]">Mobile</th>
-                <th className="px-6 py-4 min-w-[180px]">Plan</th>
-                <th className="px-6 py-4 min-w-[140px]">OLT IP</th>
-                <th className="px-6 py-4 min-w-[120px]">OTT</th>
-                <th className="px-6 py-4 min-w-[140px]">Install Date</th>
-                <th className={`px-6 py-4 min-w-[120px] sticky right-[110px] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>Status</th>
-                <th className={`px-6 py-4 min-w-[110px] text-center sticky right-0 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20`}>Options</th>
+                <th className="px-6 py-4 min-w-[180px] border-b border-gray-200 dark:border-gray-700 bg-inherit">ID</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Landline</th>
+                <th className="px-6 py-4 min-w-[250px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Name</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Mobile</th>
+                <th className="px-6 py-4 min-w-[180px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Plan</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">OLT IP</th>
+                <th className="px-6 py-4 min-w-[120px] border-b border-gray-200 dark:border-gray-700 bg-inherit">OTT</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Install Date</th>
+                
+                {/* Fixed Status Column Header */}
+                <th className={`px-6 py-4 min-w-[120px] sticky right-[110px] z-40 border-b border-gray-200 dark:border-gray-700 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
+                  Status
+                </th>
+                
+                {/* Fixed Options Column Header */}
+                <th className={`px-6 py-4 min-w-[110px] text-center sticky right-0 z-40 border-b border-gray-200 dark:border-gray-700 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
+                  Options
+                </th>
               </tr>
             </thead>
+            
             <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {loading ? (
                 <tr>
@@ -243,21 +270,18 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                 </tr>
               ) : (
                 filteredCustomers.map((customer) => (
-                <tr key={customer.id} className={`hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'} transition-colors`}>
-                  <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.id}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{customer.landline}</td>
-                  <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.name}</td>
-                  <td className="px-6 py-4">{customer.mobileNo}</td>
-                  
-                  {/* New Columns */}
-                  <td className={`px-6 py-4 font-medium ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{customer.plan}</td>
-                  <td className="px-6 py-4 font-mono text-xs">{customer.oltIp}</td>
-                  <td className={`px-6 py-4 text-xs font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{customer.ottSubscription || '-'}</td>
-                  
-                  <td className="px-6 py-4">{customer.installationDate}</td>
+                <tr key={customer.id} className={`group hover:${isDark ? 'bg-[#2d3546]' : 'bg-blue-50'} transition-colors`}>
+                  <td className={`px-6 py-4 font-medium border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.id}</td>
+                  <td className={`px-6 py-4 border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{customer.landline}</td>
+                  <td className={`px-6 py-4 font-medium border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.name}</td>
+                  <td className="px-6 py-4 border-b border-gray-100 dark:border-gray-800">{customer.mobileNo}</td>
+                  <td className={`px-6 py-4 font-medium border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{customer.plan}</td>
+                  <td className="px-6 py-4 font-mono text-xs border-b border-gray-100 dark:border-gray-800">{customer.oltIp}</td>
+                  <td className={`px-6 py-4 text-xs font-bold border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{customer.ottSubscription || '-'}</td>
+                  <td className="px-6 py-4 border-b border-gray-100 dark:border-gray-800">{customer.installationDate}</td>
 
-                  {/* Sticky Status Column */}
-                  <td className={`px-6 py-4 sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
+                  {/* Sticky Status Column Body */}
+                  <td className={`px-6 py-4 sticky right-[110px] z-20 border-b border-gray-100 dark:border-gray-800 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-blue-50'}`}>
                     <button
                       onClick={() => handleStatusToggle(customer.id, customer.status)}
                       disabled={updatingStatus === customer.id}
@@ -279,8 +303,8 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                     </button>
                   </td>
 
-                  {/* Sticky Options Column */}
-                  <td className={`px-6 py-4 text-center sticky right-0 ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10`}>
+                  {/* Sticky Options Column Body */}
+                  <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-gray-100 dark:border-gray-800 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-blue-50'}`}>
                     <div className="flex items-center justify-center gap-3">
                       <button onClick={() => { setSelectedCustomer(customer); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 p-1"><Eye className="h-4 w-4" /></button>
                       <button onClick={() => { setSelectedCustomer(customer); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 p-1"><Edit className="h-4 w-4" /></button>
@@ -291,6 +315,11 @@ export function Customers({ dataSource, theme }: CustomersProps) {
               )))}
             </tbody>
           </table>
+        </div>
+        
+        {/* Footer */}
+        <div className={`px-6 py-3 border-t text-xs font-medium uppercase tracking-wide ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
+            Total Customers: {filteredCustomers.length}
         </div>
       </div>
 

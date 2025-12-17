@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, X, Loader2 } from 'lucide-react';
 import type { DataSource } from '../../types';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
 import { ConvertLeadModal } from '@/components/modals/ConvertLeadModal';
 import { WhatsAppService } from '@/services/whatsappService';
-import { LeadService } from '@/services/leadService'; // ✅ Import LeadService
-import { CustomerService } from '@/services/customerService'; // ✅ Import CustomerService
+import { LeadService } from '@/services/leadService'; 
+import { CustomerService } from '@/services/customerService'; 
 import { Customer } from '../../types';
 import { toast } from 'sonner';
-
 import { useSearch } from '../../contexts/SearchContext';
 
 interface LeadsProps {
@@ -37,15 +36,11 @@ const generateCustomerId = (): string => {
 export function Leads({ dataSource, theme }: LeadsProps) {
   const isDark = theme === 'dark';
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true); // Added loading state
   
   const [filterStatus, setFilterStatus] = useState('All');
-
   const [searchField, setSearchField] = useState('All');
-  const { searchQuery } = useSearch();
-  
-
-
-
+  const { searchQuery, setSearchQuery } = useSearch();
 
   const [modalMode, setModalMode] = useState<'add' | 'edit' | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -57,11 +52,14 @@ export function Leads({ dataSource, theme }: LeadsProps) {
 
   // 1. Load Data from Firebase
   const fetchLeads = async () => {
+    setLoading(true);
     try {
       const data = await LeadService.getLeads();
       setLeads(data);
     } catch (error) {
       toast.error("Failed to load leads");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -72,7 +70,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
   // 2. Add Lead Logic
   const handleAddLead = async (leadData: Omit<Lead, 'id'>) => {
     try {
-      await LeadService.addLead(leadData as any); // Type casting if needed
+      await LeadService.addLead(leadData as any); 
       toast.success("Lead Added Successfully!");
       fetchLeads();
       setModalMode(null);
@@ -120,15 +118,13 @@ export function Leads({ dataSource, theme }: LeadsProps) {
       if (newStatus === 'Sale') {
         setLeadToConvert(lead);
         setConvertModalOpen(true);
-        return; // Don't update status yet, wait for modal submission
+        return; 
       }
 
-      // For other status changes, confirm and update
       if (!window.confirm(`Change status from ${lead.status} to ${newStatus}?`)) return;
 
-      // Update Lead Status in Firebase
       await LeadService.updateLead(id, { status: newStatus as any });
-      fetchLeads(); // Refresh UI
+      fetchLeads(); 
 
     } catch (error) {
       console.error(error);
@@ -169,20 +165,15 @@ export function Leads({ dataSource, theme }: LeadsProps) {
         address: leadToConvert.address
       };
 
-      // Save to Firebase Customers Collection
       await CustomerService.addCustomer(newCustomer);
-
-      // Update Lead Status to Sale
       await LeadService.updateLead(leadToConvert.id, { status: 'Sale' as any });
 
       toast.success(`${leadToConvert.customerName} converted to Customer!`);
 
-      // Send WhatsApp Welcome Message
       setTimeout(() => {
         WhatsAppService.sendWelcome(newCustomer);
       }, 1000);
 
-      // Close modal and refresh
       setConvertModalOpen(false);
       setLeadToConvert(null);
       fetchLeads();
@@ -195,19 +186,15 @@ export function Leads({ dataSource, theme }: LeadsProps) {
     }
   };
 
-  // Filtering Logic (Same as before)
-// Filtering Logic
+  // Filtering Logic
   const filteredLeads = leads.filter(lead => {
-    // 1. Check Status & Source Filters (First check these)
     const matchesStatus = filterStatus === 'All' || lead.status === filterStatus;
     const matchesSource = dataSource === 'All' || lead.source === dataSource;
 
-    // 2. If NO Search Query, return based on filters only
     if (!searchQuery) {
       return matchesStatus && matchesSource;
     }
 
-    // 3. If Search Query EXISTS, check matching text
     const searchLower = searchQuery.toLowerCase();
     let matchesSearch = false;
 
@@ -216,7 +203,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
         lead.customerName.toLowerCase().includes(searchLower) ||
         (lead.id && lead.id.includes(searchLower)) ||
         lead.phoneNo.includes(searchLower) ||
-        (lead.remarks && lead.remarks.toLowerCase().includes(searchLower)); // Added check for remarks existence
+        (lead.remarks && lead.remarks.toLowerCase().includes(searchLower)); 
     } else if (searchField === 'Name') {
       matchesSearch = lead.customerName.toLowerCase().includes(searchLower);
     } else if (searchField === 'ID') {
@@ -225,23 +212,58 @@ export function Leads({ dataSource, theme }: LeadsProps) {
       matchesSearch = lead.phoneNo.includes(searchLower);
     }
 
-    // Return combination of ALL checks
     return matchesSearch && matchesStatus && matchesSource;
   });
 
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
 
+      {/* Dynamic Scrollbar Styles based on Theme */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: ${isDark ? '#2d3748' : '#f1f5f9'};
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: ${isDark ? '#4a5568' : '#cbd5e1'};
+          border-radius: 4px;
+          border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'};
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? '#718096' : '#94a3b8'};
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'};
+        }
+      `}</style>
+
       {/* Header & Controls */}
       <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border bg-inherit border-inherit shadow-sm">
         
+        {/* LEFT SIDE: Search Input */}
+        <div className="relative w-full md:w-96">
+            <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+            <input
+              type="text"
+              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+              placeholder={`Search in ${searchField}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+        </div>
 
+        {/* RIGHT SIDE: Filters & Add Button */}
         <div className="flex gap-3 w-full md:w-auto">
-          {/* Search Field Dropdown */}
+          {/* Search Field Selection */}
           <select
             value={searchField}
             onChange={(e) => setSearchField(e.target.value)}
-            className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
+            className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
           >
             <option value="All">Search All</option>
             <option value="Name">Customer Name</option>
@@ -253,7 +275,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className={`px-4 py-2 rounded-md border outline-none ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}
+            className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
           >
             <option value="All">All Status</option>
             <option value="Success">Success</option>
@@ -267,32 +289,61 @@ export function Leads({ dataSource, theme }: LeadsProps) {
         </div>
       </div>
 
-      {/* Table */}
-      <div className={`rounded-xl border shadow-lg overflow-hidden ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className={`uppercase font-bold ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
+      {/* TABLE CONTAINER - Fixed Height for Vertical Scroll */}
+      <div className={`rounded-xl border shadow-lg overflow-hidden flex flex-col ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+        
+        {/* Scrollable Area */}
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
+          <table className="w-full text-sm text-left border-separate border-spacing-0">
+            <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
               <tr>
-                <th className="px-6 py-4 min-w-[100px]">ID</th>
-                <th className="px-6 py-4 min-w-[200px]">Name</th>
-                <th className="px-6 py-4 min-w-[140px]">Phone</th>
-                <th className="px-6 py-4 min-w-[200px]">Address</th>
-                <th className="px-6 py-4 min-w-[120px]">Followup</th>
-                <th className="px-6 py-4 text-center min-w-[250px]">Status Action</th>
-                <th className="px-6 py-4 text-center min-w-[120px]">Options</th>
+                <th className="px-6 py-4 min-w-[100px] border-b border-inherit bg-inherit">ID</th>
+                <th className="px-6 py-4 min-w-[200px] border-b border-inherit bg-inherit">Name</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Phone</th>
+                <th className="px-6 py-4 min-w-[200px] border-b border-inherit bg-inherit">Address</th>
+                <th className="px-6 py-4 min-w-[120px] border-b border-inherit bg-inherit">Followup</th>
+                
+                {/* Fixed Status Action Column */}
+                <th className={`px-6 py-4 text-center min-w-[250px] sticky right-[120px] z-40 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+                    Status Action
+                </th>
+                
+                {/* Fixed Options Column */}
+                <th className={`px-6 py-4 text-center min-w-[120px] sticky right-0 z-40 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+                    Options
+                </th>
               </tr>
             </thead>
+            
             <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
-              {filteredLeads.map((lead) => (
-                <tr key={lead.id} className={`transition-colors ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}`}>
-                  <td className="px-6 py-4 font-medium">{lead.id}</td>
-                  <td className="px-6 py-4 font-medium">{lead.customerName}</td>
-                  <td className="px-6 py-4">{lead.phoneNo}</td>
-                  <td className="px-6 py-4 max-w-[200px] truncate" title={lead.address}>{lead.address}</td>
-                  <td className="px-6 py-4">{lead.followupDate}</td>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading leads...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredLeads.length === 0 ? (
+                 <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {dataSource === 'All' ? 'No leads found.' : `No ${dataSource} leads found.`}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredLeads.map((lead) => (
+                <tr key={lead.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}`}>
+                  <td className="px-6 py-4 font-medium border-b border-inherit">{lead.id}</td>
+                  <td className="px-6 py-4 font-medium border-b border-inherit">{lead.customerName}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{lead.phoneNo}</td>
+                  <td className="px-6 py-4 max-w-[200px] truncate border-b border-inherit" title={lead.address}>{lead.address}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{lead.followupDate}</td>
 
-                  {/* DYNAMIC STATUS BUTTONS */}
-                  <td className="px-6 py-4 text-center">
+                  {/* Sticky Status Action Body */}
+                  <td className={`px-6 py-4 text-center sticky right-[120px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800 group-hover:bg-slate-700/50' : 'bg-white group-hover:bg-gray-50'}`}>
                     <div className="flex items-center justify-center gap-2">
                       {/* Success Button */}
                       <button
@@ -329,7 +380,8 @@ export function Leads({ dataSource, theme }: LeadsProps) {
                     </div>
                   </td>
 
-                  <td className="px-6 py-4 text-center">
+                  {/* Sticky Options Body */}
+                  <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-inherit ${isDark ? 'bg-slate-800 group-hover:bg-slate-700/50' : 'bg-white group-hover:bg-gray-50'}`}>
                     <div className="flex items-center justify-center gap-2">
                       <button onClick={() => { setSelectedLead(lead); setViewModalOpen(true); }} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                       <button onClick={() => { setSelectedLead(lead); setModalMode('edit'); }} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors" title="Edit"><Edit className="w-4 h-4" /></button>
@@ -337,10 +389,12 @@ export function Leads({ dataSource, theme }: LeadsProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
+        
+        {/* Footer */}
         <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-slate-700 bg-slate-900 text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
           <div className="text-sm">
             Showing {filteredLeads.length} results
