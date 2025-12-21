@@ -5,6 +5,7 @@ import {
     updateDoc,
     deleteDoc,
     getDocs,
+    getDoc, 
     query,
     where,
     orderBy,
@@ -12,9 +13,8 @@ import {
     onSnapshot,
     writeBatch,
     Timestamp,
-    setDoc,
-    getDoc
-} from '../firebase/config';
+    setDoc
+} from 'firebase/firestore';
 import { db } from '../firebase/config';
 import type { Customer } from '../types';
 
@@ -22,25 +22,24 @@ const CUSTOMERS_COLLECTION = 'customers';
 
 export const CustomerService = {
 
-    // Add Customer
-    // Add Customer
+    // ---------------------------------------------------------
+    // 1. Add Customer
+    // ---------------------------------------------------------
     addCustomer: async (customer: Omit<Customer, 'id'> & { id?: string }) => {
         try {
-            // If we have a custom ID (e.g. "104562-..."), use it as the Document ID
             if (customer.id) {
                 const docRef = doc(db, CUSTOMERS_COLLECTION, customer.id);
-                await setDoc(docRef, {
-                    ...customer,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+                await setDoc(docRef, { 
+                    ...customer, 
+                    createdAt: new Date().toISOString(), 
+                    updatedAt: new Date().toISOString() 
                 });
                 return customer.id;
             } else {
-                // Fallback to auto-generated ID if no ID provided
-                const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), {
-                    ...customer,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+                const docRef = await addDoc(collection(db, CUSTOMERS_COLLECTION), { 
+                    ...customer, 
+                    createdAt: new Date().toISOString(), 
+                    updatedAt: new Date().toISOString() 
                 });
                 return docRef.id;
             }
@@ -50,78 +49,78 @@ export const CustomerService = {
         }
     },
 
-    // Update Customer
-    // Update Customer
+    // ---------------------------------------------------------
+    // 2. Update Customer
+    // ---------------------------------------------------------
     updateCustomer: async (id: string, updates: Partial<Customer>) => {
         try {
-            // Strategy: Try to find document by ID directly first
-            // If the ID was used as the Doc ID (new behavior), this works.
             const directDocRef = doc(db, CUSTOMERS_COLLECTION, id);
-            const directSnapshot = await getDoc(directDocRef);
-
-            if (directSnapshot.exists()) {
-                await updateDoc(directDocRef, {
-                    ...updates,
-                    updatedAt: new Date().toISOString()
-                });
-                return;
-            }
-
-            // If not found, it might be an old record where ID is a field, not the Doc ID.
-            // Query for it.
+            // Check if doc exists directly
+            const docSnap = await getDoc(directDocRef);
+            
+            if (docSnap.exists()) {
+                 await updateDoc(directDocRef, { ...updates, updatedAt: new Date().toISOString() });
+                 return;
+            } 
+            
+            // Fallback: Query by ID field if not document ID
             const q = query(collection(db, CUSTOMERS_COLLECTION), where('id', '==', id));
             const querySnapshot = await getDocs(q);
-
             if (!querySnapshot.empty) {
-                // Found it via query
                 const docToUpdate = querySnapshot.docs[0];
-                await updateDoc(docToUpdate.ref, {
-                    ...updates,
-                    updatedAt: new Date().toISOString()
-                });
-            } else {
-                console.warn(`Customer with ID ${id} not found for update.`);
-                throw new Error('Customer not found');
+                await updateDoc(docToUpdate.ref, { ...updates, updatedAt: new Date().toISOString() });
             }
-
         } catch (error) {
             console.error('Error updating customer:', error);
             throw new Error('Failed to update customer');
         }
     },
 
-    // Delete Customer
-    // Delete Customer
+    // ---------------------------------------------------------
+    // 3. Delete Customer
+    // ---------------------------------------------------------
     deleteCustomer: async (id: string) => {
         try {
-            // Strategy: Try to find document by ID directly first
             const directDocRef = doc(db, CUSTOMERS_COLLECTION, id);
-            const directSnapshot = await getDoc(directDocRef);
-
-            if (directSnapshot.exists()) {
-                await deleteDoc(directDocRef);
-                return;
-            }
-
-            // If not found, query match
-            const q = query(collection(db, CUSTOMERS_COLLECTION), where('id', '==', id));
-            const querySnapshot = await getDocs(q);
-
-            if (!querySnapshot.empty) {
-                const docToDelete = querySnapshot.docs[0];
-                await deleteDoc(docToDelete.ref);
-            } else {
-                console.warn(`Customer with ID ${id} not found for deletion.`);
-                // We ensure we don't throw if it's already gone, or maybe we should?
-                // User asked to fix verify delete works. use console warn.
-            }
+            await deleteDoc(directDocRef);
         } catch (error) {
             console.error('Error deleting customer:', error);
             throw new Error('Failed to delete customer');
         }
     },
 
-    // Get All Customers
+    // ---------------------------------------------------------
+    // 4. ✅ Wallet Update Function
+    // ---------------------------------------------------------
+    updateWallet: async (customerId: string, amount: number, type: 'credit' | 'debit') => {
+        try {
+            const customerRef = doc(db, CUSTOMERS_COLLECTION, customerId);
+            const customerSnap = await getDoc(customerRef);
+            if (!customerSnap.exists()) throw new Error('Customer not found');
+
+            const customerData = customerSnap.data();
+            let newBalance = customerData.walletBalance || 0;
+
+            if (type === 'credit') {
+                newBalance += amount;
+            } else {
+                newBalance -= amount;
+            }
+
+            await updateDoc(customerRef, { 
+                walletBalance: newBalance, 
+                updatedAt: new Date().toISOString() 
+            });
+            return newBalance;
+        } catch (error) {
+            console.error('Error updating wallet:', error);
+            throw new Error('Failed to update wallet balance');
+        }
+    },
+
+    // ---------------------------------------------------------
+    // 5. Get All Customers
+    // ---------------------------------------------------------
     getCustomers: async (): Promise<Customer[]> => {
         try {
             const q = query(collection(db, CUSTOMERS_COLLECTION), orderBy('createdAt', 'desc'), limit(1000));
@@ -133,18 +132,25 @@ export const CustomerService = {
         }
     },
 
-    // Get Customer by ID/Landline (Helper)
+    // ---------------------------------------------------------
+    // 6. Find Customer by Landline
+    // ---------------------------------------------------------
     findCustomerByLandline: async (landline: string): Promise<Customer | null> => {
-        const q = query(collection(db, CUSTOMERS_COLLECTION), where('landline', '==', landline));
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
+        try {
+            const q = query(collection(db, CUSTOMERS_COLLECTION), where('landline', '==', landline));
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) return null;
             const doc = snapshot.docs[0];
             return { id: doc.id, ...doc.data() } as Customer;
+        } catch (error) {
+            console.error('Error finding customer:', error);
+            return null;
         }
-        return null;
     },
 
-    // ==================== REAL-TIME SUBSCRIPTIONS ====================
+    // ---------------------------------------------------------
+    // 7. Real-Time Subscriptions
+    // ---------------------------------------------------------
     subscribeToCustomers: (callback: (customers: Customer[]) => void) => {
         const q = query(
             collection(db, CUSTOMERS_COLLECTION),
@@ -210,10 +216,12 @@ export const CustomerService = {
         });
     },
 
-    // ==================== BATCH OPERATIONS ====================
+    // ---------------------------------------------------------
+    // 8. Bulk Operations
+    // ---------------------------------------------------------
     addBulkCustomers: async (customers: Omit<Customer, 'id'>[]): Promise<{ success: number; failed: number; errors: string[] }> => {
         try {
-            const batchSize = 500; // Firestore limit
+            const batchSize = 500;
             let success = 0;
             let failed = 0;
             const errors: string[] = [];
@@ -226,8 +234,8 @@ export const CustomerService = {
                     const docRef = doc(collection(db, CUSTOMERS_COLLECTION));
                     batch.set(docRef, {
                         ...customer,
-                        createdAt: Timestamp.fromDate(new Date()),
-                        updatedAt: Timestamp.fromDate(new Date())
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
                     });
                 });
 
@@ -236,22 +244,19 @@ export const CustomerService = {
                     success += chunk.length;
                 } catch (error) {
                     failed += chunk.length;
-                    errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error}`);
+                    errors.push(`Batch error: ${error}`);
                 }
             }
-
-            console.log(`Bulk customer upload completed: ${success} success, ${failed} failed`);
             return { success, failed, errors };
-        } catch (error) {
-            console.error('Bulk customer upload failed:', error);
-            return { success: 0, failed: customers.length, errors: [error instanceof Error ? error.message : 'Unknown error'] };
+        } catch (error) { 
+            return { success: 0, failed: customers.length, errors: [String(error)] }; 
         }
     },
 
     updateBulkCustomers: async (updates: Array<{ id: string; data: Partial<Customer> }>): Promise<{ success: number; failed: number; errors: string[] }> => {
         try {
             const batchSize = 500;
-            let success = 0;
+            let success = 0; 
             let failed = 0;
             const errors: string[] = [];
 
@@ -263,7 +268,7 @@ export const CustomerService = {
                     const customerRef = doc(db, CUSTOMERS_COLLECTION, id);
                     batch.update(customerRef, {
                         ...data,
-                        updatedAt: Timestamp.fromDate(new Date())
+                        updatedAt: new Date().toISOString()
                     });
                 });
 
@@ -272,22 +277,19 @@ export const CustomerService = {
                     success += chunk.length;
                 } catch (error) {
                     failed += chunk.length;
-                    errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error}`);
+                    errors.push(`Batch error: ${error}`);
                 }
             }
-
-            console.log(`Bulk customer update completed: ${success} success, ${failed} failed`);
             return { success, failed, errors };
         } catch (error) {
-            console.error('Bulk customer update failed:', error);
-            return { success: 0, failed: updates.length, errors: [error instanceof Error ? error.message : 'Unknown error'] };
+            return { success: 0, failed: updates.length, errors: [String(error)] };
         }
     },
 
     deleteBulkCustomers: async (customerIds: string[]): Promise<{ success: number; failed: number; errors: string[] }> => {
         try {
             const batchSize = 500;
-            let success = 0;
+            let success = 0; 
             let failed = 0;
             const errors: string[] = [];
 
@@ -305,19 +307,18 @@ export const CustomerService = {
                     success += chunk.length;
                 } catch (error) {
                     failed += chunk.length;
-                    errors.push(`Batch ${Math.floor(i / batchSize) + 1} failed: ${error}`);
+                    errors.push(`Batch error: ${error}`);
                 }
             }
-
-            console.log(`Bulk customer deletion completed: ${success} success, ${failed} failed`);
             return { success, failed, errors };
         } catch (error) {
-            console.error('Bulk customer deletion failed:', error);
-            return { success: 0, failed: customerIds.length, errors: [error instanceof Error ? error.message : 'Unknown error'] };
+            return { success: 0, failed: customerIds.length, errors: [String(error)] };
         }
     },
 
-    // ==================== ADVANCED QUERIES ====================
+    // ---------------------------------------------------------
+    // 9. Advanced Queries
+    // ---------------------------------------------------------
     getCustomersByPlan: async (plan: string): Promise<Customer[]> => {
         try {
             const q = query(
@@ -325,12 +326,8 @@ export const CustomerService = {
                 where('plan', '==', plan),
                 orderBy('createdAt', 'desc')
             );
-
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Customer[];
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
         } catch (error) {
             console.error('Error fetching customers by plan:', error);
             return [];
@@ -341,18 +338,14 @@ export const CustomerService = {
         try {
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() + daysAhead);
-
+            
             const q = query(
                 collection(db, CUSTOMERS_COLLECTION),
-                where('renewalDate', '<=', Timestamp.fromDate(cutoffDate)),
+                where('renewalDate', '<=', cutoffDate.toISOString().split('T')[0]),
                 orderBy('renewalDate', 'asc')
             );
-
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Customer[];
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Customer));
         } catch (error) {
             console.error('Error fetching customers with renewal due:', error);
             return [];
@@ -361,11 +354,8 @@ export const CustomerService = {
 
     searchCustomers: async (searchTerm: string): Promise<Customer[]> => {
         try {
-            // Note: Firestore doesn't support full-text search natively
-            // This is a simplified search - in production, consider using Algolia or similar
             const customers = await CustomerService.getCustomers();
             const searchLower = searchTerm.toLowerCase();
-
             return customers.filter(customer =>
                 customer.name?.toLowerCase().includes(searchLower) ||
                 customer.landline?.includes(searchTerm) ||
@@ -378,67 +368,37 @@ export const CustomerService = {
         }
     },
 
-    // ==================== ERROR HANDLING AND RETRY ====================
+    // ---------------------------------------------------------
+    // 10. Utility & Retry
+    // ---------------------------------------------------------
     addCustomerWithRetry: async (
         customer: Omit<Customer, 'id'> & { id?: string },
         maxRetries: number = 3
     ): Promise<string | null> => {
-        let lastError: Error | null = null;
-
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 return await CustomerService.addCustomer(customer);
             } catch (error) {
-                lastError = error instanceof Error ? error : new Error('Unknown error');
-                console.error(`Attempt ${attempt} failed:`, lastError.message);
-
-                if (attempt === maxRetries) {
-                    console.error('Max retries reached, giving up');
-                    break;
-                }
-
-                // Exponential backoff
+                console.error(`Attempt ${attempt} failed:`, error);
+                if (attempt === maxRetries) break;
                 await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
             }
         }
-
         return null;
     },
 
-    // ==================== UTILITY METHODS ====================
     validateCustomerData: (customer: Partial<Customer>): { isValid: boolean; errors: string[] } => {
         const errors: string[] = [];
-
-        if (!customer.name || customer.name.trim().length === 0) {
-            errors.push('Customer name is required');
-        }
-
-        if (!customer.landline || customer.landline.trim().length === 0) {
-            errors.push('Landline number is required');
-        }
-
-        if (!customer.mobileNo || customer.mobileNo.trim().length === 0) {
-            errors.push('Mobile number is required');
-        }
-
-        if (customer.mobileNo && !/^\d{10}$/.test(customer.mobileNo)) {
-            errors.push('Mobile number must be 10 digits');
-        }
-
-        if (customer.altMobileNo && !/^\d{10}$/.test(customer.altMobileNo)) {
-            errors.push('Alternative mobile number must be 10 digits');
-        }
-
-        return {
-            isValid: errors.length === 0,
-            errors
-        };
+        if (!customer.name || customer.name.trim().length === 0) errors.push('Customer name is required');
+        if (!customer.landline || customer.landline.trim().length === 0) errors.push('Landline number is required');
+        if (!customer.mobileNo || customer.mobileNo.trim().length === 0) errors.push('Mobile number is required');
+        if (customer.mobileNo && !/^\d{10}$/.test(customer.mobileNo)) errors.push('Mobile number must be 10 digits');
+        return { isValid: errors.length === 0, errors };
     },
 
     getCustomerStats: async () => {
         try {
             const customers = await CustomerService.getCustomers();
-
             const stats = {
                 total: customers.length,
                 byStatus: {} as Record<string, number>,
@@ -446,40 +406,19 @@ export const CustomerService = {
                 byPlan: {} as Record<string, number>,
                 withRenewalDue: 0
             };
-
-            const today = new Date();
             const renewalCutoff = new Date();
-            renewalCutoff.setDate(today.getDate() + 30);
+            renewalCutoff.setDate(renewalCutoff.getDate() + 30);
 
             customers.forEach(customer => {
-                // Count by status
                 stats.byStatus[customer.status] = (stats.byStatus[customer.status] || 0) + 1;
-
-                // Count by source
                 stats.bySource[customer.source] = (stats.bySource[customer.source] || 0) + 1;
-
-                // Count by plan
-                if (customer.plan) {
-                    stats.byPlan[customer.plan] = (stats.byPlan[customer.plan] || 0) + 1;
-                }
-
-                // Check renewal due
-                const customerData = customer as any;
-                if (customerData.renewalDate && new Date(customerData.renewalDate) <= renewalCutoff) {
-                    stats.withRenewalDue++;
-                }
+                if (customer.plan) stats.byPlan[customer.plan] = (stats.byPlan[customer.plan] || 0) + 1;
+                if (customer.renewalDate && new Date(customer.renewalDate) <= renewalCutoff) stats.withRenewalDue++;
             });
-
             return stats;
         } catch (error) {
             console.error('Error calculating customer stats:', error);
-            return {
-                total: 0,
-                byStatus: {},
-                bySource: {},
-                byPlan: {},
-                withRenewalDue: 0
-            };
+            return { total: 0, byStatus: {}, bySource: {}, byPlan: {}, withRenewalDue: 0 };
         }
     }
 };

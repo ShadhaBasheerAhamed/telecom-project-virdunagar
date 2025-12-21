@@ -36,7 +36,6 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ❌ REMOVED: const [searchTerm, setSearchTerm] = useState('');
   // ✅ 2. Use Global Search
   const { searchQuery, setSearchQuery } = useSearch();
 
@@ -234,6 +233,31 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
+      {/* 🟢 CUSTOM SCROLLBAR STYLES (Added based on Customer Page) */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: ${isDark ? '#2d3748' : '#f1f5f9'};
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: ${isDark ? '#4a5568' : '#cbd5e1'};
+          border-radius: 4px;
+          border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'};
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? '#718096' : '#94a3b8'};
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'};
+        }
+      `}</style>
+
+      {/* 🟢 HEADER SECTION - REORGANIZED LAYOUT */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Complaints Management</h1>
@@ -246,9 +270,10 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
           </div>
         </div>
         
+        {/* Controls Container */}
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           
-          {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
+          {/* 🟢 LEFT SIDE: Search Input (Moved here as requested) */}
           <div className="relative w-full md:w-96">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -257,11 +282,12 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               type="text"
               className={`block w-full pl-10 pr-3 py-2.5 border rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300 placeholder-gray-400' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-500'}`}
               placeholder={`Search in ${searchField}...`}
-              value={searchQuery} // ✅ Uses Global State
-              onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
+              value={searchQuery} // Uses Global State
+              onChange={(e) => setSearchQuery(e.target.value)} 
             />
           </div>
 
+          {/* 🟢 RIGHT SIDE: Filters & Buttons (Aligned right) */}
           <div className="flex gap-3 w-full md:w-auto">
             <select
               value={searchField}
@@ -286,7 +312,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               <option value="Not Resolved">Not Resolved</option>
             </select>
 
-            {/* Bulk Upload */}
+            {/* Bulk Upload Button */}
             <input type="file" ref={fileInputRef} accept=".csv" className="hidden" onChange={handleFileUpload} />
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -296,6 +322,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               <span className="hidden sm:inline">Upload</span>
             </button>
 
+            {/* Add Button */}
             <button
               onClick={() => setModalMode('add')}
               className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg shadow-blue-900/20"
@@ -307,28 +334,35 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
         </div>
       </div>
 
-      <div className={`w-full rounded-lg border shadow-xl ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}>
-        <div className="overflow-x-auto" style={{ maxWidth: '100%', overflowX: 'auto' }}>
-          <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className={`${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'} font-semibold uppercase tracking-wider`}>
+      {/* 🟢 TABLE CONTAINER - Updated Structure for Fixed Header/Columns & Scrollbars */}
+      <div className={`w-full rounded-lg border shadow-xl overflow-hidden flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+        
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
+          <table className="w-full whitespace-nowrap text-left text-sm border-separate border-spacing-0">
+            {/* Sticky Header */}
+            <thead className={`font-semibold uppercase tracking-wider sticky top-0 z-30 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
               <tr>
-                <th className={`px-6 py-4 min-w-[100px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>ID</th>
-                <th className={`px-6 py-4 min-w-[200px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Customer Name</th>
-                <th className={`px-6 py-4 min-w-[150px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Landline No</th>
-                <th className={`px-6 py-4 min-w-[300px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Address</th>
-                <th className={`px-6 py-4 min-w-[200px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Complaints</th>
-                <th className={`px-6 py-4 min-w-[150px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Employee</th>
-                <th className={`px-6 py-4 min-w-[140px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Booking Date</th>
-                <th className={`px-6 py-4 min-w-[140px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>Resolve Date</th>
+                <th className="px-6 py-4 min-w-[100px] border-b border-inherit bg-inherit">ID</th>
+                <th className="px-6 py-4 min-w-[200px] border-b border-inherit bg-inherit">Customer Name</th>
+                <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Landline No</th>
+                <th className="px-6 py-4 min-w-[300px] border-b border-inherit bg-inherit">Address</th>
+                <th className="px-6 py-4 min-w-[200px] border-b border-inherit bg-inherit">Complaints</th>
+                <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Employee</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Booking Date</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Resolve Date</th>
 
-                <th className={`px-6 py-4 min-w-[150px] border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
+                {/* Fixed Status Column Header */}
+                <th className={`px-6 py-4 min-w-[150px] border-b border-inherit sticky right-[110px] z-30 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
                   Status
                 </th>
-                <th className={`px-6 py-4 min-w-[110px] text-center border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-0 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'} z-20`}>
+                
+                {/* Fixed Options Column Header */}
+                <th className={`px-6 py-4 min-w-[110px] text-center border-b border-inherit sticky right-0 z-30 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
                   Options
                 </th>
               </tr>
             </thead>
+            
             <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {filteredComplaints.length === 0 ? (
                  <tr>
@@ -338,18 +372,18 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                 </tr>
               ) : (
                 filteredComplaints.map((complaint) => (
-                <tr key={complaint.id} className={`hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'} transition-colors`}>
-                  <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.id}</td>
-                  <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.customerName}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.landlineNo}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.address || '-'}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.complaints}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.employee}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.bookingDate}</td>
-                  <td className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{complaint.resolveDate || '-'}</td>
+                <tr key={complaint.id} className={`group hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'} transition-colors`}>
+                  <td className="px-6 py-4 font-medium border-b border-inherit">{complaint.id}</td>
+                  <td className="px-6 py-4 font-medium border-b border-inherit">{complaint.customerName}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{complaint.landlineNo}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{complaint.address || '-'}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{complaint.complaints}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{complaint.employee}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{complaint.bookingDate}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{complaint.resolveDate || '-'}</td>
 
-                  {/* Dynamic Status Toggle */}
-                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} sticky right-[110px] ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10 shadow-[-5px_0px_10px_rgba(0,0,0,0.2)]`}>
+                  {/* 🟢 Sticky Status Body Cell */}
+                  <td className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
                     <button
                       onClick={() => handleStatusChange(complaint.id, complaint.status)}
                       className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
@@ -364,7 +398,8 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                     </button>
                   </td>
 
-                  <td className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} text-center sticky right-0 ${isDark ? 'bg-[#242a38]' : 'bg-white'} z-10`}>
+                  {/* 🟢 Sticky Options Body Cell */}
+                  <td className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-20 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
                     <div className="flex items-center justify-center gap-3">
                       <button onClick={() => { setSelectedComplaint(complaint); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 transition-colors p-1" title="View">
                         <Eye className="h-4 w-4" />
@@ -382,6 +417,8 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
             </tbody>
           </table>
         </div>
+        
+        {/* Footer */}
         <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
             <div className="text-sm">
                 Showing {filteredComplaints.length} of {complaints.length} results (Firebase Live Data)

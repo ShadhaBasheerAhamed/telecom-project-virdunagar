@@ -2,6 +2,8 @@
 export interface Payment {
   id: string;
   landlineNo: string;
+  mobileNo?: string; 
+  email?: string;       
   customerName: string;
   rechargePlan: string;
   duration: string;
@@ -14,6 +16,20 @@ export interface Payment {
   source: string;
   createdAt?: string;
   updatedAt?: string;
+
+  // Financials
+  walletBalance: number; // Previous Wallet
+  pendingAmount: number; // Previous Pending
+  receivedAmount?: number; // Actual Cash/Online received
+
+  // Results
+  addedToWallet?: number; // New Advance
+  addedToPending?: number; // New Kadan
+  usedWalletAmount?: number; // Wallet used
+  
+  // Final calculated states (Optional, for record keeping)
+  finalWalletBalance?: number;
+  finalPendingAmount?: number;
 }
 
 // Common master record types
@@ -91,6 +107,10 @@ export interface Customer {
   id: string;
   landline: string; // Unique Identifier
   landlineNo?: string; // Alternative field name
+  email?: string;       // ✅ New: For Email Receipt
+  walletBalance: number; // ✅ New: For Advance Payment
+  pendingAmount: number; // Kadan / Due Amount ✅ NEW
+
   name: string;
   mobileNo: string;
   altMobileNo: string;
@@ -120,7 +140,7 @@ export interface Customer {
   ottSubscription?: string; // New Field
 
   source: 'BSNL' | 'RMAX' | 'Private';
-  email?: string;
+  
   plan?: string;
   address?: string;
   createdAt?: string;

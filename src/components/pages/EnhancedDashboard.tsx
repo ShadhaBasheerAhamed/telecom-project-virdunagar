@@ -7,14 +7,11 @@ import { DashboardService } from '../../services/dashboardService';
 import { CustomerService } from '../../services/customerService'; 
 import type { DataSource, Customer } from '../../types';
 import { WalletCard } from '../WalletCard';
-import { Calendar, Loader2, User, Phone, MapPin, Activity, Search } from 'lucide-react'; // ✅ Search Added
+import { Calendar, Loader2, Search, Phone, Activity, MapPin, X, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-
 import { useSearch } from '../../contexts/SearchContext';
-
 import {
-  ResponsiveContainer,
-  AreaChart, Area, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 
@@ -33,61 +30,76 @@ const BAR_COLOR_3 = '#fbbf24';
 export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   const isDark = theme === 'dark';
   
-  // ✅ Use Global Search
+  // --- Global Search Context ---
   const { searchQuery } = useSearch();
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // --- Dashboard State ---
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [timeRange, setTimeRange] = useState<string>('week');
+  const [timeRange, setTimeRange] = useState<string>('week'); // For chart filters
 
+  // --- Data State ---
   const [stats, setStats] = useState<any>(null);
   const [panelStats, setPanelStats] = useState<any>({ customers: [], expiry: [], finance: [], complaints: [] });
+  
+  // Charts Data
   const [pieData, setPieData] = useState<any[]>([]);
   const [areaData, setAreaData] = useState<any[]>([]); 
   const [expiredChartData, setExpiredChartData] = useState<any[]>([]);
   const [invoiceData, setInvoiceData] = useState<any[]>([]);
   const [renewalData, setRenewalData] = useState<any[]>([]);
 
-  // --- DASHBOARD DATA FETCHING ---
+  // --- Drill Down / Detail View State ---
+  const [detailView, setDetailView] = useState<{ title: string, items: Customer[] } | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // ---------------------------------------------------------
+  // 1. FETCH DASHBOARD DATA
+  // ---------------------------------------------------------
   const fetchDashboardData = async () => {
       setLoading(true);
       try {
+        // Pass selectedDate and timeRange to service
         const data = await DashboardService.generateChartData(selectedDate, timeRange, dataSource);
+        
         setStats(data.customerStats);
+        
+        // Map data to Panels with 'type' for click handling
         setPanelStats({
             customers: [
-                { label: 'Total Customers', value: data.customerStats.total },
-                { label: 'Active Now', value: data.customerStats.active },
-                { label: 'New (Selected Day)', value: data.registrationsData[0]?.value || 0 }, 
-                { label: 'Expiring Soon', value: data.customerStats.expired, textColor: 'text-orange-500' },
+                { label: 'Total Customers', value: data.customerStats.total, type: 'total' },
+                { label: 'Active Now', value: data.customerStats.active, type: 'active' },
+                { label: 'New (Selected Day)', value: data.registrationsData[0]?.value || 0, type: 'new' }, 
+                { label: 'Expiring Soon', value: data.customerStats.expired, textColor: 'text-orange-500', type: 'expiring' },
             ],
             expiry: [
-                { label: 'Total Expired', value: data.customerStats.expired },
-                { label: 'Suspended', value: data.customerStats.suspended },
-                { label: 'Renewal Pending', value: data.financeData.pendingInvoices },
-                { label: 'Disabled', value: data.customerStats.disabled, textColor: 'text-red-400' },
+                { label: 'Total Expired', value: data.customerStats.expired, type: 'expired_total' },
+                { label: 'Suspended', value: data.customerStats.suspended, type: 'suspended' },
+                { label: 'Renewal Pending', value: data.financeData.pendingInvoices, type: 'pending_renewal' },
+                { label: 'Disabled', value: data.customerStats.disabled, textColor: 'text-red-400', type: 'disabled' },
             ],
             finance: [
-                { label: "Today's Collection", value: `₹${data.financeData.todayCollected}` },
-                { label: 'Pending Invoices', value: data.financeData.pendingInvoices },
-                { label: 'Monthly Revenue', value: `₹${(data.financeData.monthlyRevenue / 1000).toFixed(1)}k`, isHighlight: true },
-                { label: 'Est. Pending Value', value: `₹${(data.financeData.totalPendingValue / 1000).toFixed(1)}k`, textColor: 'text-red-500' },
+                { label: "Today's Collection", value: `₹${data.financeData.todayCollected}`, type: 'collection_today' },
+                { label: 'Pending Invoices', value: data.financeData.pendingInvoices, type: 'pending_invoices' },
+                { label: 'Monthly Revenue', value: `₹${(data.financeData.monthlyRevenue / 1000).toFixed(1)}k`, isHighlight: true, type: 'revenue_month' },
+                { label: 'Est. Pending Value', value: `₹${(data.financeData.totalPendingValue / 1000).toFixed(1)}k`, textColor: 'text-red-500', type: 'pending_value' },
             ],
             complaints: [
-                { label: 'Open Issues', value: data.complaintsData.find((c: any) => c.name === 'Open')?.value || 0, textColor: 'text-red-500' },
-                { label: 'Resolved', value: data.complaintsData.find((c: any) => c.name === 'Resolved')?.value || 0, textColor: 'text-green-500' },
-                { label: 'Pending', value: data.complaintsData.find((c: any) => c.name === 'Pending')?.value || 0, textColor: 'text-yellow-500' },
-                { label: 'Efficiency', value: '98%' },
+                { label: 'Open Issues', value: data.complaintsData.find((c: any) => c.name === 'Open')?.value || 0, textColor: 'text-red-500', type: 'complaint_open' },
+                { label: 'Resolved', value: data.complaintsData.find((c: any) => c.name === 'Resolved')?.value || 0, textColor: 'text-green-500', type: 'complaint_resolved' },
+                { label: 'Pending', value: data.complaintsData.find((c: any) => c.name === 'Pending')?.value || 0, textColor: 'text-yellow-500', type: 'complaint_pending' },
+                { label: 'Efficiency', value: '98%', type: 'efficiency' },
             ]
         });
 
+        // Set Chart Data
         setPieData(data.complaintsData);
-        setAreaData(data.registrationsData.map((item: any) => ({ name: item.name, uv: item.value, pv: 0, amt: 0 })));
-        setExpiredChartData(data.expiredData.map((item: any) => ({ name: item.name, value: item.value })));
-        setInvoiceData(data.invoicePaymentsData);
-        setRenewalData(data.renewalsData.map((item: any) => ({ name: item.name, uv: item.value, pv: 0, amt: 0 })));
+        setAreaData(data.registrationsData.map((item: any) => ({ name: item.name, uv: item.value }))); // Registrations
+        setExpiredChartData(data.expiredData.map((item: any) => ({ name: item.name, value: item.value }))); // Expired
+        setInvoiceData(data.invoicePaymentsData); // Payment Modes
+        setRenewalData(data.renewalsData.map((item: any) => ({ name: item.name, uv: item.value }))); // Renewals
 
       } catch (error) {
         console.error("Dashboard Fetch Error:", error);
@@ -101,7 +113,9 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
     fetchDashboardData();
   }, [selectedDate, timeRange, dataSource]);
 
-  // --- SEARCH EFFECT ---
+  // ---------------------------------------------------------
+  // 2. GLOBAL SEARCH LOGIC
+  // ---------------------------------------------------------
   useEffect(() => {
     const performSearch = async () => {
         if (!searchQuery) {
@@ -136,8 +150,58 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, dataSource]);
 
+  // ---------------------------------------------------------
+  // 3. HANDLE STAT CLICK (Drill Down)
+  // ---------------------------------------------------------
+  const handleStatClick = async (type: string | undefined, label: string) => {
+      if (!type) return;
+      
+      setDetailLoading(true);
+      setDetailView({ title: label, items: [] });
+      
+      try {
+          // Fetch all customers and filter in memory (For speed/simplicity)
+          const allCustomers = await CustomerService.getCustomers();
+          let filtered = allCustomers;
 
-  // --- RENDER ---
+          if (dataSource !== 'All') {
+              filtered = filtered.filter(c => c.source === dataSource);
+          }
+
+          const today = new Date().toISOString().split('T')[0];
+
+          switch(type) {
+              case 'total': break; 
+              case 'active': filtered = filtered.filter(c => c.status === 'Active'); break;
+              case 'expiring': 
+                  const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
+                  filtered = filtered.filter(c => c.renewalDate && c.renewalDate >= today && c.renewalDate <= nextWeek.toISOString().split('T')[0]);
+                  break;
+              case 'expired_total': filtered = filtered.filter(c => c.status === 'Expired'); break;
+              case 'suspended': filtered = filtered.filter(c => c.status === 'Suspended'); break;
+              case 'disabled': filtered = filtered.filter(c => c.status === 'Inactive'); break;
+              case 'pending_renewal': filtered = filtered.filter(c => c.renewalDate && c.renewalDate < today); break;
+              case 'new': 
+                   // Registered today
+                   filtered = filtered.filter(c => c.createdAt && c.createdAt.startsWith(today)); 
+                   break;
+              default: 
+                  toast.info("Detailed view not available for this metric yet.");
+                  setDetailView(null);
+                  setDetailLoading(false);
+                  return; 
+          }
+          
+          setDetailView({ title: label, items: filtered });
+      } catch (error) {
+          console.error(error);
+          toast.error("Failed to load details");
+      } finally {
+          setDetailLoading(false);
+      }
+  };
+
+  // --- RENDER START ---
   
   // A. IF SEARCHING: Show Results View
   if (searchQuery) {
@@ -179,7 +243,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       );
   }
 
-  // B. IF NOT SEARCHING: Show Normal Dashboard
+  // B. NORMAL DASHBOARD
   if (loading && !stats) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -200,7 +264,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       className="space-y-6 pb-10"
     >
       
-      {/* CUSTOM TOP SECTION (DATE PICKER + WALLET) */}
+      {/* HEADER SECTION (Date & Refresh) */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-2 -mt-4 px-1">
         <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -209,6 +273,8 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                     Overview
                 </span>
             </div>
+            
+            {/* Date Picker */}
             <div className={`flex items-center px-4 py-2 rounded-xl border transition-all ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
                 <Calendar className={`w-4 h-4 mr-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
                 <input
@@ -219,31 +285,62 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                     style={{ colorScheme: isDark ? 'dark' : 'light' }}
                 />
             </div>
+            
+            {/* 🔄 Refresh Button */}
+            <button 
+                onClick={fetchDashboardData}
+                className={`p-2 rounded-full hover:bg-opacity-20 transition-all ${isDark ? 'hover:bg-slate-600 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+                title="Refresh Data"
+            >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
         </div>
         <div className="w-full md:w-auto min-w-[250px]">
              <WalletCard theme={theme} />
         </div>
       </div>
 
-      {/* STAT CARDS */}
+      {/* STAT CARDS ROW (Clickable) */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard title="TOTAL CUSTOMERS" value={stats.total} color="text-blue-400" theme={theme} details={[{ label: 'New', value: '+' + panelStats.customers[2].value }]} />
-        <StatCard title="ACTIVE" value={stats.active} color="text-cyan-400" theme={theme} details={[{ label: 'Rate', value: stats.total > 0 ? ((stats.active/stats.total)*100).toFixed(0)+'%' : '0%' }]} />
-        <StatCard title="EXPIRED" value={stats.expired} color="text-yellow-400" theme={theme} details={[{ label: 'Pending', value: stats.expired }]} />
-        <StatCard title="SUSPENDED" value={stats.suspended} color="text-red-500" theme={theme} />
-        <StatCard title="DISABLED" value={stats.disabled} color="text-slate-500" theme={theme} />
+        <StatCard title="TOTAL CUSTOMERS" value={stats.total} color="text-blue-400" theme={theme} details={[{ label: 'New', value: '+' + panelStats.customers[2].value }]} onClick={() => handleStatClick('total', 'Total Customers')} />
+        <StatCard title="ACTIVE" value={stats.active} color="text-cyan-400" theme={theme} details={[{ label: 'Rate', value: stats.total > 0 ? ((stats.active/stats.total)*100).toFixed(0)+'%' : '0%' }]} onClick={() => handleStatClick('active', 'Active Customers')} />
+        <StatCard title="EXPIRED" value={stats.expired} color="text-yellow-400" theme={theme} details={[{ label: 'Pending', value: stats.expired }]} onClick={() => handleStatClick('expired_total', 'Expired Customers')} />
+        <StatCard title="SUSPENDED" value={stats.suspended} color="text-red-500" theme={theme} onClick={() => handleStatClick('suspended', 'Suspended Customers')} />
+        <StatCard title="DISABLED" value={stats.disabled} color="text-slate-500" theme={theme} onClick={() => handleStatClick('disabled', 'Disabled Customers')} />
       </div>
 
-      {/* PANELS */}
+      {/* DETAILED STAT PANELS (Clickable Items) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-        <StatisticsPanel title="Customers" theme={theme} items={panelStats.customers} />
-        <StatisticsPanel title="Expiry Alerts" theme={theme} items={panelStats.expiry} />
-        <StatisticsPanel title="Finance" theme={theme} items={panelStats.finance} />
-        <StatisticsPanel title="Complaints" theme={theme} items={panelStats.complaints} />
+        <StatisticsPanel 
+            title="Customers" 
+            theme={theme} 
+            items={panelStats.customers} 
+            onItemClick={(item) => handleStatClick(item.type, item.label)} 
+        />
+        <StatisticsPanel 
+            title="Expiry Alerts" 
+            theme={theme} 
+            items={panelStats.expiry} 
+            onItemClick={(item) => handleStatClick(item.type, item.label)} 
+        />
+        <StatisticsPanel 
+            title="Finance" 
+            theme={theme} 
+            items={panelStats.finance} 
+            onItemClick={(item) => handleStatClick(item.type, item.label)} 
+        />
+        <StatisticsPanel 
+            title="Complaints" 
+            theme={theme} 
+            items={panelStats.complaints} 
+            onItemClick={(item) => handleStatClick(item.type, item.label)} 
+        />
       </div>
 
-      {/* CHARTS (Filtered) */}
+      {/* CHARTS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Payment Modes Chart */}
         <div className="lg:col-span-2">
             <ChartPanel title="Payment Modes" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
                 <ResponsiveContainer width="100%" height={250}>
@@ -260,6 +357,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
             </ChartPanel>
         </div>
         
+        {/* Complaints Chart */}
         <ChartPanel title="Complaints" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           {isComplaintsEmpty ? (
              <div className="flex flex-col items-center justify-center h-[250px] text-gray-400">
@@ -280,6 +378,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Renewals Trend Chart */}
         <ChartPanel title="Renewals Trend" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={renewalData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -292,6 +391,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
           </ResponsiveContainer>
         </ChartPanel>
 
+        {/* Registrations Chart */}
         <ChartPanel title="Registrations" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={areaData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
@@ -310,6 +410,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
           </ResponsiveContainer>
         </ChartPanel>
 
+        {/* Expired Overview Chart */}
         <ChartPanel title="Expired Overview" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={expiredChartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
@@ -322,6 +423,63 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
           </ResponsiveContainer>
         </ChartPanel>
       </div>
+
+      {/* DETAIL VIEW MODAL (Drill-down Overlay) */}
+      {detailView && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className={`w-full max-w-6xl h-[85vh] rounded-2xl border flex flex-col shadow-2xl ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'}`}>
+                  
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between p-6 border-b border-inherit">
+                      <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{detailView.title} List</h2>
+                      <button onClick={() => setDetailView(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><X className="w-6 h-6" /></button>
+                  </div>
+
+                  {/* Modal Content - Table */}
+                  <div className="flex-1 overflow-auto p-0">
+                      {detailLoading ? (
+                          <div className="flex justify-center items-center h-full"><Loader2 className="w-10 h-10 animate-spin text-blue-500" /></div>
+                      ) : detailView.items.length === 0 ? (
+                          <div className="flex justify-center items-center h-full text-gray-500">No records found for this category.</div>
+                      ) : (
+                          <table className="w-full text-left text-sm">
+                              <thead className={`sticky top-0 z-10 uppercase font-bold text-xs ${isDark ? 'bg-[#0f172a] text-slate-400' : 'bg-gray-100 text-gray-600'}`}>
+                                  <tr>
+                                      <th className="px-6 py-4">Name</th>
+                                      <th className="px-6 py-4">Landline</th>
+                                      <th className="px-6 py-4">Mobile</th>
+                                      <th className="px-6 py-4">Plan</th>
+                                      <th className="px-6 py-4">Renewal Date</th>
+                                      <th className="px-6 py-4">Status</th>
+                                  </tr>
+                              </thead>
+                              <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
+                                  {detailView.items.map((c) => (
+                                      <tr key={c.id} className={`hover:bg-black/5 transition-colors ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                                          <td className="px-6 py-4 font-medium">{c.name}</td>
+                                          <td className="px-6 py-4">{c.landline}</td>
+                                          <td className="px-6 py-4">{c.mobileNo}</td>
+                                          <td className="px-6 py-4">{c.plan}</td>
+                                          <td className="px-6 py-4">{c.renewalDate}</td>
+                                          <td className="px-6 py-4">
+                                              <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                  c.status === 'Active' ? 'bg-green-100 text-green-700' : 
+                                                  c.status === 'Expired' ? 'bg-yellow-100 text-yellow-700' : 
+                                                  'bg-red-100 text-red-700'
+                                              }`}>
+                                                  {c.status}
+                                              </span>
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
     </motion.div>
   );
 }

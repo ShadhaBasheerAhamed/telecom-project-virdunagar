@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import { useState } from 'react';
+import { RefreshCw } from 'lucide-react'; // Import Icon
 
 interface StatCardProps {
   title: string;
@@ -10,14 +11,14 @@ interface StatCardProps {
   trend?: string;
   trendUp?: boolean;
   details?: Array<{ label: string; value: string | number }>;
+  onClick?: () => void; // ✅ Optional Click Handler
 }
 
 // HELPER: Returns direct CSS values to FORCE the color to appear.
 const getBoxColors = (colorClass: string, isDark: boolean) => {
-  // Extract the base color intent
   if (colorClass.includes('blue')) {
     return {
-      bg: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff', // Dark: Glassy Blue, Light: Blue-50
+      bg: isDark ? 'rgba(59, 130, 246, 0.2)' : '#eff6ff',
       border: isDark ? 'rgba(59, 130, 246, 0.3)' : '#dbeafe',
       text: isDark ? '#93c5fd' : '#1e40af'
     };
@@ -58,22 +59,33 @@ const getBoxColors = (colorClass: string, isDark: boolean) => {
   };
 };
 
-export function StatCard({ title, value, color, theme, trend, trendUp, details }: StatCardProps) {
+export function StatCard({ title, value, color, theme, trend, trendUp, details, onClick }: StatCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const isDark = theme === 'dark';
   
+  // Decide which details to show on the card vs the popup
   const isOnline = title === 'ONLINE';
   const displayDetails = isOnline ? details : (details && details.length > 0 ? [details[0]] : []);
   
   const styles = getBoxColors(color, isDark);
   const glowClass = color.replace('text-', 'bg-');
+  const bgClass = color.replace('text-', 'bg-');
+
+  // Handle Click Logic: Priority to onClick prop, then Dialog
+  const handleClick = () => {
+      if (onClick) {
+          onClick();
+      } else if (details && details.length > 0) {
+          setShowDetails(true);
+      }
+  };
 
   return (
     <>
       <motion.div
         whileHover={{ scale: 1.03, y: -5 }}
         whileTap={{ scale: 0.98 }}
-        onClick={() => details && setShowDetails(true)}
+        onClick={handleClick} // ✅ Updated Handler
         className={`relative p-6 flex flex-col justify-between min-h-[160px] border transition-all duration-300 cursor-pointer shadow-sm rounded-[1.5rem] overflow-hidden group ${
           isDark
             ? 'bg-[#1e293b] border-slate-800 hover:border-slate-700 hover:shadow-2xl hover:shadow-black/40'
@@ -82,6 +94,19 @@ export function StatCard({ title, value, color, theme, trend, trendUp, details }
       >
         {/* Top Section */}
         <div className="relative z-10">
+            {/* Header Flex */}
+            <div className="flex justify-between items-start mb-2">
+                <div className={`text-[11px] font-black tracking-[0.25em] uppercase opacity-70 ${
+                    isDark ? 'text-slate-400' : 'text-gray-500'
+                }`}>
+                    {title}
+                </div>
+                {/* Mini Indicator (Replaces Trend Arrow) */}
+                <div className={`p-1.5 rounded-lg bg-opacity-10 transition-colors ${bgClass} group-hover:bg-opacity-20`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${color.replace('text-', 'bg-')}`}></div>
+                </div>
+            </div>
+
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -89,12 +114,6 @@ export function StatCard({ title, value, color, theme, trend, trendUp, details }
             >
               {value}
             </motion.div>
-            
-            <div className={`text-[11px] font-black tracking-[0.25em] uppercase opacity-70 ${
-              isDark ? 'text-slate-400' : 'text-gray-500'
-            }`}>
-              {title}
-            </div>
         </div>
 
         {/* The Small Box with FORCED Background Color */}
@@ -103,7 +122,6 @@ export function StatCard({ title, value, color, theme, trend, trendUp, details }
             {displayDetails.map((detail, index) => (
               <div 
                 key={index}
-                // Inline styles force the color to render
                 style={{ 
                   backgroundColor: styles.bg, 
                   borderColor: styles.border,
@@ -126,13 +144,13 @@ export function StatCard({ title, value, color, theme, trend, trendUp, details }
         <div className={`absolute -bottom-10 -right-10 w-32 h-32 rounded-full opacity-0 group-hover:opacity-10 blur-3xl transition-opacity duration-500 ${glowClass}`} />
       </motion.div>
 
-      {/* Popup Dialog */}
-      {details && (
+      {/* Popup Dialog (Only shown if no onClick provided and details exist) */}
+      {!onClick && details && (
         <Dialog open={showDetails} onOpenChange={setShowDetails}>
           <DialogContent className={`sm:max-w-[400px] p-0 border-0 rounded-3xl overflow-hidden ${
             isDark ? 'bg-[#1e293b] text-slate-100' : 'bg-white text-gray-900'
           }`}>
-             <div className="p-6" style={{ backgroundColor: styles.bg }}>
+              <div className="p-6" style={{ backgroundColor: styles.bg }}>
                 <DialogTitle className="text-3xl font-bold tracking-tight" style={{ color: styles.text }}>{value}</DialogTitle>
                 <DialogDescription className={`text-xs font-bold uppercase tracking-widest mt-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                     {title} Breakdown

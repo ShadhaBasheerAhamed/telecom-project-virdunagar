@@ -5,8 +5,11 @@ import type { DashboardMetrics, DateFilter, RevenueData, PaymentModeDistribution
 import type { Complaint } from '../components/pages/Complaints';
 
 export class DashboardService {
-
+   
+  // 1. Helper: Date Boundaries
   // --- HELPER: Get Date Boundaries based on Range (UPDATED) ---
+  // Calculates the specific Start and End timestamps for the selected range.
+  // Critical for accurate filtering (e.g., "This Week", "Today").
   private static getDateBoundaries(date: Date, range: string = 'week') {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
@@ -37,6 +40,9 @@ export class DashboardService {
   }
 
   // --- HELPER: Zero Metrics ---
+  // 2. Helper: Zero Metrics
+  // Returns a default object with all zeros. 
+  // Used as a fallback if data fetching fails to prevent UI crashes.
   private static getZeroMetrics(): DashboardMetrics {
     return {
       totalCustomers: 0, activeCustomers: 0, inactiveCustomers: 0, suspendedCustomers: 0, expiredCustomers: 0,
@@ -47,6 +53,9 @@ export class DashboardService {
   }
 
   // --- HELPER: Zero Data ---
+  //3. Helper: Zero Chart Data
+  // Returns empty structures for all charts (Revenue, Growth, etc.).
+  // Used when selecting a future date or on error.
   private static getZeroData() {
       return {
           customerStats: { total: 0, active: 0, expired: 0, suspended: 0, disabled: 0 },
@@ -58,7 +67,10 @@ export class DashboardService {
           invoicePaymentsData: []
       };
   }
-
+   
+  // 4. Get Complaints Status (Filtered)
+  // Fetches complaints and filters them by Date AND Source (Provider).
+  // Returns data formatted specifically for the Pie Chart.
   // === GET COMPLAINTS STATUS DATA (UPDATED WITH SOURCE FILTERING) ===
   static async getComplaintsStatusData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All'): Promise<any[]> {
     try {
@@ -109,6 +121,8 @@ export class DashboardService {
     }
   }
 
+  // 5. Get Expired Overview (Delegated)
+  // Uses the specialized ExpiredOverviewService to get expiration stats.
   // === GET EXPIRED OVERVIEW DATA (UPDATED WITH SOURCE FILTERING) ===
   static async getExpiredOverviewData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All'): Promise<any[]> {
     try {
@@ -137,6 +151,9 @@ export class DashboardService {
     }
   }
 
+  // 6. Live Dashboard Metrics Listener
+  // Subscribes to the 'customers' collection.
+  // Triggers a recalculation whenever a customer is added/updated/deleted.
   // === SUBSCRIBE TO DASHBOARD METRICS (REAL-TIME) ===
   static subscribeToDashboardMetrics(
     dateRange: DateFilter,
@@ -147,6 +164,7 @@ export class DashboardService {
        
       const unsubscribe = onSnapshot(customersQuery, async (snapshot) => {
         try {
+          // Recalculate all metrics when DB changes
           const metrics = await this.calculateMetrics([], dateRange);
           callback(metrics);
         } catch (error) {
@@ -166,6 +184,10 @@ export class DashboardService {
     }
   }
 
+  // 7. Calculate Core Metrics
+  // The "Brain" of the dashboard.
+  // Aggregates totals for Revenue, Customers, and Statuses.
+  // Since Payment.tsx now ensures clean data, these sums will be 100% accurate.
   // === CALCULATE METRICS ===
   static async calculateMetrics(
     customers: any[] = [],
@@ -173,6 +195,7 @@ export class DashboardService {
   ): Promise<DashboardMetrics> {
     try {
       let customerData = customers;
+      // Fetch customers if not provided by snapshot
       if (customerData.length === 0) {
         const custSnap = await getDocs(collection(db, 'customers'));
         customerData = custSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -188,6 +211,7 @@ export class DashboardService {
       const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
       const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
+      // Tally Customer Stats
       customerData.forEach(customer => {
         const status = (customer.status || '').toLowerCase();
         const createdAt = customer.createdAt ? new Date(customer.createdAt) : null;
@@ -203,9 +227,12 @@ export class DashboardService {
           if (createdAt && createdAt >= today && createdAt <= endDate) newToday++;
         }
       });
-
+     
+      // Calculate Expired (Implicitly those who are not active/inactive/suspended)
       const calculatedExpired = Math.max(0, totalCustomers - (activeCustomers + inactiveCustomers + suspendedCustomers));
 
+
+      // Tally Revenue Stats
       const paymentsSnap = await getDocs(collection(db, 'payments'));
       let totalRevenue = 0, monthlyRevenue = 0, todayCollection = 0, pendingPayments = 0, completedPayments = 0;
 
@@ -246,6 +273,8 @@ export class DashboardService {
     }
   }
 
+  // 8. Get Revenue Data (Chart)
+  // Groups revenue by month for the line/bar charts.
   // === GET REVENUE DATA ===
   static async getRevenueData(dateRange: DateFilter): Promise<RevenueData[]> {
     try {
@@ -276,6 +305,8 @@ export class DashboardService {
     }
   }
 
+  // 9. Payment Mode Distribution
+  // Analyzes which payment methods are most popular (Cash vs UPI vs Online).
   // === GET PAYMENT MODE DISTRIBUTION ===
   static async getPaymentModeDistribution(dateRange: DateFilter): Promise<PaymentModeDistribution[]> {
     try {
@@ -304,6 +335,8 @@ export class DashboardService {
     }
   }
 
+  // 10. Customer Growth Analytics
+  // Tracks new vs active customers over time.
   // === GET CUSTOMER GROWTH DATA ===
   static async getCustomerGrowthData(dateRange: DateFilter): Promise<CustomerGrowthData[]> {
     try {
@@ -334,6 +367,8 @@ export class DashboardService {
     }
   }
 
+  // 11. Plan Distribution
+  // Breakdown of which plans are most popular among customers.
   // === GET PLAN DISTRIBUTION ===
   static async getPlanDistribution(dateRange: DateFilter): Promise<PlanDistribution[]> {
     try {
@@ -358,9 +393,13 @@ export class DashboardService {
     }
   }
 
+  // 12. Generate All Chart Data (Aggregator)
+  // Main entry point for the dashboard charts.
+  // Aggregates data for Registers, Renewals, Finance, and Complaints.
   // === GENERATE CHART DATA (UPDATED WITH SOURCE FILTERING FOR COMPLAINTS AND EXPIRED) ===
   static async generateChartData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All') {
-       
+      
+    // A. Future Date Check - Don't show data for tomorrow
     // 1. STRICT FUTURE DATE CHECK
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -396,14 +435,14 @@ export class DashboardService {
         }
         const payAllSnap = await getDocs(payAllQuery);
 
-        // --- 3. FILTER CUSTOMERS & BUILD CHART BUCKETS ---
+        // --- 3. FILTER CUSTOMERS & BUILD CHART BUCKETS ---Process Customers (Bucketing)
         let total = 0, active = 0, suspended = 0, newToday = 0, disabled = 0;
         
         // Chart Buckets
         const chartMap = new Map<string, number>();
         const labels: string[] = [];
 
-        // Initialize Buckets
+        // Initialize Buckets (Days or Months)
         if (range === 'year') {
             for(let i=0; i<12; i++) {
                 const monthName = new Date(selectedDate.getFullYear(), i, 1).toLocaleString('default', { month: 'short' });
@@ -426,7 +465,7 @@ export class DashboardService {
             const data = doc.data();
             const createdDate = new Date(data.createdAt || Date.now());
             
-            // Filter by data source (provider)
+            // Filter by data source (provider) Data Source Filter
             const customerSource = data.source || '';
             if (dataSource !== 'All' && customerSource !== dataSource) {
                 return; // Skip this customer if it doesn't match the selected data source
@@ -461,7 +500,7 @@ export class DashboardService {
 
         const expired = Math.max(0, total - (active + suspended + disabled));
 
-        // --- 4. PROCESS PAYMENTS ---
+        // --- 4. PROCESS PAYMENTS --- Process Payments (Finance Stats)
         let todayCollected = 0;
         let online = 0; 
         let offline = 0;
@@ -473,7 +512,7 @@ export class DashboardService {
              todayCollected += amt;
         });
 
-        // Chart Data Calculation (Range)
+        // Chart Data Calculation (Range)  Online vs Offline Split
         payAllSnap.forEach(doc => {
              const data = doc.data();
              const pDateStr = data.paidDate; 
@@ -489,6 +528,7 @@ export class DashboardService {
              }
         });
 
+        //External Data (Complaints & Expired)
         // --- 5. FETCH REAL COMPLAINTS AND EXPIRED DATA (WITH SOURCE FILTERING) ---
         const complaintsData = await this.getComplaintsStatusData(selectedDate, range, dataSource);
         const expiredData = await this.getExpiredOverviewData(selectedDate, range, dataSource);
