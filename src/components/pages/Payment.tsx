@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Eye, Upload, Loader2 } from 'lucide-react';
-import type { DataSource, UserRole, Payment } from '../../types';
+import type { DataSource, UserRole, Payment, Customer } from '../../types';
 import { ViewPaymentModal } from '../modals/ViewPaymentModal';
 import { PaymentModal } from '../modals/PaymentModal';
 import { PaymentService } from '../../services/paymentService';
@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { useSearch } from '../../contexts/SearchContext';
 
 interface PaymentProps {
-  dataSource: DataSource; // 'All', 'BSNL', or 'RMAX'
+  dataSource: DataSource;
   theme: 'light' | 'dark';
   userRole: UserRole;
 }
@@ -19,25 +19,20 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   const isDark = theme === 'dark';
   
   // --- States ---
-  const [payments, setPayments] = useState<Payment[]>([]); // Stores all fetched payments
-  const { searchQuery, setSearchQuery } = useSearch(); // Global search context
-  const [filterStatus, setFilterStatus] = useState('All'); // Filter by 'Paid'/'Unpaid'
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const { searchQuery, setSearchQuery } = useSearch();
+  const [filterStatus, setFilterStatus] = useState('All');
   
-  // Modal States
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null); // For View Modal
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false); // For Add Payment Modal
-  const [paymentModalMode, setPaymentModalMode] = useState<'add' | 'edit'>('add'); // ✅ Track Mode
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentModalMode, setPaymentModalMode] = useState<'add' | 'edit'>('add');
+  const [modalKey, setModalKey] = useState(0); 
 
   const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null); // For hidden file input (CSV upload)
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-  // ---------------------------------------------------------
-  // 1. Fetch Payments
-  // ---------------------------------------------------------
-  // Loads payments from Firebase based on the selected Data Source.
-  // Triggered when the component mounts or when 'dataSource' changes.
+  // --- Fetch Payments ---
   const fetchPayments = async () => {
     setLoading(true);
     try {
@@ -53,46 +48,32 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
 
   useEffect(() => { fetchPayments(); }, [dataSource]);
 
-  // ---------------------------------------------------------
-  // 2. Filter Logic
-  // ---------------------------------------------------------
-  // Filters the displayed payments based on:
-  // - Status (Paid/Unpaid)
-  // - Data Source (if not 'All')
-  // - Search Query (Name, Landline, Mobile, Email)
+  // --- Filter Logic ---
   const filteredPayments = payments.filter(payment => {
-    // Basic Filters
     const matchesStatus = filterStatus === 'All' || payment.status === filterStatus;
     const matchesSource = dataSource === 'All' || payment.source === dataSource;
-    
     if (!searchQuery) return matchesStatus && matchesSource;
     
-    // Search Logic (Case-insensitive)
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = 
       payment.customerName.toLowerCase().includes(searchLower) ||
       payment.landlineNo.includes(searchLower) ||
       (payment.mobileNo && payment.mobileNo.includes(searchLower)) ||
-      (payment.email && payment.email.toLowerCase().includes(searchLower)); // ✅ Added Email Search
+      (payment.email && payment.email.toLowerCase().includes(searchLower)); 
       
     return matchesSearch && matchesStatus && matchesSource;
   });
 
-  // ---------------------------------------------------------
-  // 3. Status Toggle (Paid <-> Unpaid)
-  // ---------------------------------------------------------
-  // Updates payment status AND customer status (Active/Inactive) in DB.
-  // Sends WhatsApp acknowledgment if marked as 'Paid'.
+  // --- Status Toggle ---
   const handleStatusToggle = async (payment: Payment, newStatus: 'Paid' | 'Unpaid') => {
-    // If user clicks "Unpaid" (wants to pay), open Modal instead of direct toggle
     if (payment.status === 'Unpaid' && newStatus === 'Paid') {
         setSelectedPayment(payment);
-        setPaymentModalMode('edit'); // Set mode to Edit
+        setPaymentModalMode('edit');
+        setModalKey(prev => prev + 1);
         setPaymentModalOpen(true);
         return; 
     }
 
-    // Direct toggle only for Paid -> Unpaid (Reverse)
     try {
       if (confirm("Are you sure you want to revert this to UNPAID?")) {
           await PaymentService.updatePayment(payment.id, { status: newStatus });
@@ -105,24 +86,19 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
     } catch (error) { toast.error('Failed to update status'); }
   };
 
-  // ---------------------------------------------------------
-  // 4. Save Payment (From Modal)
-  // ---------------------------------------------------------
-  // Called when submitting the "Add Payment" form.
-  // Handles duplicate checks, DB saving, wallet updates, and WhatsApp.
+  // --- Save Logic ---
   const handleSavePayment = async (paymentData: any, customerId: string) => {
     try {
       if (paymentModalMode === 'add') {
-          // Check duplicate
           const exists = await PaymentService.checkDuplicatePayment(paymentData.landlineNo, paymentData.paidDate);
-          if (exists) { toast.error('Duplicate payment!'); return; }
-          await PaymentService.addPayment(paymentData, customerId);
-          toast.success('Payment Added');
-      } else {
-          // Edit Mode Logic (Paying an existing unpaid bill)
-          await PaymentService.updatePayment(paymentData.id, paymentData);
+          if (exists) { toast.error('Payment already exists for this month!'); return; }
           
-          // Manually handle Wallet/Pending update for Edit Mode if needed
+          if (!customerId) { toast.error("Customer ID missing. Please search first."); return; }
+
+          await PaymentService.addPayment(paymentData, customerId);
+          toast.success('Payment Added Successfully');
+      } else {
+          await PaymentService.updatePayment(paymentData.id, paymentData);
           if(customerId && paymentData.finalPendingAmount !== undefined) {
                  await CustomerService.updateCustomer(customerId, { 
                      pendingAmount: paymentData.finalPendingAmount,
@@ -131,17 +107,17 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                      renewalDate: paymentData.renewalDate 
                  });
           }
-          toast.success('Bill Paid & Updated');
+          toast.success('Payment Updated');
       }
       fetchPayments();
-    } catch (error) { toast.error('Save failed'); }
-    setPaymentModalOpen(false);
+      setPaymentModalOpen(false);
+    } catch (error) { 
+        console.error(error);
+        toast.error('Save failed. Please try again.'); 
+    }
   };
 
-  // ---------------------------------------------------------
-  // 5. Bulk Upload (CSV)
-  // ---------------------------------------------------------
-  // Parses a CSV file and adds multiple payment records at once.
+  // --- Bulk Upload (Fix: Adds Customers & Types) ---
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -151,33 +127,59 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
       const text = e.target?.result as string;
       const lines = text.split('\n').filter(line => line.trim()); 
       const validPayments: Omit<Payment, 'id'>[] = [];
+      const customersToCreate: Omit<Customer, 'id'>[] = [];
       
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         if (cols.length >= 5) {
+            const landlineNo = cols[0]?.trim();
+            const customerName = cols[1]?.trim();
             const billAmt = parseFloat(cols[2]) || 0;
+            const paymentMode = cols[3]?.trim() || 'CASH';
             const paidDateStr = cols[4]?.trim() || new Date().toISOString().split('T')[0];
+            const planName = cols[5]?.trim() || 'Bulk Import';
+            const mobileNo = cols[6]?.trim() || '';
+            const email = cols[7]?.trim() || '';
+
+            if (!landlineNo || !customerName) continue;
+
             const pDate = new Date(paidDateStr);
             if (isNaN(pDate.getTime())) continue;
             pDate.setMonth(pDate.getMonth() + 1); 
+            const renewalDate = pDate.toISOString().split('T')[0];
             
-            // ✅ FIX: Added pendingAmount: 0
             validPayments.push({
-                landlineNo: cols[0]?.trim(),
-                customerName: cols[1]?.trim(),
-                mobileNo: cols[6]?.trim() || '',
-                email: cols[7]?.trim() || '',
+                landlineNo, customerName, mobileNo, email,
                 billAmount: billAmt,
-                modeOfPayment: cols[3]?.trim() || 'CASH',
+                modeOfPayment: paymentMode,
                 status: 'Paid', 
                 paidDate: paidDateStr,
-                renewalDate: pDate.toISOString().split('T')[0],
-                rechargePlan: cols[5]?.trim() || 'Bulk Import',
+                renewalDate: renewalDate,
+                rechargePlan: planName,
                 duration: '30',
                 commission: billAmt * 0.30, 
                 source: dataSource === 'All' ? 'BSNL' : dataSource,
                 walletBalance: 0, 
-                pendingAmount: 0 // ✅ New Required Field
+                pendingAmount: 0 
+            });
+
+            customersToCreate.push({
+                landline: landlineNo,
+                name: customerName,
+                mobileNo: mobileNo,
+                email: email,
+                plan: planName,
+                source: (dataSource === 'All' ? 'BSNL' : dataSource) as any,
+                status: 'Active' as const, // ✅ Type Fix
+                walletBalance: 0,
+                pendingAmount: 0,
+                installationDate: paidDateStr,
+                renewalDate: renewalDate,
+                altMobileNo: '', vlanId: '', bbId: '', voipPassword: '',
+                ontMake: '', ontType: '', ontMacAddress: '', ontBillNo: '',
+                ont: 'Paid ONT' as const, // ✅ Type Fix
+                offerPrize: '0', routerMake: '', routerMacId: '',
+                oltIp: '', address: ''
             });
         }
       }
@@ -185,13 +187,39 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
       if (validPayments.length > 0) {
           try { 
               await PaymentService.addBulkPayments(validPayments); 
+              
+              // Create customers so search works next time
+              let newCustCount = 0;
+              for (const cust of customersToCreate) {
+                  const exists = await CustomerService.findCustomerByLandline(cust.landline);
+                  if (!exists) {
+                      await CustomerService.addCustomer(cust);
+                      newCustCount++;
+                  } else {
+                      await CustomerService.updateCustomer(exists.id, { 
+                          renewalDate: cust.renewalDate,
+                          status: 'Active'
+                      });
+                  }
+              }
+
               fetchPayments(); 
-              toast.success(`Imported ${validPayments.length} records!`); 
-          } catch (error) { toast.error("Import failed."); }
+              toast.success(`Imported ${validPayments.length} payments & synced ${newCustCount} customers!`); 
+          } catch (error) { 
+              console.error(error);
+              toast.error("Import failed partly."); 
+          }
       }
     };
     reader.readAsText(file);
     event.target.value = ''; 
+  };
+
+  const openAddModal = () => {
+      setSelectedPayment(null);
+      setPaymentModalMode('add');
+      setModalKey(prev => prev + 1); 
+      setPaymentModalOpen(true);
   };
 
   return (
@@ -212,7 +240,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                 <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={`px-4 py-2 rounded-md ${isDark ? 'bg-gray-800 text-white' : 'bg-white border'}`}><option value="All">All Status</option><option value="Paid">Paid</option><option value="Unpaid">Unpaid</option></select>
                 <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition"><Upload className="h-4 w-4" /> <span className="hidden md:inline">Bulk Upload</span></button>
-                <button onClick={() => { setPaymentModalMode('add'); setPaymentModalOpen(true); }} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"><Plus className="h-4 w-4" /> <span className="hidden md:inline">Add Payment</span></button>
+                <button onClick={openAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"><Plus className="h-4 w-4" /> <span className="hidden md:inline">Add Payment</span></button>
             </div>
         </div>
       </div>
@@ -220,7 +248,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
       <div className={`rounded-lg border shadow-xl overflow-hidden flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
         <div className="flex-1 overflow-auto custom-scrollbar relative">
             <table className="w-full text-sm text-left border-separate border-spacing-0">
-                
                 <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
                     <tr>
                         <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Landline</th>
@@ -236,7 +263,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                         <th className={`px-6 py-4 min-w-[100px] text-center border-b border-inherit sticky right-0 z-40 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Action</th>
                     </tr>
                 </thead>
-                
                 <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
                     {loading ? (<tr><td colSpan={11} className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /><p>Loading...</p></td></tr>) : filteredPayments.length === 0 ? (<tr><td colSpan={11} className="px-6 py-8 text-center text-gray-500">No records found.</td></tr>) : (
                         filteredPayments.map((p) => (
@@ -265,7 +291,18 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
         </div>
       </div>
       
-      {paymentModalOpen && <PaymentModal mode={paymentModalMode} data={selectedPayment} theme={theme} dataSource={dataSource} onClose={() => setPaymentModalOpen(false)} onSave={handleSavePayment} />}
+      {paymentModalOpen && (
+        <PaymentModal 
+            key={modalKey}
+            mode={paymentModalMode} 
+            data={selectedPayment} 
+            theme={theme} 
+            dataSource={dataSource} 
+            onClose={() => setPaymentModalOpen(false)} 
+            onSave={handleSavePayment} 
+        />
+      )}
+      
       {viewModalOpen && selectedPayment && <ViewPaymentModal payment={selectedPayment} theme={theme} onClose={() => setViewModalOpen(false)} />}
     </div>
   );

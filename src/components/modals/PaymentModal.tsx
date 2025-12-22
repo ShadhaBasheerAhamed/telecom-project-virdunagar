@@ -1,40 +1,55 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Loader2, ChevronDown, Check, Printer } from 'lucide-react';
+import { X, Search, Loader2, ChevronDown, Check } from 'lucide-react';
 import type { Payment, Customer } from '../../types';
 import { toast } from 'sonner';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { PDFService } from '../../services/pdfService'; // Import PDF Service
-import { WhatsAppService } from '../../services/whatsappService'; // ✅ Import WhatsApp
-import { EmailService } from '../../services/emailService';       // ✅ Import Email
+import { PDFService } from '../../services/pdfService';
+import { WhatsAppService } from '../../services/whatsappService';
+import { EmailService } from '../../services/emailService';
 
 interface PaymentModalProps {
-  mode: 'add'| 'edit'; // ✅ Explicitly supports both
+  mode: 'add' | 'edit';
   data?: Payment | null;
   theme: 'light' | 'dark';
   dataSource: string;
   onClose: () => void;
-  onSave: (payment: any, customerId: string) => void; // Updated signature
+  onSave: (payment: any, customerId: string) => void;
 }
 
 export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }: PaymentModalProps) {
   const isDark = theme === 'dark';
   
-  // --- States ---
+  // --- UI States ---
   const [plans, setPlans] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [plansLoading, setPlansLoading] = useState(true);
   const [showPlanDropdown, setShowPlanDropdown] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
 
-  // --- Wallet States ---
-  // --- Financial States ---
-  const [customerData, setCustomerData] = useState<Customer | null>(null);
-  const [walletBalance, setWalletBalance] = useState(0); // Existing Advance
-  const [pendingAmount, setPendingAmount] = useState(0); // Existing Pending (Kadan)
-  
+  // --- Customer Data Init ---
+  const [customerData, setCustomerData] = useState<Customer | null>(() => {
+    if (mode === 'edit' && data) {
+        return {
+            id: 'legacy_id', 
+            landline: data.landlineNo,
+            name: data.customerName,
+            mobileNo: data.mobileNo || '',
+            email: data.email || '',
+            walletBalance: data.walletBalance || 0,
+            pendingAmount: data.pendingAmount || 0,
+            status: 'Active' as const,
+            source: data.source as any,
+            altMobileNo: '', vlanId: '', bbId: '', voipPassword: '', ontMake: '', ontType: '', ontMacAddress: '', ontBillNo: '', ont: 'Paid ONT' as const, offerPrize: '0', routerMake: '', routerMacId: '', oltIp: '', address: '', installationDate: ''
+        };
+    }
+    return null;
+  });
+
+  const [walletBalance, setWalletBalance] = useState(mode === 'edit' && data ? data.walletBalance : 0); 
+  const [pendingAmount, setPendingAmount] = useState(mode === 'edit' && data ? data.pendingAmount : 0); 
   const [useWallet, setUseWallet] = useState(false);
-  const [receivedAmount, setReceivedAmount] = useState(''); // Amount user is paying NOW
+  const [receivedAmount, setReceivedAmount] = useState(''); 
 
   // --- Form Data ---
   const [formData, setFormData] = useState({
@@ -46,21 +61,18 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
     duration: data?.duration || '30',
     billAmount: data?.billAmount?.toString() || '',
     commission: data?.commission?.toString() || '0',
-    status: 'Paid' as 'Paid' | 'Unpaid', // Default to Paid since we are adding payment
-    paidDate: new Date().toISOString().split('T')[0],
-    modeOfPayment: 'CASH',
-    renewalDate: '',
+    status: data?.status || 'Paid', 
+    paidDate: data?.paidDate || new Date().toISOString().split('T')[0],
+    modeOfPayment: data?.modeOfPayment || 'CASH',
+    renewalDate: data?.renewalDate || '',
     source: data?.source || (dataSource === 'All' ? 'BSNL' : dataSource) 
   });
 
-  // Refs
   const planRef = useRef<HTMLDivElement>(null);
   const modeRef = useRef<HTMLDivElement>(null);
 
-  // --- Click Outside ---
-  // --- 1. Init: Fetch Customer if in Edit Mode ---
+  // --- Init Search in Edit Mode ---
   useEffect(() => {
-      // Explicit check to satisfy TypeScript if needed, though 'edit' is valid
       if (mode === 'edit' && data?.landlineNo) {
           handleSearchCustomer(data.landlineNo);
       }
@@ -81,7 +93,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
     loadPlans();
   }, []);
 
-  // --- Auto-Calculate Renewal ---
+  // --- Auto-Calculate Dates/Commission ---
   useEffect(() => {
       if (!formData.paidDate) return;
       const date = new Date(formData.paidDate);
@@ -90,7 +102,6 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
       setFormData(prev => ({ ...prev, renewalDate: date.toISOString().split('T')[0] }));
   }, [formData.paidDate, formData.source]);
 
-  // --- 4. Commission ---
   useEffect(() => {
     if (formData.billAmount) {
       const amount = parseFloat(formData.billAmount);
@@ -98,7 +109,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
     }
   }, [formData.billAmount]);
 
-  // --- 5. 🔍 Search Logic (Auto Fetch) ---
+  // --- 🔍 SMART SEARCH LOGIC ---
   const handleSearchCustomer = async (overrideNumber?: string) => {
     const searchNumber = overrideNumber || formData.landlineNo.trim();
     if (!searchNumber) { 
@@ -114,11 +125,9 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
         if (!customerSnap.empty) {
             const customer = { id: customerSnap.docs[0].id, ...customerSnap.docs[0].data() } as Customer;
             setCustomerData(customer);
-            
             setWalletBalance(customer.walletBalance || 0);
             setPendingAmount(customer.pendingAmount || 0);
 
-            // Only auto-fill form if NOT in edit mode (preserve existing payment data)
             if (mode === 'add') {
                 setFormData(prev => ({
                     ...prev,
@@ -130,10 +139,43 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                     billAmount: customer.offerPrize || prev.billAmount
                 }));
             }
-            
-            if(!overrideNumber) toast.success(`Data Fetched! Pending: ₹${customer.pendingAmount || 0}`);
+            if(!overrideNumber) toast.success(`Data Fetched! Wallet: ₹${customer.walletBalance || 0}`);
         } else {
-            if(!overrideNumber) toast.error("Customer not found.");
+            // Fallback for Edit Mode / Bulk Imported Data
+            const paymentQuery = query(collection(db, 'payments'), where('landlineNo', '==', searchNumber), limit(1));
+            const paymentSnap = await getDocs(paymentQuery);
+
+            if (!paymentSnap.empty) {
+                const paymentRec = paymentSnap.docs[0].data() as Payment;
+                const tempCustomer: Customer = {
+                    id: 'legacy_bulk_id', 
+                    landline: paymentRec.landlineNo,
+                    name: paymentRec.customerName,
+                    mobileNo: paymentRec.mobileNo || '',
+                    email: paymentRec.email || '',
+                    walletBalance: 0, pendingAmount: 0,
+                    status: 'Active' as const, source: paymentRec.source as any,
+                    altMobileNo: '', vlanId: '', bbId: '', voipPassword: '', ontMake: '', ontType: '', ontMacAddress: '', ontBillNo: '', ont: 'Paid ONT' as const, offerPrize: '0', routerMake: '', routerMacId: '', oltIp: '', address: '', installationDate: ''
+                };
+                setCustomerData(tempCustomer);
+                setWalletBalance(0);
+                setPendingAmount(0);
+
+                if (mode === 'add') {
+                    setFormData(prev => ({
+                        ...prev,
+                        customerName: paymentRec.customerName || '',
+                        mobileNo: paymentRec.mobileNo || '',
+                        email: paymentRec.email || '', 
+                        rechargePlan: paymentRec.rechargePlan || prev.rechargePlan,
+                        source: paymentRec.source || prev.source,
+                        billAmount: paymentRec.billAmount?.toString() || prev.billAmount
+                    }));
+                }
+                if(!overrideNumber) toast.info(`Found in history.`);
+            } else {
+                if(!overrideNumber) toast.error("Number not found.");
+            }
         }
     } catch (error) { console.error(error); } 
     finally { setIsSearching(false); }
@@ -143,103 +185,78 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
       if (e.key === 'Enter') { e.preventDefault(); handleSearchCustomer(); }
   };
 
-  // --- 💰 CALCULATION LOGIC ---
+  // --- 💰 FINANCIALS ---
   const billAmount = parseFloat(formData.billAmount) || 0;
   const received = parseFloat(receivedAmount) || 0;
-  
-  // Logic: 
-  // 1. If using wallet: Deduct from bill first.
-  // 2. Remaining amount must be paid by 'Received'.
-  // 3. If 'Received' > Remaining, excess goes to wallet.
-
-  // 1. Total Amount to Pay = Current Bill + Old Pending
   const totalPayable = billAmount + pendingAmount;
-  
   let netPayable = totalPayable;
   let usedWallet = 0;
 
-  // 2. Apply Wallet if Checked
   if (useWallet && walletBalance > 0) {
-      if (walletBalance >= totalPayable) {
-          usedWallet = totalPayable;
-          netPayable = 0;
-      } else {
-          usedWallet = walletBalance;
-          netPayable = totalPayable - walletBalance;
-      }
+      if (walletBalance >= totalPayable) { usedWallet = totalPayable; netPayable = 0; } 
+      else { usedWallet = walletBalance; netPayable = totalPayable - walletBalance; }
   }
 
-  // 3. Compare with Received Amount
-  let newExcess = 0;  // To Wallet
-  let newPending = 0; // To Pending
+  let newExcess = 0;  
+  let newPending = 0; 
+  if (received >= netPayable) { newExcess = received - netPayable; newPending = 0; } 
+  else { newPending = netPayable - received; newExcess = 0; }
 
-  if (received >= netPayable) {
-      newExcess = received - netPayable;
-      newPending = 0; // Cleared all dues
-  } else {
-      newPending = netPayable - received; // Remaining to be paid next time
-      newExcess = 0;
-  }
-
-  // Final States for DB Update
-  // Note: These will be used by the Service to update the Customer record
   const finalWalletState = (walletBalance - usedWallet) + newExcess;
   const finalPendingState = newPending;
 
   // --- SUBMIT ---
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerData) { toast.error("Please search for a customer first."); return; }
+    if (!customerData) { toast.error("Please search by Landline first."); return; }
+    if (!formData.billAmount || billAmount <= 0) { toast.error("Invalid Bill Amount."); return; }
 
     const paymentData = {
         ...formData,
-        id: data?.id || Date.now().toString(), // Use existing ID if edit
+        id: data?.id || Date.now().toString(), 
         billAmount: billAmount,
         commission: parseFloat(formData.commission),
-        
-        // Save Financial Snapshot
         walletBalance: walletBalance,
         pendingAmount: pendingAmount,
         receivedAmount: received,
-        
-        // Transaction Specifics
         usedWalletAmount: usedWallet,
         addedToWallet: newExcess,
-        addedToPending: newPending, // Record how much was left unpaid
-        
-        // Flags for Service to update Customer DB
+        addedToPending: newPending, 
         finalWalletBalance: finalWalletState,
         finalPendingAmount: finalPendingState
     };
 
-    // 1. Save to Database
-    onSave(paymentData, customerData.id);
+    // 1. Save DB
+    await onSave(paymentData, customerData.id);
     
-    // 2. ✅ WhatsApp Trigger
-    if (formData.status === 'Paid' && formData.mobileNo) {
-        // Direct call without timeout often works better on click events, 
-        // but since onSave is async, we try to trigger it.
-        // Alert user if popup blocked.
-        setTimeout(() => {
-             WhatsAppService.sendPaymentAck(paymentData as Payment, formData.mobileNo);
-        }, 500);
-    }
-
-    // 3. ✅ PDF & Email Trigger
-    // We ask confirmation to ensure the user is ready
-    if (confirm("Payment Saved! Download Invoice & Send Email?")) {
-        // Generate PDF
-        PDFService.generateInvoice(paymentData as Payment, { 
-            ...customerData, 
-            walletBalance: finalWalletState,
-            pendingAmount: finalPendingState // Pass new pending for PDF
-        });
+    // 2. Notifications (Only if Paid)
+    if (formData.status === 'Paid') {
         
-        // Open Email Client
-        if (formData.email) {
-            EmailService.sendInvoiceEmail(paymentData as Payment, formData.email);
-        } else {
-            toast.warning("No email found. Only PDF downloaded.");
+        // A. WhatsApp
+        if (formData.mobileNo) {
+            setTimeout(() => {
+                 WhatsAppService.sendPaymentAck(paymentData as Payment, formData.mobileNo);
+            }, 300);
+        }
+        
+        // B. Invoice & Email
+        if (confirm("Download Invoice and Open Email Draft?")) {
+            // Generate PDF
+            PDFService.generateInvoice(paymentData as Payment, { 
+                ...customerData, 
+                walletBalance: finalWalletState,
+                pendingAmount: finalPendingState 
+            });
+            
+            // Open Email
+            if (formData.email) {
+                setTimeout(() => {
+                    EmailService.sendInvoiceEmail(paymentData as Payment, formData.email);
+                    toast.info("Opening Email. Please attach the downloaded PDF.");
+                }, 1000);
+            } else {
+                toast.warning("No email found. Only PDF downloaded.");
+            }
         }
     }
   };
@@ -255,9 +272,9 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
 
         <div className="flex items-center justify-between p-6 border-b border-inherit">
           <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            {mode === 'edit' ? 'Clear Dues / Update Payment' : 'Add New Payment'}
+            {mode === 'edit' ? 'Update & Pay' : 'Add New Payment'}
           </h2>
-          <button onClick={onClose}><X className="w-6 h-6 text-gray-500" /></button>
+          <button type="button" onClick={onClose}><X className="w-6 h-6 text-gray-500" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
@@ -275,7 +292,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                     </div>
                 </div>
 
-                {/* Basic Info */}
+                {/* Info Fields */}
                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Customer Name</label><input type="text" value={formData.customerName} readOnly className={`${inputClasses} opacity-80`} /></div>
                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Mobile</label><input type="text" value={formData.mobileNo} onChange={e => setFormData({...formData, mobileNo: e.target.value})} className={inputClasses} /></div>
                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Email (For Invoice)</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputClasses} /></div>
@@ -290,10 +307,8 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                 </div>
                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Bill Amount (₹)</label><input type="number" value={formData.billAmount} onChange={e => setFormData({...formData, billAmount: e.target.value})} className={inputClasses} required /></div>
 
-                {/* 🟧 FINANCIAL SUMMARY (Wallet & Pending) */}
+                {/* Financial Summary */}
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl border border-dashed border-gray-400/50 bg-gray-50/50 dark:bg-gray-800/50">
-                    
-                    {/* Left: Balances */}
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm"><span className="text-gray-500">Current Bill:</span><span className="font-bold">₹{billAmount}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-red-500">Previous Pending:</span><span className="font-bold text-red-500">+ ₹{pendingAmount}</span></div>
@@ -302,19 +317,15 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                         <div className="flex justify-between text-base font-bold"><span>Total Payable:</span><span>₹{totalPayable}</span></div>
                     </div>
 
-                    {/* Right: Payment Input */}
                     <div className="space-y-3">
                         <div className="flex items-center gap-2">
                             <input type="checkbox" id="useWallet" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} className="w-4 h-4 text-cyan-600 rounded" disabled={walletBalance <= 0} />
                             <label htmlFor="useWallet" className={`text-sm font-medium ${walletBalance <= 0 ? 'text-gray-400' : ''}`}>Use Wallet Balance?</label>
                         </div>
-                        
                         <div>
                             <label className="text-xs font-bold text-green-600 uppercase block mb-1">Amount Received</label>
                             <input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} className={`${inputClasses} border-green-500 bg-green-50/10 focus:ring-green-500 text-lg font-bold`} placeholder="Enter amount..." />
                         </div>
-
-                        {/* Calculation Feedback */}
                         {receivedAmount && (
                             <div className="text-xs text-right mt-1 font-bold">
                                 {newPending > 0 && <span className="text-red-500 block">Remaining Pending: ₹{newPending}</span>}
@@ -325,7 +336,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                     </div>
                 </div>
 
-                {/* Plan & Mode */}
+                {/* Plan & Mode (Truncated for brevity, same as before) */}
                  <div className="md:col-span-2 relative" ref={planRef}>
                     <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Recharge Plan</label>
                     <div className={`${inputClasses} flex justify-between items-center cursor-pointer`} onClick={() => setShowPlanDropdown(!showPlanDropdown)}>
@@ -364,8 +375,8 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                 </div>
             </div>
 
-            <div className="flex justify-end pt-4">
-                <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-gray-700 text-white mr-2">Cancel</button>
+            <div className="flex justify-end pt-4 gap-2">
+                <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition">Cancel</button>
                 <button type="submit" className="px-8 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg flex items-center gap-2">
                     <Check className="w-4 h-4" /> {mode === 'edit' ? 'Update & Pay' : 'Save Record'}
                 </button>
