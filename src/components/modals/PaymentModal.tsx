@@ -20,6 +20,15 @@ interface PaymentModalProps {
 export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }: PaymentModalProps) {
   const isDark = theme === 'dark';
   
+  // --- Helper: Get Local Date String (YYYY-MM-DD) ---
+  const getLocalDate = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // --- UI States ---
   const [plans, setPlans] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -40,7 +49,10 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
             pendingAmount: data.pendingAmount || 0,
             status: 'Active' as const,
             source: data.source as any,
-            altMobileNo: '', vlanId: '', bbId: '', voipPassword: '', ontMake: '', ontType: '', ontMacAddress: '', ontBillNo: '', ont: 'Paid ONT' as const, offerPrize: '0', routerMake: '', routerMacId: '', oltIp: '', address: '', installationDate: ''
+            altMobileNo: '', vlanId: '', bbId: '', voipPassword: '', 
+            ontMake: '', ontType: '', ontMacAddress: '', ontBillNo: '', 
+            ont: 'Paid ONT' as const, offerPrize: '0', routerMake: '', routerMacId: '', 
+            oltIp: '', address: '', installationDate: ''
         };
     }
     return null;
@@ -62,7 +74,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
     billAmount: data?.billAmount?.toString() || '',
     commission: data?.commission?.toString() || '0',
     status: data?.status || 'Paid', 
-    paidDate: data?.paidDate || new Date().toISOString().split('T')[0],
+    paidDate: data?.paidDate || getLocalDate(), 
     modeOfPayment: data?.modeOfPayment || 'CASH',
     renewalDate: data?.renewalDate || '',
     source: data?.source || (dataSource === 'All' ? 'BSNL' : dataSource) 
@@ -99,7 +111,11 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
       const date = new Date(formData.paidDate);
       if (formData.source === 'BSNL') date.setMonth(date.getMonth() + 1);
       else date.setDate(date.getDate() + 30);
-      setFormData(prev => ({ ...prev, renewalDate: date.toISOString().split('T')[0] }));
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      setFormData(prev => ({ ...prev, renewalDate: `${year}-${month}-${day}` }));
   }, [formData.paidDate, formData.source]);
 
   useEffect(() => {
@@ -119,6 +135,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
 
     setIsSearching(true);
     try {
+        // 1. Try finding in CUSTOMERS collection
         const customerQuery = query(collection(db, 'customers'), where('landline', '==', searchNumber));
         const customerSnap = await getDocs(customerQuery);
         
@@ -131,7 +148,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
             if (mode === 'add') {
                 setFormData(prev => ({
                     ...prev,
-                    customerName: customer.name || '',
+                    customerName: customer.name || (customer as any).customerName || '',
                     mobileNo: customer.mobileNo || '',
                     email: customer.email || '', 
                     rechargePlan: customer.plan || prev.rechargePlan,
@@ -140,23 +157,26 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                 }));
             }
             if(!overrideNumber) toast.success(`Data Fetched! Wallet: ₹${customer.walletBalance || 0}`);
+        
         } else {
-            // Fallback for Edit Mode / Bulk Imported Data
+            // 2. Fallback: Try finding in PAYMENTS
             const paymentQuery = query(collection(db, 'payments'), where('landlineNo', '==', searchNumber), limit(1));
             const paymentSnap = await getDocs(paymentQuery);
 
             if (!paymentSnap.empty) {
                 const paymentRec = paymentSnap.docs[0].data() as Payment;
+                
                 const tempCustomer: Customer = {
                     id: 'legacy_bulk_id', 
                     landline: paymentRec.landlineNo,
-                    name: paymentRec.customerName,
+                    name: paymentRec.customerName || '', 
                     mobileNo: paymentRec.mobileNo || '',
                     email: paymentRec.email || '',
                     walletBalance: 0, pendingAmount: 0,
                     status: 'Active' as const, source: paymentRec.source as any,
                     altMobileNo: '', vlanId: '', bbId: '', voipPassword: '', ontMake: '', ontType: '', ontMacAddress: '', ontBillNo: '', ont: 'Paid ONT' as const, offerPrize: '0', routerMake: '', routerMacId: '', oltIp: '', address: '', installationDate: ''
                 };
+                
                 setCustomerData(tempCustomer);
                 setWalletBalance(0);
                 setPendingAmount(0);
@@ -174,7 +194,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                 }
                 if(!overrideNumber) toast.info(`Found in history.`);
             } else {
-                if(!overrideNumber) toast.error("Number not found.");
+                if(!overrideNumber) toast.error("Number not found. Please fill details manually.");
             }
         }
     } catch (error) { console.error(error); } 
@@ -205,11 +225,19 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
   const finalWalletState = (walletBalance - usedWallet) + newExcess;
   const finalPendingState = newPending;
 
-  // --- SUBMIT ---
+  // --- SUBMIT (FIXED LOGIC) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerData) { toast.error("Please search by Landline first."); return; }
+    console.log("🟢 Submit Triggered!"); // Debug Log
+
+    // 1. Basic Validation
+    if (!formData.landlineNo) { toast.error("Landline is required."); return; }
+    if (!formData.customerName) { toast.error("Customer Name is required."); return; }
     if (!formData.billAmount || billAmount <= 0) { toast.error("Invalid Bill Amount."); return; }
+    
+    // 2. Resolve Customer ID
+    // Note: Use existing ID if found, otherwise empty string (Parent component will handle it)
+    const targetCustomerId = customerData?.id || "";
 
     const paymentData = {
         ...formData,
@@ -226,38 +254,33 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
         finalPendingAmount: finalPendingState
     };
 
-    // 1. Save DB
-    await onSave(paymentData, customerData.id);
+    console.log("📤 Sending Payment Data:", paymentData);
+    await onSave(paymentData, targetCustomerId);
     
-    // 2. Notifications (Only if Paid)
     if (formData.status === 'Paid') {
-        
-        // A. WhatsApp
         if (formData.mobileNo) {
             setTimeout(() => {
                  WhatsAppService.sendPaymentAck(paymentData as Payment, formData.mobileNo);
             }, 300);
         }
         
-        // B. Invoice & Email
-        if (confirm("Download Invoice and Open Email Draft?")) {
-            // Generate PDF
+        // Auto-download Invoice
+        setTimeout(() => {
             PDFService.generateInvoice(paymentData as Payment, { 
-                ...customerData, 
+                ...customerData!, // Force unwrap or fallback
+                landline: formData.landlineNo,
+                name: formData.customerName,
                 walletBalance: finalWalletState,
                 pendingAmount: finalPendingState 
-            });
+            } as any);
             
-            // Open Email
             if (formData.email) {
-                setTimeout(() => {
-                    EmailService.sendInvoiceEmail(paymentData as Payment, formData.email);
-                    toast.info("Opening Email. Please attach the downloaded PDF.");
-                }, 1000);
+                EmailService.sendInvoiceEmail(paymentData as Payment, formData.email);
+                toast.success("Invoice Downloaded & Email Draft Opened!");
             } else {
-                toast.warning("No email found. Only PDF downloaded.");
+                toast.success("Invoice Downloaded!");
             }
-        }
+        }, 1000);
     }
   };
 
@@ -293,7 +316,16 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                 </div>
 
                 {/* Info Fields */}
-                <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Customer Name</label><input type="text" value={formData.customerName} readOnly className={`${inputClasses} opacity-80`} /></div>
+                <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Customer Name</label>
+                    <input 
+                        type="text" 
+                        value={formData.customerName} 
+                        onChange={e => setFormData({...formData, customerName: e.target.value})} 
+                        className={`${inputClasses}`} 
+                        placeholder="Enter Name"
+                    />
+                </div>
                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Mobile</label><input type="text" value={formData.mobileNo} onChange={e => setFormData({...formData, mobileNo: e.target.value})} className={inputClasses} /></div>
                 <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Email (For Invoice)</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputClasses} /></div>
 
@@ -336,7 +368,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
                     </div>
                 </div>
 
-                {/* Plan & Mode (Truncated for brevity, same as before) */}
+                {/* Plan & Mode */}
                  <div className="md:col-span-2 relative" ref={planRef}>
                     <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Recharge Plan</label>
                     <div className={`${inputClasses} flex justify-between items-center cursor-pointer`} onClick={() => setShowPlanDropdown(!showPlanDropdown)}>

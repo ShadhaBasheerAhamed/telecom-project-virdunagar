@@ -162,7 +162,10 @@ export function Leads({ dataSource, theme }: LeadsProps) {
         plan: formData.plan,
         email: '',
         ottSubscription: formData.ott,
-        address: leadToConvert.address
+        address: leadToConvert.address,
+        walletBalance: 0,
+        pendingAmount: 0
+        
       };
 
       await CustomerService.addCustomer(newCustomer);

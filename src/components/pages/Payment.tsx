@@ -86,21 +86,49 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
     } catch (error) { toast.error('Failed to update status'); }
   };
 
-  // --- Save Logic ---
+  // --- Save Logic (FIXED & IMPROVED) ---
   const handleSavePayment = async (paymentData: any, customerId: string) => {
-    try {
-      if (paymentModalMode === 'add') {
-          const exists = await PaymentService.checkDuplicatePayment(paymentData.landlineNo, paymentData.paidDate);
-          if (exists) { toast.error('Payment already exists for this month!'); return; }
-          
-          if (!customerId) { toast.error("Customer ID missing. Please search first."); return; }
+    console.log("🟢 Save Button Clicked!", paymentData); // Debug log
 
-          await PaymentService.addPayment(paymentData, customerId);
+    try {
+      // 1. AUTO-FIX: Customer ID miss aana, Landline vachu kandupidippom
+      let finalCustomerId = customerId;
+      
+      if (!finalCustomerId && paymentData.landlineNo) {
+          console.log("🔍 Searching for customer by Landline:", paymentData.landlineNo);
+          const foundCustomer = await CustomerService.findCustomerByLandline(paymentData.landlineNo);
+          if (foundCustomer) {
+              finalCustomerId = foundCustomer.id;
+              console.log("✅ Customer Found:", finalCustomerId);
+          }
+      }
+
+      if (paymentModalMode === 'add') {
+          // 2. Duplicate Check (Needs Index in Console)
+          // Note: Index miss aana idhu 'false' nu return aagum, so save aagidum. No problem.
+          const exists = await PaymentService.checkDuplicatePayment(paymentData.landlineNo, paymentData.paidDate);
+          if (exists) { 
+              toast.error('Payment already exists for this month!'); 
+              return; 
+          }
+          
+          // 3. Strict Check: ID kandippa venum
+          if (!finalCustomerId) { 
+              toast.error("Customer not found! Please check the Landline Number."); 
+              console.error("❌ Error: Customer ID missing even after lookup.");
+              return; 
+          }
+
+          // 4. Save Payment
+          await PaymentService.addPayment(paymentData, finalCustomerId);
           toast.success('Payment Added Successfully');
       } else {
+          // 5. Update Existing Payment
           await PaymentService.updatePayment(paymentData.id, paymentData);
-          if(customerId && paymentData.finalPendingAmount !== undefined) {
-                 await CustomerService.updateCustomer(customerId, { 
+          
+          // Update Wallet/Pending if Customer ID exists
+          if(finalCustomerId && paymentData.finalPendingAmount !== undefined) {
+                 await CustomerService.updateCustomer(finalCustomerId, { 
                      pendingAmount: paymentData.finalPendingAmount,
                      walletBalance: paymentData.finalWalletBalance,
                      status: 'Active', 
@@ -109,11 +137,14 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
           }
           toast.success('Payment Updated');
       }
+
+      // 6. Refresh & Close
       fetchPayments();
       setPaymentModalOpen(false);
+
     } catch (error) { 
-        console.error(error);
-        toast.error('Save failed. Please try again.'); 
+        console.error("🔴 Save Failed:", error);
+        toast.error('Save failed. Check console for details.'); 
     }
   };
 

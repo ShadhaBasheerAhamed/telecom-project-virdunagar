@@ -38,12 +38,15 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   // --- Dashboard State ---
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [timeRange, setTimeRange] = useState<string>('week'); // For chart filters
+  const [timeRange, setTimeRange] = useState<string>('week'); 
 
   // --- Data State ---
   const [stats, setStats] = useState<any>(null);
   const [panelStats, setPanelStats] = useState<any>({ customers: [], expiry: [], finance: [], complaints: [] });
   
+  // [Command] State for Live Finance Metrics (Collection, Commission, Pending)
+  const [financeRealtime, setFinanceRealtime] = useState({ collected: 0, commission: 0, pending: 0 });
+
   // Charts Data
   const [pieData, setPieData] = useState<any[]>([]);
   const [areaData, setAreaData] = useState<any[]>([]); 
@@ -51,7 +54,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   const [invoiceData, setInvoiceData] = useState<any[]>([]);
   const [renewalData, setRenewalData] = useState<any[]>([]);
 
-  // --- Drill Down / Detail View State ---
+  // --- Drill Down State ---
   const [detailView, setDetailView] = useState<{ title: string, items: Customer[] } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -61,12 +64,22 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // Pass selectedDate and timeRange to service
+        // [Command] Fetch General Chart Data
         const data = await DashboardService.generateChartData(selectedDate, timeRange, dataSource);
         
+        // [Command] Fetch LIVE Finance Stats (New Logic integration)
+        const financeData = await DashboardService.getFinanceStats(dataSource, selectedDate);
+        
+        // [Command] Update Local State with Live Finance Data
+        setFinanceRealtime({
+            collected: financeData.todayCollected,
+            commission: financeData.todayCommission,
+            pending: financeData.pendingInvoices
+        });
+
         setStats(data.customerStats);
         
-        // Map data to Panels with 'type' for click handling
+        // [Command] Map data to UI Panels
         setPanelStats({
             customers: [
                 { label: 'Total Customers', value: data.customerStats.total, type: 'total' },
@@ -77,14 +90,18 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
             expiry: [
                 { label: 'Total Expired', value: data.customerStats.expired, type: 'expired_total' },
                 { label: 'Suspended', value: data.customerStats.suspended, type: 'suspended' },
-                { label: 'Renewal Pending', value: data.financeData.pendingInvoices, type: 'pending_renewal' },
+                // [Command] Use Live Pending Invoices here
+                { label: 'Renewal Pending', value: financeData.pendingInvoices, type: 'pending_renewal' },
                 { label: 'Disabled', value: data.customerStats.disabled, textColor: 'text-red-400', type: 'disabled' },
             ],
             finance: [
-                { label: "Today's Collection", value: `₹${data.financeData.todayCollected}`, type: 'collection_today' },
-                { label: 'Pending Invoices', value: data.financeData.pendingInvoices, type: 'pending_invoices' },
-                { label: 'Monthly Revenue', value: `₹${(data.financeData.monthlyRevenue / 1000).toFixed(1)}k`, isHighlight: true, type: 'revenue_month' },
-                { label: 'Est. Pending Value', value: `₹${(data.financeData.totalPendingValue / 1000).toFixed(1)}k`, textColor: 'text-red-500', type: 'pending_value' },
+                // [Command] Use Live Collected Value
+                { label: "Today's Collection", value: `₹${financeData.todayCollected.toLocaleString()}`, type: 'collection_today', isHighlight: true },
+                // [Command] Use Live Commission Value
+                { label: "Today's Commission", value: `₹${financeData.todayCommission.toLocaleString()}`, type: 'commission_today', textColor: 'text-green-500' },
+                // [Command] Use Live Pending Invoices
+                { label: 'Pending Invoices', value: financeData.pendingInvoices, type: 'pending_invoices', textColor: 'text-red-500' },
+                { label: 'Monthly Revenue', value: `₹${(data.financeData.monthlyRevenue / 1000).toFixed(1)}k`, type: 'revenue_month' },
             ],
             complaints: [
                 { label: 'Open Issues', value: data.complaintsData.find((c: any) => c.name === 'Open')?.value || 0, textColor: 'text-red-500', type: 'complaint_open' },
@@ -96,10 +113,10 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
 
         // Set Chart Data
         setPieData(data.complaintsData);
-        setAreaData(data.registrationsData.map((item: any) => ({ name: item.name, uv: item.value }))); // Registrations
-        setExpiredChartData(data.expiredData.map((item: any) => ({ name: item.name, value: item.value }))); // Expired
-        setInvoiceData(data.invoicePaymentsData); // Payment Modes
-        setRenewalData(data.renewalsData.map((item: any) => ({ name: item.name, uv: item.value }))); // Renewals
+        setAreaData(data.registrationsData.map((item: any) => ({ name: item.name, uv: item.value })));
+        setExpiredChartData(data.expiredData.map((item: any) => ({ name: item.name, value: item.value })));
+        setInvoiceData(data.invoicePaymentsData);
+        setRenewalData(data.renewalsData.map((item: any) => ({ name: item.name, uv: item.value })));
 
       } catch (error) {
         console.error("Dashboard Fetch Error:", error);
@@ -151,7 +168,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   }, [searchQuery, dataSource]);
 
   // ---------------------------------------------------------
-  // 3. HANDLE STAT CLICK (Drill Down)
+  // 3. HANDLE STAT CLICK
   // ---------------------------------------------------------
   const handleStatClick = async (type: string | undefined, label: string) => {
       if (!type) return;
@@ -160,7 +177,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       setDetailView({ title: label, items: [] });
       
       try {
-          // Fetch all customers and filter in memory (For speed/simplicity)
           const allCustomers = await CustomerService.getCustomers();
           let filtered = allCustomers;
 
@@ -182,7 +198,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
               case 'disabled': filtered = filtered.filter(c => c.status === 'Inactive'); break;
               case 'pending_renewal': filtered = filtered.filter(c => c.renewalDate && c.renewalDate < today); break;
               case 'new': 
-                   // Registered today
                    filtered = filtered.filter(c => c.createdAt && c.createdAt.startsWith(today)); 
                    break;
               default: 
@@ -201,10 +216,9 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       }
   };
 
-  // --- RENDER START ---
-  
-  // A. IF SEARCHING: Show Results View
+  // --- RENDER ---
   if (searchQuery) {
+      // (Keep existing Search View Render)
       return (
         <div className="p-4 min-h-screen">
             <h2 className={`text-xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -243,7 +257,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       );
   }
 
-  // B. NORMAL DASHBOARD
   if (loading && !stats) {
     return (
       <div className="flex justify-center items-center h-96">
@@ -264,7 +277,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       className="space-y-6 pb-10"
     >
       
-      {/* HEADER SECTION (Date & Refresh) */}
+      {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-2 -mt-4 px-1">
         <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
@@ -274,7 +287,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                 </span>
             </div>
             
-            {/* Date Picker */}
+            {/* Date Picker (Controls data fetched) */}
             <div className={`flex items-center px-4 py-2 rounded-xl border transition-all ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
                 <Calendar className={`w-4 h-4 mr-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
                 <input
@@ -286,7 +299,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                 />
             </div>
             
-            {/* 🔄 Refresh Button */}
+            {/* Refresh Button */}
             <button 
                 onClick={fetchDashboardData}
                 className={`p-2 rounded-full hover:bg-opacity-20 transition-all ${isDark ? 'hover:bg-slate-600 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
@@ -295,12 +308,14 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
         </div>
+        
+        {/* [Command] Wallet Card showing LIVE Collection from 'financeRealtime' state */}
         <div className="w-full md:w-auto min-w-[250px]">
-             <WalletCard theme={theme} />
+             <WalletCard theme={theme} amount={financeRealtime.collected} />
         </div>
       </div>
 
-      {/* STAT CARDS ROW (Clickable) */}
+      {/* STAT CARDS (Keep existing StatCard rendering) */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard title="TOTAL CUSTOMERS" value={stats.total} color="text-blue-400" theme={theme} details={[{ label: 'New', value: '+' + panelStats.customers[2].value }]} onClick={() => handleStatClick('total', 'Total Customers')} />
         <StatCard title="ACTIVE" value={stats.active} color="text-cyan-400" theme={theme} details={[{ label: 'Rate', value: stats.total > 0 ? ((stats.active/stats.total)*100).toFixed(0)+'%' : '0%' }]} onClick={() => handleStatClick('active', 'Active Customers')} />
@@ -309,38 +324,19 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
         <StatCard title="DISABLED" value={stats.disabled} color="text-slate-500" theme={theme} onClick={() => handleStatClick('disabled', 'Disabled Customers')} />
       </div>
 
-      {/* DETAILED STAT PANELS (Clickable Items) */}
+      {/* PANELS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-        <StatisticsPanel 
-            title="Customers" 
-            theme={theme} 
-            items={panelStats.customers} 
-            onItemClick={(item) => handleStatClick(item.type, item.label)} 
-        />
-        <StatisticsPanel 
-            title="Expiry Alerts" 
-            theme={theme} 
-            items={panelStats.expiry} 
-            onItemClick={(item) => handleStatClick(item.type, item.label)} 
-        />
-        <StatisticsPanel 
-            title="Finance" 
-            theme={theme} 
-            items={panelStats.finance} 
-            onItemClick={(item) => handleStatClick(item.type, item.label)} 
-        />
-        <StatisticsPanel 
-            title="Complaints" 
-            theme={theme} 
-            items={panelStats.complaints} 
-            onItemClick={(item) => handleStatClick(item.type, item.label)} 
-        />
+        <StatisticsPanel title="Customers" theme={theme} items={panelStats.customers} onItemClick={(item) => handleStatClick(item.type, item.label)} />
+        <StatisticsPanel title="Expiry Alerts" theme={theme} items={panelStats.expiry} onItemClick={(item) => handleStatClick(item.type, item.label)} />
+        
+        {/* [Command] Updated Finance Panel with Real-time Data */}
+        <StatisticsPanel title="Finance" theme={theme} items={panelStats.finance} onItemClick={(item) => handleStatClick(item.type, item.label)} />
+        
+        <StatisticsPanel title="Complaints" theme={theme} items={panelStats.complaints} onItemClick={(item) => handleStatClick(item.type, item.label)} />
       </div>
 
-      {/* CHARTS GRID */}
+      {/* CHARTS GRID (Keep existing charts) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Payment Modes Chart */}
         <div className="lg:col-span-2">
             <ChartPanel title="Payment Modes" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
                 <ResponsiveContainer width="100%" height={250}>
@@ -357,7 +353,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
             </ChartPanel>
         </div>
         
-        {/* Complaints Chart */}
         <ChartPanel title="Complaints" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           {isComplaintsEmpty ? (
              <div className="flex flex-col items-center justify-center h-[250px] text-gray-400">
@@ -378,7 +373,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Renewals Trend Chart */}
         <ChartPanel title="Renewals Trend" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={renewalData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -391,7 +385,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
           </ResponsiveContainer>
         </ChartPanel>
 
-        {/* Registrations Chart */}
         <ChartPanel title="Registrations" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={areaData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
@@ -410,7 +403,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
           </ResponsiveContainer>
         </ChartPanel>
 
-        {/* Expired Overview Chart */}
         <ChartPanel title="Expired Overview" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={expiredChartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
@@ -424,18 +416,16 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
         </ChartPanel>
       </div>
 
-      {/* DETAIL VIEW MODAL (Drill-down Overlay) */}
+      {/* DETAIL VIEW MODAL (Same as before) */}
       {detailView && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className={`w-full max-w-6xl h-[85vh] rounded-2xl border flex flex-col shadow-2xl ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'}`}>
                   
-                  {/* Modal Header */}
                   <div className="flex items-center justify-between p-6 border-b border-inherit">
                       <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{detailView.title} List</h2>
                       <button onClick={() => setDetailView(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full"><X className="w-6 h-6" /></button>
                   </div>
 
-                  {/* Modal Content - Table */}
                   <div className="flex-1 overflow-auto p-0">
                       {detailLoading ? (
                           <div className="flex justify-center items-center h-full"><Loader2 className="w-10 h-10 animate-spin text-blue-500" /></div>

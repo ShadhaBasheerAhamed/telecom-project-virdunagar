@@ -6,31 +6,32 @@ import type { Complaint } from '../components/pages/Complaints';
 
 export class DashboardService {
    
-  // 1. Helper: Date Boundaries
-  // --- HELPER: Get Date Boundaries based on Range (UPDATED) ---
-  // Calculates the specific Start and End timestamps for the selected range.
-  // Critical for accurate filtering (e.g., "This Week", "Today").
+  // ---------------------------------------------------------------------------
+  // 1. HELPER: DATE BOUNDARIES (Local Time Fixed)
+  // ---------------------------------------------------------------------------
+  // [Command] Calculates specific Start and End timestamps to filter database queries accurately.
+  // [Command] Uses LOCAL time components to avoid UTC timezone mismatches (fixing the 0.00 issue).
   private static getDateBoundaries(date: Date, range: string = 'week') {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
     
-    // Default: Start of the Selected Day
+    // [Command] Set Start of the Day
     let startOfDay = new Date(d);
     
-    // End of Selected Day (Always end of the selected reference day)
+    // [Command] Set End of Day to the last millisecond of the day
     const endOfDay = new Date(d);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Adjust Start Date based on Range
+    // [Command] Adjust Start Date based on the selected range filter
     if (range === 'week') {
-      startOfDay.setDate(d.getDate() - 6); // Last 7 days
+      startOfDay.setDate(d.getDate() - 6); // Go back 6 days
     } else if (range === 'month') {
-      startOfDay = new Date(d.getFullYear(), d.getMonth(), 1); // Start of Month
+      startOfDay = new Date(d.getFullYear(), d.getMonth(), 1); // Go to 1st of month
     } else if (range === 'year') {
-      startOfDay = new Date(d.getFullYear(), 0, 1); // Start of Year
+      startOfDay = new Date(d.getFullYear(), 0, 1); // Go to Jan 1st
     }
 
-    // "YYYY-MM-DD" String for Payments (Local Time) - Used for specific single-day queries if needed
+    // [Command] Format Date String manually (YYYY-MM-DD) using Local Time to match DB storage
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).toString().padStart(2, '0');
@@ -39,10 +40,10 @@ export class DashboardService {
     return { startOfDay, endOfDay, dateString };
   }
 
-  // --- HELPER: Zero Metrics ---
-  // 2. Helper: Zero Metrics
-  // Returns a default object with all zeros. 
-  // Used as a fallback if data fetching fails to prevent UI crashes.
+  // ---------------------------------------------------------------------------
+  // 2. HELPER: ZERO METRICS
+  // ---------------------------------------------------------------------------
+  // [Command] Returns a default object with zeros to prevent UI crashes if data loading fails.
   private static getZeroMetrics(): DashboardMetrics {
     return {
       totalCustomers: 0, activeCustomers: 0, inactiveCustomers: 0, suspendedCustomers: 0, expiredCustomers: 0,
@@ -52,10 +53,10 @@ export class DashboardService {
     };
   }
 
-  // --- HELPER: Zero Data ---
-  //3. Helper: Zero Chart Data
-  // Returns empty structures for all charts (Revenue, Growth, etc.).
-  // Used when selecting a future date or on error.
+  // ---------------------------------------------------------------------------
+  // 3. HELPER: ZERO CHART DATA
+  // ---------------------------------------------------------------------------
+  // [Command] Returns empty arrays for charts. Used when selecting a future date.
   private static getZeroData() {
       return {
           customerStats: { total: 0, active: 0, expired: 0, suspended: 0, disabled: 0 },
@@ -67,11 +68,70 @@ export class DashboardService {
           invoicePaymentsData: []
       };
   }
-   
-  // 4. Get Complaints Status (Filtered)
-  // Fetches complaints and filters them by Date AND Source (Provider).
-  // Returns data formatted specifically for the Pie Chart.
-  // === GET COMPLAINTS STATUS DATA (UPDATED WITH SOURCE FILTERING) ===
+    
+  // ---------------------------------------------------------------------------
+  // 4. GET REAL-TIME FINANCE STATS (COLLECTION & COMMISSION)
+  // ---------------------------------------------------------------------------
+  // [Command] Fetches live financial totals from 'payments' collection.
+  // [Command] Filters strictly by Source (BSNL/RMAX) and the specific Date selected.
+  static async getFinanceStats(source: string, date: Date) {
+    try {
+        // [Command] Get the correctly formatted local date string
+        const { dateString } = this.getDateBoundaries(date, 'today');
+
+        // --- PART A: CALCULATE COLLECTED AMOUNT & COMMISSION ---
+        
+        // [Command] Start Query: Select 'payments' where status is 'Paid'
+        let q = query(collection(db, 'payments'), where('status', '==', 'Paid'));
+        
+        // [Command] Filter: Apply Source filter if specific source selected
+        if (source !== 'All') {
+            q = query(q, where('source', '==', source));
+        }
+        
+        // [Command] Filter: Match specific date string
+        q = query(q, where('paidDate', '==', dateString));
+
+        const snapshot = await getDocs(q);
+        
+        let totalCollected = 0;
+        let totalCommission = 0;
+
+        // [Command] Loop through results and sum up amounts
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            // [Command] Sum Bill Amount safely
+            totalCollected += Number(data.billAmount) || 0;
+            // [Command] Sum Commission safely
+            totalCommission += Number(data.commission) || 0;
+        });
+
+        // --- PART B: CALCULATE PENDING INVOICES ---
+        
+        // [Command] Start Query: Select 'payments' where status is 'Unpaid'
+        let qUnpaid = query(collection(db, 'payments'), where('status', '==', 'Unpaid'));
+        
+        // [Command] Filter: Apply Source filter to Unpaid query as well
+        if (source !== 'All') qUnpaid = query(qUnpaid, where('source', '==', source));
+        
+        const snapUnpaid = await getDocs(qUnpaid);
+        const pendingInvoices = snapUnpaid.size; // Count documents
+
+        return {
+            todayCollected: totalCollected,
+            todayCommission: totalCommission,
+            pendingInvoices
+        };
+    } catch (error) {
+        console.error("Error fetching finance stats:", error);
+        return { todayCollected: 0, todayCommission: 0, pendingInvoices: 0 };
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. GET COMPLAINTS STATUS DATA
+  // ---------------------------------------------------------------------------
+  // [Command] Fetches complaints and groups them by status (Open/Resolved/Pending).
   static async getComplaintsStatusData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All'): Promise<any[]> {
     try {
       const complaintsSnap = await getDocs(collection(db, 'complaints'));
@@ -79,36 +139,28 @@ export class DashboardService {
       
       const { startOfDay, endOfDay } = this.getDateBoundaries(selectedDate, range);
       
-      // Filter complaints by date range AND source
+      // [Command] Filter complaints by date range AND source
       const filteredComplaints = complaints.filter(complaint => {
         if (!complaint.bookingDate) return false;
         const complaintDate = new Date(complaint.bookingDate);
         const isInDateRange = complaintDate >= startOfDay && complaintDate <= endOfDay;
         
-        // Filter by source (network provider)
         const complaintSource = complaint.source || '';
         const matchesSource = dataSource === 'All' || complaintSource === dataSource;
         
         return isInDateRange && matchesSource;
       });
 
-      // Count by status - handle 'Not Resolved' by mapping it to 'Open'
-      const statusCounts = {
-        'Open': 0,
-        'Resolved': 0,
-        'Pending': 0
-      };
+      const statusCounts = { 'Open': 0, 'Resolved': 0, 'Pending': 0 };
 
       filteredComplaints.forEach(complaint => {
         const status = complaint.status || 'Open';
-        // Map 'Not Resolved' to 'Open' for chart display consistency
         const chartStatus = status === 'Not Resolved' ? 'Open' : status;
         if (statusCounts.hasOwnProperty(chartStatus)) {
           statusCounts[chartStatus]++;
         }
       });
 
-      // Return in the format expected by the chart
       return [
         { name: 'Open', value: statusCounts['Open'] },
         { name: 'Resolved', value: statusCounts['Resolved'] },
@@ -121,50 +173,38 @@ export class DashboardService {
     }
   }
 
-  // 5. Get Expired Overview (Delegated)
-  // Uses the specialized ExpiredOverviewService to get expiration stats.
-  // === GET EXPIRED OVERVIEW DATA (UPDATED WITH SOURCE FILTERING) ===
+  // ---------------------------------------------------------------------------
+  // 6. GET EXPIRED OVERVIEW DATA
+  // ---------------------------------------------------------------------------
+  // [Command] Delegates expiration stats fetching to ExpiredOverviewService.
   static async getExpiredOverviewData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All'): Promise<any[]> {
     try {
       const { startOfDay, endOfDay } = this.getDateBoundaries(selectedDate, range);
       
-      // Determine grouping period based on range
-      let groupPeriod: 'day' | 'week' | 'month' | 'year';
-      if (range === 'today' || range === 'week') {
-        groupPeriod = 'day';
-      } else if (range === 'month') {
-        groupPeriod = 'day';
-      } else if (range === 'year') {
-        groupPeriod = 'month';
-      } else {
-        groupPeriod = 'day';
-      }
+      let groupPeriod: 'day' | 'week' | 'month' | 'year' = 'day';
+      if (range === 'year') groupPeriod = 'month';
 
-      // Use real Firebase data from expired_overview collection with source filtering
       const chartData = await ExpiredOverviewService.getExpiredChartData(startOfDay, endOfDay, groupPeriod, dataSource);
-      
       return chartData;
-
     } catch (error) {
       console.error('Error fetching expired overview data:', error);
       return [];
     }
   }
 
-  // 6. Live Dashboard Metrics Listener
-  // Subscribes to the 'customers' collection.
-  // Triggers a recalculation whenever a customer is added/updated/deleted.
-  // === SUBSCRIBE TO DASHBOARD METRICS (REAL-TIME) ===
+  // ---------------------------------------------------------------------------
+  // 7. LIVE DASHBOARD METRICS LISTENER
+  // ---------------------------------------------------------------------------
+  // [Command] Sets up a listener on the 'customers' collection for real-time updates.
   static subscribeToDashboardMetrics(
     dateRange: DateFilter,
     callback: (metrics: DashboardMetrics | null) => void
   ): () => void {
     try {
       const customersQuery = collection(db, 'customers');
-       
+        
       const unsubscribe = onSnapshot(customersQuery, async (snapshot) => {
         try {
-          // Recalculate all metrics when DB changes
           const metrics = await this.calculateMetrics([], dateRange);
           callback(metrics);
         } catch (error) {
@@ -184,18 +224,16 @@ export class DashboardService {
     }
   }
 
-  // 7. Calculate Core Metrics
-  // The "Brain" of the dashboard.
-  // Aggregates totals for Revenue, Customers, and Statuses.
-  // Since Payment.tsx now ensures clean data, these sums will be 100% accurate.
-  // === CALCULATE METRICS ===
+  // ---------------------------------------------------------------------------
+  // 8. CALCULATE CORE METRICS
+  // ---------------------------------------------------------------------------
+  // [Command] Aggregates totals for Revenue, Customers, and Statuses from raw data.
   static async calculateMetrics(
     customers: any[] = [],
     dateRange: DateFilter
   ): Promise<DashboardMetrics> {
     try {
       let customerData = customers;
-      // Fetch customers if not provided by snapshot
       if (customerData.length === 0) {
         const custSnap = await getDocs(collection(db, 'customers'));
         customerData = custSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -211,7 +249,6 @@ export class DashboardService {
       const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
       const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
-      // Tally Customer Stats
       customerData.forEach(customer => {
         const status = (customer.status || '').toLowerCase();
         const createdAt = customer.createdAt ? new Date(customer.createdAt) : null;
@@ -227,12 +264,9 @@ export class DashboardService {
           if (createdAt && createdAt >= today && createdAt <= endDate) newToday++;
         }
       });
-     
-      // Calculate Expired (Implicitly those who are not active/inactive/suspended)
+      
       const calculatedExpired = Math.max(0, totalCustomers - (activeCustomers + inactiveCustomers + suspendedCustomers));
 
-
-      // Tally Revenue Stats
       const paymentsSnap = await getDocs(collection(db, 'payments'));
       let totalRevenue = 0, monthlyRevenue = 0, todayCollection = 0, pendingPayments = 0, completedPayments = 0;
 
@@ -273,9 +307,10 @@ export class DashboardService {
     }
   }
 
-  // 8. Get Revenue Data (Chart)
-  // Groups revenue by month for the line/bar charts.
-  // === GET REVENUE DATA ===
+  // ---------------------------------------------------------------------------
+  // 9. GET REVENUE DATA (CHART)
+  // ---------------------------------------------------------------------------
+  // [Command] Prepares data for Revenue Line Charts (grouped by month).
   static async getRevenueData(dateRange: DateFilter): Promise<RevenueData[]> {
     try {
       const paymentsSnap = await getDocs(collection(db, 'payments'));
@@ -286,7 +321,7 @@ export class DashboardService {
         if (payment.status === 'Paid' && payment.paidDate) {
           const paidDate = new Date(payment.paidDate);
           const monthKey = `${paidDate.getFullYear()}-${String(paidDate.getMonth() + 1).padStart(2, '0')}`;
-           
+            
           if (!revenueByMonth[monthKey]) {
             revenueByMonth[monthKey] = { revenue: 0, customers: 0, payments: 0 };
           }
@@ -305,9 +340,10 @@ export class DashboardService {
     }
   }
 
-  // 9. Payment Mode Distribution
-  // Analyzes which payment methods are most popular (Cash vs UPI vs Online).
-  // === GET PAYMENT MODE DISTRIBUTION ===
+  // ---------------------------------------------------------------------------
+  // 10. GET PAYMENT MODE DISTRIBUTION
+  // ---------------------------------------------------------------------------
+  // [Command] Aggregates payment modes (Cash, UPI, etc.) for Bar Charts.
   static async getPaymentModeDistribution(dateRange: DateFilter): Promise<PaymentModeDistribution[]> {
     try {
       const paymentsSnap = await getDocs(collection(db, 'payments'));
@@ -335,9 +371,10 @@ export class DashboardService {
     }
   }
 
-  // 10. Customer Growth Analytics
-  // Tracks new vs active customers over time.
-  // === GET CUSTOMER GROWTH DATA ===
+  // ---------------------------------------------------------------------------
+  // 11. GET CUSTOMER GROWTH DATA
+  // ---------------------------------------------------------------------------
+  // [Command] Tracks new customer additions over time.
   static async getCustomerGrowthData(dateRange: DateFilter): Promise<CustomerGrowthData[]> {
     try {
       const customersSnap = await getDocs(collection(db, 'customers'));
@@ -367,9 +404,10 @@ export class DashboardService {
     }
   }
 
-  // 11. Plan Distribution
-  // Breakdown of which plans are most popular among customers.
-  // === GET PLAN DISTRIBUTION ===
+  // ---------------------------------------------------------------------------
+  // 12. GET PLAN DISTRIBUTION
+  // ---------------------------------------------------------------------------
+  // [Command] Counts how many customers are on each Plan.
   static async getPlanDistribution(dateRange: DateFilter): Promise<PlanDistribution[]> {
     try {
       const customersSnap = await getDocs(collection(db, 'customers'));
@@ -393,168 +431,164 @@ export class DashboardService {
     }
   }
 
-  // 12. Generate All Chart Data (Aggregator)
-  // Main entry point for the dashboard charts.
-  // Aggregates data for Registers, Renewals, Finance, and Complaints.
-  // === GENERATE CHART DATA (UPDATED WITH SOURCE FILTERING FOR COMPLAINTS AND EXPIRED) ===
+  // ---------------------------------------------------------------------------
+  // 13. GENERATE ALL CHART DATA (MAIN AGGREGATOR)
+  // ---------------------------------------------------------------------------
+  // [Command] The main function called by EnhancedDashboard.
+  // [Command] Orchestrates fetching of all necessary data points.
   static async generateChartData(selectedDate: Date = new Date(), range: string = 'week', dataSource: string = 'All') {
       
-    // A. Future Date Check - Don't show data for tomorrow
-    // 1. STRICT FUTURE DATE CHECK
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const checkDate = new Date(selectedDate);
-    checkDate.setHours(0, 0, 0, 0);
-
-    if (checkDate > today) {
-        return this.getZeroData();
-    }
-
-    const { startOfDay, endOfDay, dateString } = this.getDateBoundaries(selectedDate, range);
-
-    try {
-        // --- 2. FETCH DATA ---
-        const custColl = collection(db, 'customers');
-        const payColl = collection(db, 'payments');
-        
-        // Fetch ALL customers (Filtered in JS for complex ranges and data source)
-        const custSnap = await getDocs(custColl);
-        
-        // Fetch Daily Payments for Card Stats (Specific Date + Data Source Filter)
-        let payDailyQuery = query(payColl, where('paidDate', '==', dateString));
-        if (dataSource !== 'All') {
-            payDailyQuery = query(payColl, where('paidDate', '==', dateString), where('source', '==', dataSource));
-        }
-        const payDailySnap = await getDocs(payDailyQuery);
-        
-        // Fetch All Payments for Charts (Range Filtered in JS + Data Source Filter)
-        let payAllQuery = query(payColl);
-        if (dataSource !== 'All') {
-            payAllQuery = query(payColl, where('source', '==', dataSource));
-        }
-        const payAllSnap = await getDocs(payAllQuery);
-
-        // --- 3. FILTER CUSTOMERS & BUILD CHART BUCKETS ---Process Customers (Bucketing)
-        let total = 0, active = 0, suspended = 0, newToday = 0, disabled = 0;
-        
-        // Chart Buckets
-        const chartMap = new Map<string, number>();
-        const labels: string[] = [];
-
-        // Initialize Buckets (Days or Months)
-        if (range === 'year') {
-            for(let i=0; i<12; i++) {
-                const monthName = new Date(selectedDate.getFullYear(), i, 1).toLocaleString('default', { month: 'short' });
-                labels.push(monthName);
-                chartMap.set(monthName, 0);
-            }
-        } else {
-            // Daily buckets
-            let loopDate = new Date(startOfDay);
-            while(loopDate <= endOfDay) {
-                const label = range === 'today' ? 'Today' : loopDate.getDate().toString();
-                if(range !== 'today') labels.push(label);
-                chartMap.set(label, 0);
-                loopDate.setDate(loopDate.getDate() + 1);
-            }
-            if(range === 'today') { labels.push('Today'); chartMap.set('Today', 0); }
-        }
-
-        custSnap.forEach(doc => {
-            const data = doc.data();
-            const createdDate = new Date(data.createdAt || Date.now());
-            
-            // Filter by data source (provider) Data Source Filter
-            const customerSource = data.source || '';
-            if (dataSource !== 'All' && customerSource !== dataSource) {
-                return; // Skip this customer if it doesn't match the selected data source
-            }
-
-            // Global Stats (Historical until End of Day)
-            if (createdDate <= endOfDay) {
-                total++;
-                const status = (data.status || '').toLowerCase();
-                if (status === 'active') active++;
-                else if (status === 'suspended') suspended++;
-                else if (status === 'disabled' || status === 'inactive') disabled++;
-
-                // New Today Count (Strictly selected day)
-                const d = new Date(selectedDate); d.setHours(0,0,0,0);
-                const e = new Date(selectedDate); e.setHours(23,59,59,999);
-                if (createdDate >= d && createdDate <= e) newToday++;
-            }
-
-            // Chart Data Population (InRange)
-            if (createdDate >= startOfDay && createdDate <= endOfDay) {
-                let key = '';
-                if (range === 'year') key = createdDate.toLocaleString('default', { month: 'short' });
-                else if (range === 'today') key = 'Today';
-                else key = createdDate.getDate().toString();
-
-                if (chartMap.has(key)) {
-                    chartMap.set(key, chartMap.get(key)! + 1);
-                }
-            }
-        });
-
-        const expired = Math.max(0, total - (active + suspended + disabled));
-
-        // --- 4. PROCESS PAYMENTS --- Process Payments (Finance Stats)
-        let todayCollected = 0;
-        let online = 0; 
-        let offline = 0;
-
-        // Daily Stats Calculation
-        payDailySnap.forEach(doc => {
-             const data = doc.data();
-             const amt = Number(data.billAmount || 0);
-             todayCollected += amt;
-        });
-
-        // Chart Data Calculation (Range)  Online vs Offline Split
-        payAllSnap.forEach(doc => {
-             const data = doc.data();
-             const pDateStr = data.paidDate; 
-             if(pDateStr) {
-                 const pDate = new Date(pDateStr);
-                 // Simple range check
-                 if(pDate >= startOfDay && pDate <= endOfDay) {
-                     const amt = Number(data.billAmount || 0);
-                     const mode = (data.modeOfPayment || 'CASH').toUpperCase();
-                     if(['ONLINE', 'UPI', 'BSNL PAYMENT', 'GPAY', 'PHONEPE', 'GOOGLE PAY'].includes(mode)) online += amt;
-                     else offline += amt;
-                 }
-             }
-        });
-
-        //External Data (Complaints & Expired)
-        // --- 5. FETCH REAL COMPLAINTS AND EXPIRED DATA (WITH SOURCE FILTERING) ---
-        const complaintsData = await this.getComplaintsStatusData(selectedDate, range, dataSource);
-        const expiredData = await this.getExpiredOverviewData(selectedDate, range, dataSource);
-
-        // Format Chart Data
-        const chartData = labels.map(label => ({
-            name: label,
-            value: chartMap.get(label) || 0
-        }));
-
-        return {
-            customerStats: { total, active, expired, suspended, disabled },
-            financeData: {
-                pendingInvoices: 0, todayCollected, onlineCollected: online, offlineCollected: offline, monthlyRevenue: 0, totalPendingValue: 0
-            },
-            registrationsData: chartData,
-            renewalsData: chartData.map(d => ({ ...d, value: Math.floor(d.value * 0.8) })),
-            expiredData: expiredData, // Use real expired data from Firebase
-            complaintsData: complaintsData, // Use real complaints data from Firebase
-            invoicePaymentsData: [{ name: range === 'today' ? 'Today' : 'Range', online, offline, direct: 0 }]
-        };
-
-    } catch (error) {
-        console.error("Dashboard Data Error:", error);
-        return this.getZeroData();
-    }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const checkDate = new Date(selectedDate);
+      checkDate.setHours(0, 0, 0, 0);
+  
+      // [Command] Optimization: Return empty data if selected date is in the future
+      if (checkDate > today) {
+          return this.getZeroData();
+      }
+  
+      const { startOfDay, endOfDay, dateString } = this.getDateBoundaries(selectedDate, range);
+  
+      try {
+          const custColl = collection(db, 'customers');
+          const payColl = collection(db, 'payments');
+          
+          // [Command] Fetch All Customers
+          const custSnap = await getDocs(custColl);
+          
+          // [Command] Fetch Daily Payments (Filtered by Date & Source)
+          let payDailyQuery = query(payColl, where('paidDate', '==', dateString));
+          if (dataSource !== 'All') {
+              payDailyQuery = query(payColl, where('paidDate', '==', dateString), where('source', '==', dataSource));
+          }
+          const payDailySnap = await getDocs(payDailyQuery);
+          
+          // [Command] Fetch Range Payments (Filtered by Source)
+          let payAllQuery = query(payColl);
+          if (dataSource !== 'All') {
+              payAllQuery = query(payColl, where('source', '==', dataSource));
+          }
+          const payAllSnap = await getDocs(payAllQuery);
+  
+          // --- CALCULATE CUSTOMER STATS ---
+          let total = 0, active = 0, suspended = 0, newToday = 0, disabled = 0;
+          
+          const chartMap = new Map<string, number>();
+          const labels: string[] = [];
+  
+          // [Command] Initialize Chart Buckets (Time buckets)
+          if (range === 'year') {
+              for(let i=0; i<12; i++) {
+                  const monthName = new Date(selectedDate.getFullYear(), i, 1).toLocaleString('default', { month: 'short' });
+                  labels.push(monthName);
+                  chartMap.set(monthName, 0);
+              }
+          } else {
+              let loopDate = new Date(startOfDay);
+              while(loopDate <= endOfDay) {
+                  const label = range === 'today' ? 'Today' : loopDate.getDate().toString();
+                  if(range !== 'today') labels.push(label);
+                  chartMap.set(label, 0);
+                  loopDate.setDate(loopDate.getDate() + 1);
+              }
+              if(range === 'today') { labels.push('Today'); chartMap.set('Today', 0); }
+          }
+  
+          // [Command] Process Customer Snapshot
+          custSnap.forEach(doc => {
+              const data = doc.data();
+              const createdDate = new Date(data.createdAt || Date.now());
+              
+              // [Command] Apply Data Source Filter
+              const customerSource = data.source || '';
+              if (dataSource !== 'All' && customerSource !== dataSource) {
+                  return; 
+              }
+  
+              if (createdDate <= endOfDay) {
+                  total++;
+                  const status = (data.status || '').toLowerCase();
+                  if (status === 'active') active++;
+                  else if (status === 'suspended') suspended++;
+                  else if (status === 'disabled' || status === 'inactive') disabled++;
+  
+                  const d = new Date(selectedDate); d.setHours(0,0,0,0);
+                  const e = new Date(selectedDate); e.setHours(23,59,59,999);
+                  if (createdDate >= d && createdDate <= e) newToday++;
+              }
+  
+              if (createdDate >= startOfDay && createdDate <= endOfDay) {
+                  let key = '';
+                  if (range === 'year') key = createdDate.toLocaleString('default', { month: 'short' });
+                  else if (range === 'today') key = 'Today';
+                  else key = createdDate.getDate().toString();
+  
+                  if (chartMap.has(key)) {
+                      chartMap.set(key, chartMap.get(key)! + 1);
+                  }
+              }
+          });
+  
+          const expired = Math.max(0, total - (active + suspended + disabled));
+  
+          // --- CALCULATE FINANCE STATS (From Snapshots) ---
+          let todayCollected = 0;
+          let online = 0; 
+          let offline = 0;
+  
+          // [Command] Calculate Daily Total from Snapshot
+          payDailySnap.forEach(doc => {
+               const data = doc.data();
+               if(data.status === 'Paid') {
+                   const amt = Number(data.billAmount || 0);
+                   todayCollected += amt;
+               }
+          });
+  
+          // [Command] Calculate Range Stats (Online vs Offline)
+          payAllSnap.forEach(doc => {
+               const data = doc.data();
+               if(data.status === 'Paid') {
+                   const pDateStr = data.paidDate; 
+                   if(pDateStr) {
+                       const pDate = new Date(pDateStr);
+                       if(pDate >= startOfDay && pDate <= endOfDay) {
+                           const amt = Number(data.billAmount || 0);
+                           const mode = (data.modeOfPayment || 'CASH').toUpperCase();
+                           if(['ONLINE', 'UPI', 'BSNL PAYMENT', 'GPAY', 'PHONEPE', 'GOOGLE PAY'].includes(mode)) online += amt;
+                           else offline += amt;
+                       }
+                   }
+               }
+          });
+  
+          // [Command] Fetch specialized data (Complaints / Expired)
+          const complaintsData = await DashboardService.getComplaintsStatusData(selectedDate, range, dataSource);
+          const expiredData = await DashboardService.getExpiredOverviewData(selectedDate, range, dataSource);
+  
+          const chartData = labels.map(label => ({
+              name: label,
+              value: chartMap.get(label) || 0
+          }));
+  
+          // [Command] Return Final Aggregated Object
+          return {
+              customerStats: { total, active, expired, suspended, disabled },
+              financeData: {
+                  pendingInvoices: 0, todayCollected, onlineCollected: online, offlineCollected: offline, monthlyRevenue: 0, totalPendingValue: 0
+              },
+              registrationsData: chartData,
+              renewalsData: chartData.map(d => ({ ...d, value: Math.floor(d.value * 0.8) })),
+              expiredData: expiredData, 
+              complaintsData: complaintsData, 
+              invoicePaymentsData: [{ name: range === 'today' ? 'Today' : 'Range', online, offline, direct: 0 }]
+          };
+  
+      } catch (error) {
+          console.error("Dashboard Data Error:", error);
+          return this.getZeroData();
+      }
   }
 }
-
