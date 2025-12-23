@@ -86,47 +86,45 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
     } catch (error) { toast.error('Failed to update status'); }
   };
 
-  // --- Save Logic (FIXED & IMPROVED) ---
+  // --- Save Logic (FIXED: INSTANT TABLE UPDATE) ---
   const handleSavePayment = async (paymentData: any, customerId: string) => {
-    console.log("🟢 Save Button Clicked!", paymentData); // Debug log
+    console.log("🟢 Save Button Clicked!", paymentData);
 
     try {
-      // 1. AUTO-FIX: Customer ID miss aana, Landline vachu kandupidippom
       let finalCustomerId = customerId;
       
+      // 1. Auto-Fix: Find Customer ID if missing
       if (!finalCustomerId && paymentData.landlineNo) {
-          console.log("🔍 Searching for customer by Landline:", paymentData.landlineNo);
           const foundCustomer = await CustomerService.findCustomerByLandline(paymentData.landlineNo);
-          if (foundCustomer) {
-              finalCustomerId = foundCustomer.id;
-              console.log("✅ Customer Found:", finalCustomerId);
-          }
+          if (foundCustomer) finalCustomerId = foundCustomer.id;
       }
 
       if (paymentModalMode === 'add') {
-          // 2. Duplicate Check (Needs Index in Console)
-          // Note: Index miss aana idhu 'false' nu return aagum, so save aagidum. No problem.
+          // 2. Duplicate Check
           const exists = await PaymentService.checkDuplicatePayment(paymentData.landlineNo, paymentData.paidDate);
           if (exists) { 
               toast.error('Payment already exists for this month!'); 
               return; 
           }
           
-          // 3. Strict Check: ID kandippa venum
           if (!finalCustomerId) { 
-              toast.error("Customer not found! Please check the Landline Number."); 
-              console.error("❌ Error: Customer ID missing even after lookup.");
+              toast.error("Customer not found! Please check Landline."); 
               return; 
           }
 
-          // 4. Save Payment
-          await PaymentService.addPayment(paymentData, finalCustomerId);
+          // 3. Save to Database & Get ID
+          const newDocId = await PaymentService.addPayment(paymentData, finalCustomerId);
+          
+          // 4. 🔥 IMPORTANT: Add to Table Manually (No waiting for fetch)
+          const newRecord = { ...paymentData, id: newDocId } as Payment;
+          setPayments(prev => [newRecord, ...prev]);
+
           toast.success('Payment Added Successfully');
       } else {
-          // 5. Update Existing Payment
+          // Update Existing
           await PaymentService.updatePayment(paymentData.id, paymentData);
           
-          // Update Wallet/Pending if Customer ID exists
+          // Update Wallet
           if(finalCustomerId && paymentData.finalPendingAmount !== undefined) {
                  await CustomerService.updateCustomer(finalCustomerId, { 
                      pendingAmount: paymentData.finalPendingAmount,
@@ -135,12 +133,19 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                      renewalDate: paymentData.renewalDate 
                  });
           }
+          
+          // 🔥 Manual Update for Edit
+          setPayments(prev => prev.map(p => p.id === paymentData.id ? { ...p, ...paymentData } : p));
+          
           toast.success('Payment Updated');
       }
 
-      // 6. Refresh & Close
-      fetchPayments();
+      // 5. Close Modal Immediately
       setPaymentModalOpen(false);
+      setSelectedPayment(null);
+
+      // 🛑 STOPPED: fetchPayments() remove pannitten.
+      // Idhu dhaan unga data varama thaduthuttu irundhudhu.
 
     } catch (error) { 
         console.error("🔴 Save Failed:", error);
@@ -201,14 +206,14 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                 email: email,
                 plan: planName,
                 source: (dataSource === 'All' ? 'BSNL' : dataSource) as any,
-                status: 'Active' as const, // ✅ Type Fix
+                status: 'Active' as const, 
                 walletBalance: 0,
                 pendingAmount: 0,
                 installationDate: paidDateStr,
                 renewalDate: renewalDate,
                 altMobileNo: '', vlanId: '', bbId: '', voipPassword: '',
                 ontMake: '', ontType: '', ontMacAddress: '', ontBillNo: '',
-                ont: 'Paid ONT' as const, // ✅ Type Fix
+                ont: 'Paid ONT' as const, 
                 offerPrize: '0', routerMake: '', routerMacId: '',
                 oltIp: '', address: ''
             });
