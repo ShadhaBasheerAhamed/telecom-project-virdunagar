@@ -13,10 +13,9 @@ const getPhone = (customer?: Partial<Customer>, landline?: string, altMobile?: s
 const openWA = (phone: string, text: string) => {
     if (!phone || phone.length < 10) {
         console.warn("Invalid Mobile Number for WhatsApp:", phone);
-        alert("Mobile number not found for WhatsApp!");
+        // alert("Mobile number not found for WhatsApp!"); // Optional: Uncomment to debug
         return;
     }
-    // Using setTimeout helps sometimes with async popup blockers
     setTimeout(() => {
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
@@ -43,11 +42,7 @@ Save this number for support.
 
   // 2. Payment Acknowledgement (Paid)
   sendPaymentAck: (payment: Payment, mobileNo?: string) => {
-    // Priority: Input Mobile -> Payment Mobile -> Landline
     const phone = mobileNo || payment.mobileNo || payment.landlineNo; 
-    
-    console.log("Attempting WhatsApp to:", phone); // Debug log
-
     const msg = `✅ *Payment Received*
     
 Dear ${payment.customerName},
@@ -75,5 +70,35 @@ Please pay to avoid interruption.
 
 - SPT Telecom`;
     openWA(getPhone(undefined, undefined, phone), msg);
+  },
+
+  // --- NEW: COMPLAINT MESSAGES ---
+
+  // 4. Complaint Registered (Received)
+  sendComplaintReceived: (name: string, phone: string, complaintId: string, issue: string) => {
+      const msg = `🛠️ *Complaint Registered*
+
+Dear ${name},
+We have received your complaint.
+
+🆔 Ticket ID: ${complaintId}
+⚠️ Issue: ${issue}
+🕒 Status: OPEN
+
+Our team is working on it and will resolve it shortly.
+- SPT Support Team`;
+      openWA(getPhone(undefined, undefined, phone), msg);
+  },
+
+  // 5. Complaint Resolved
+  sendComplaintResolved: (name: string, phone: string, complaintId: string) => {
+      const msg = `✅ *Issue Resolved*
+
+Dear ${name},
+Your complaint (ID: ${complaintId}) has been successfully RESOLVED.
+
+If you face any further issues, feel free to contact us.
+Thank you for choosing SPT Telecom.`;
+      openWA(getPhone(undefined, undefined, phone), msg);
   }
 };

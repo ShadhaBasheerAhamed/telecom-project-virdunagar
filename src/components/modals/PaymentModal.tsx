@@ -105,18 +105,25 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
     loadPlans();
   }, []);
 
-  // --- Auto-Calculate Dates/Commission ---
+  // --- ✅ Auto-Calculate Expiry Logic (RMAX vs BSNL) ---
   useEffect(() => {
       if (!formData.paidDate) return;
       const date = new Date(formData.paidDate);
-      if (formData.source === 'BSNL') date.setMonth(date.getMonth() + 1);
-      else date.setDate(date.getDate() + 30);
+      
+      // ✅ RMAX vs BSNL LOGIC
+      if (formData.source === 'RMAX') {
+          // RMAX: Exactly 28 days
+          date.setDate(date.getDate() + 28);
+      } else {
+          // BSNL: Same date next month (e.g., Jan 4 -> Feb 4)
+          date.setMonth(date.getMonth() + 1);
+      }
       
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       setFormData(prev => ({ ...prev, renewalDate: `${year}-${month}-${day}` }));
-  }, [formData.paidDate, formData.source]);
+  }, [formData.paidDate, formData.source]); // Dependency updated
 
   useEffect(() => {
     if (formData.billAmount) {
@@ -225,18 +232,15 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
   const finalWalletState = (walletBalance - usedWallet) + newExcess;
   const finalPendingState = newPending;
 
-  // --- SUBMIT (FIXED LOGIC) ---
+  // --- SUBMIT ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🟢 Submit Triggered!"); // Debug Log
-
     // 1. Basic Validation
     if (!formData.landlineNo) { toast.error("Landline is required."); return; }
     if (!formData.customerName) { toast.error("Customer Name is required."); return; }
     if (!formData.billAmount || billAmount <= 0) { toast.error("Invalid Bill Amount."); return; }
     
     // 2. Resolve Customer ID
-    // Note: Use existing ID if found, otherwise empty string (Parent component will handle it)
     const targetCustomerId = customerData?.id || "";
 
     const paymentData = {
@@ -254,7 +258,6 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
         finalPendingAmount: finalPendingState
     };
 
-    console.log("📤 Sending Payment Data:", paymentData);
     await onSave(paymentData, targetCustomerId);
     
     if (formData.status === 'Paid') {
@@ -267,7 +270,7 @@ export function PaymentModal({ mode, data, theme, dataSource, onClose, onSave }:
         // Auto-download Invoice
         setTimeout(() => {
             PDFService.generateInvoice(paymentData as Payment, { 
-                ...customerData!, // Force unwrap or fallback
+                ...customerData!, 
                 landline: formData.landlineNo,
                 name: formData.customerName,
                 walletBalance: finalWalletState,

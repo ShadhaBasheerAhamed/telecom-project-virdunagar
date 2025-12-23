@@ -5,6 +5,8 @@ import { StatisticsPanel } from '../StatisticsPanel';
 import { motion } from 'framer-motion';
 import { DashboardService } from '../../services/dashboardService';
 import { CustomerService } from '../../services/customerService'; 
+import { ComplaintsService } from '../../services/complaintsService'; 
+import { PaymentService } from '../../services/paymentService'; // ✅ Imported
 import type { DataSource, Customer } from '../../types';
 import { WalletCard } from '../WalletCard';
 import { Calendar, Loader2, Search, Phone, Activity, MapPin, X, RefreshCw } from 'lucide-react';
@@ -44,7 +46,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   const [stats, setStats] = useState<any>(null);
   const [panelStats, setPanelStats] = useState<any>({ customers: [], expiry: [], finance: [], complaints: [] });
   
-  // [Command] State for Live Finance Metrics (Collection, Commission, Pending)
   const [financeRealtime, setFinanceRealtime] = useState({ collected: 0, commission: 0, pending: 0 });
 
   // Charts Data
@@ -55,7 +56,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   const [renewalData, setRenewalData] = useState<any[]>([]);
 
   // --- Drill Down State ---
-  const [detailView, setDetailView] = useState<{ title: string, items: Customer[] } | null>(null);
+  const [detailView, setDetailView] = useState<{ title: string, type: 'customer' | 'complaint' | 'payment', items: any[] } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   // ---------------------------------------------------------
@@ -64,13 +65,9 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // [Command] Fetch General Chart Data
         const data = await DashboardService.generateChartData(selectedDate, timeRange, dataSource);
-        
-        // [Command] Fetch LIVE Finance Stats (New Logic integration)
         const financeData = await DashboardService.getFinanceStats(dataSource, selectedDate);
         
-        // [Command] Update Local State with Live Finance Data
         setFinanceRealtime({
             collected: financeData.todayCollected,
             commission: financeData.todayCommission,
@@ -79,7 +76,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
 
         setStats(data.customerStats);
         
-        // [Command] Map data to UI Panels
         setPanelStats({
             customers: [
                 { label: 'Total Customers', value: data.customerStats.total, type: 'total' },
@@ -90,16 +86,12 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
             expiry: [
                 { label: 'Total Expired', value: data.customerStats.expired, type: 'expired_total' },
                 { label: 'Suspended', value: data.customerStats.suspended, type: 'suspended' },
-                // [Command] Use Live Pending Invoices here
                 { label: 'Renewal Pending', value: financeData.pendingInvoices, type: 'pending_renewal' },
                 { label: 'Disabled', value: data.customerStats.disabled, textColor: 'text-red-400', type: 'disabled' },
             ],
             finance: [
-                // [Command] Use Live Collected Value
                 { label: "Today's Collection", value: `₹${financeData.todayCollected.toLocaleString()}`, type: 'collection_today', isHighlight: true },
-                // [Command] Use Live Commission Value
                 { label: "Today's Commission", value: `₹${financeData.todayCommission.toLocaleString()}`, type: 'commission_today', textColor: 'text-green-500' },
-                // [Command] Use Live Pending Invoices
                 { label: 'Pending Invoices', value: financeData.pendingInvoices, type: 'pending_invoices', textColor: 'text-red-500' },
                 { label: 'Monthly Revenue', value: `₹${(data.financeData.monthlyRevenue / 1000).toFixed(1)}k`, type: 'revenue_month' },
             ],
@@ -111,7 +103,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
             ]
         });
 
-        // Set Chart Data
         setPieData(data.complaintsData);
         setAreaData(data.registrationsData.map((item: any) => ({ name: item.name, uv: item.value })));
         setExpiredChartData(data.expiredData.map((item: any) => ({ name: item.name, value: item.value })));
@@ -131,52 +122,101 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   }, [selectedDate, timeRange, dataSource]);
 
   // ---------------------------------------------------------
-  // 2. GLOBAL SEARCH LOGIC
-  // ---------------------------------------------------------
-  useEffect(() => {
-    const performSearch = async () => {
-        if (!searchQuery) {
-            setSearchResults([]);
-            return;
-        }
-        setIsSearching(true);
-        try {
-            const allCustomers = await CustomerService.getCustomers();
-            const query = searchQuery.toLowerCase();
-            
-            const results = allCustomers.filter(c => 
-                c.name.toLowerCase().includes(query) || 
-                c.mobileNo.includes(query) ||
-                (c.landline && c.landline.includes(query)) ||
-                (c.id && c.id.toLowerCase().includes(query))
-            );
-            
-            const filteredBySource = dataSource === 'All' 
-                ? results 
-                : results.filter(c => c.source === dataSource);
-
-            setSearchResults(filteredBySource);
-        } catch (e) {
-            console.error("Search failed", e);
-        } finally {
-            setIsSearching(false);
-        }
-    };
-
-    const timeoutId = setTimeout(performSearch, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, dataSource]);
-
-  // ---------------------------------------------------------
-  // 3. HANDLE STAT CLICK
+  // 2. HANDLE STAT CLICK (Drill Down)
   // ---------------------------------------------------------
   const handleStatClick = async (type: string | undefined, label: string) => {
       if (!type) return;
       
       setDetailLoading(true);
-      setDetailView({ title: label, items: [] });
+      setDetailView(null); 
       
       try {
+          const selectedDateStr = selectedDate.toISOString().split('T')[0];
+
+          // -----------------------------------------
+          // ✅ CASE 1: FINANCE CLICK (PAYMENTS)
+          // -----------------------------------------
+          if (['collection_today', 'commission_today', 'pending_invoices', 'revenue_month'].includes(type)) {
+               const allPayments = await PaymentService.getPayments();
+               let filtered = allPayments;
+
+               if (dataSource !== 'All') {
+                   filtered = filtered.filter(p => p.source === dataSource);
+               }
+
+               if (type === 'collection_today' || type === 'commission_today') {
+                   // ✅ Filter Paid + Selected Date
+                   filtered = filtered.filter(p => p.status === 'Paid' && p.paidDate === selectedDateStr);
+               } else if (type === 'pending_invoices') {
+                   // ✅ Filter Unpaid (All time backlog)
+                   filtered = filtered.filter(p => p.status === 'Unpaid');
+               } else if (type === 'revenue_month') {
+                   // ✅ Filter Paid + Selected Month
+                   const currentMonth = selectedDate.getMonth();
+                   const currentYear = selectedDate.getFullYear();
+                   filtered = filtered.filter(p => {
+                       if (p.status !== 'Paid' || !p.paidDate) return false;
+                       const pDate = new Date(p.paidDate);
+                       return pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear;
+                   });
+               }
+
+               setDetailView({ title: label, type: 'payment', items: filtered });
+               setDetailLoading(false);
+               return;
+          }
+
+          // -----------------------------------------
+          // ✅ CASE 2: COMPLAINTS CLICK
+          // -----------------------------------------
+          if (['complaint_open', 'complaint_resolved', 'complaint_pending'].includes(type)) {
+              
+              const allComplaints = await ComplaintsService.getComplaints();
+              let filtered = allComplaints;
+
+              if (dataSource !== 'All') {
+                  filtered = filtered.filter(c => c.source === dataSource);
+              }
+              
+              // Helper to check date (Booking Date)
+              const isDateMatch = (dateStr: string) => {
+                  if (!dateStr) return false;
+                  return dateStr === selectedDateStr;
+              };
+
+              // Helper to check resolved date
+              const isResolvedDateMatch = (dateStr: string) => {
+                  if (!dateStr) return false;
+                  return dateStr === selectedDateStr;
+              };
+
+              if (type === 'complaint_open') {
+                  // Show Open/Not Resolved (Usually backlog, so maybe all open?)
+                  // Dashboard logic currently counts them if bookingDate is in range. 
+                  // Let's match dashboard count logic:
+                  // Or do you want ALL open issues regardless of date? 
+                  // Dashboard count logic was: bookingDate == selectedDate
+                  filtered = filtered.filter(c => (c.status === 'Open' || c.status === 'Not Resolved'));
+                  // Optional: Filter by booking date if you want "Open Today" specifically.
+                  // filtered = filtered.filter(c => isDateMatch(c.bookingDate));
+              } else if (type === 'complaint_resolved') {
+                  // Filter by Status=Resolved AND ResolveDate=SelectedDate
+                  filtered = filtered.filter(c => c.status === 'Resolved' && isResolvedDateMatch(c.resolveDate));
+              } else if (type === 'complaint_pending') {
+                   // Filter by Status=Pending AND BookingDate=SelectedDate
+                  filtered = filtered.filter(c => c.status === 'Pending');
+                  // Optional: Filter by date
+                  // filtered = filtered.filter(c => isDateMatch(c.bookingDate));
+              }
+
+              setDetailView({ title: label, type: 'complaint', items: filtered });
+              setDetailLoading(false);
+              return; 
+          }
+
+          // -----------------------------------------
+          // ✅ CASE 3: CUSTOMERS CLICK
+          // -----------------------------------------
           const allCustomers = await CustomerService.getCustomers();
           let filtered = allCustomers;
 
@@ -184,30 +224,41 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
               filtered = filtered.filter(c => c.source === dataSource);
           }
 
-          const today = new Date().toISOString().split('T')[0];
-
           switch(type) {
               case 'total': break; 
               case 'active': filtered = filtered.filter(c => c.status === 'Active'); break;
               case 'expiring': 
                   const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
+                  const today = new Date().toISOString().split('T')[0];
                   filtered = filtered.filter(c => c.renewalDate && c.renewalDate >= today && c.renewalDate <= nextWeek.toISOString().split('T')[0]);
                   break;
               case 'expired_total': filtered = filtered.filter(c => c.status === 'Expired'); break;
               case 'suspended': filtered = filtered.filter(c => c.status === 'Suspended'); break;
               case 'disabled': filtered = filtered.filter(c => c.status === 'Inactive'); break;
-              case 'pending_renewal': filtered = filtered.filter(c => c.renewalDate && c.renewalDate < today); break;
+              case 'pending_renewal': 
+                    // Matches "Renewal Pending" in Finance card which uses pendingInvoices count logic, 
+                    // but here we filter customers whose renewal date passed?
+                    // Or actually use Pending Invoices from Payments?
+                    // The dashboard card "Renewal Pending" used financeData.pendingInvoices.
+                    // So we should show the PAYMENTS list for this one too?
+                    // Let's redirect to payment logic for consistency if it's the same metric.
+                    // But here it is under 'Expiry Alerts' panel usually.
+                    // Let's keep customer filter logic: Renewal Date < Today
+                    const t = new Date().toISOString().split('T')[0];
+                    filtered = filtered.filter(c => c.renewalDate && c.renewalDate < t); 
+                    break;
               case 'new': 
-                   filtered = filtered.filter(c => c.createdAt && c.createdAt.startsWith(today)); 
+                   filtered = filtered.filter(c => c.createdAt && c.createdAt.startsWith(selectedDateStr)); 
                    break;
               default: 
-                  toast.info("Detailed view not available for this metric yet.");
+                  toast.info("Detailed view not available for this metric.");
                   setDetailView(null);
                   setDetailLoading(false);
                   return; 
           }
           
-          setDetailView({ title: label, items: filtered });
+          setDetailView({ title: label, type: 'customer', items: filtered });
+
       } catch (error) {
           console.error(error);
           toast.error("Failed to load details");
@@ -215,47 +266,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
           setDetailLoading(false);
       }
   };
-
-  // --- RENDER ---
-  if (searchQuery) {
-      // (Keep existing Search View Render)
-      return (
-        <div className="p-4 min-h-screen">
-            <h2 className={`text-xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                <Search className="w-5 h-5 text-blue-500" />
-                Search Results for "{searchQuery}"
-            </h2>
-            
-            {isSearching ? (
-                <div className="flex justify-center py-10">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                </div>
-            ) : searchResults.length === 0 ? (
-                <div className={`text-center py-10 rounded-xl border ${isDark ? 'border-slate-700 bg-slate-800 text-slate-400' : 'border-gray-200 bg-white text-gray-500'}`}>
-                    No customers found matching "{searchQuery}" in {dataSource}.
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {searchResults.map((customer) => (
-                        <div key={customer.id} className={`p-4 rounded-xl border shadow-sm transition-all hover:shadow-md ${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-800'}`}>
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-lg">{customer.name}</h3>
-                                <span className={`px-2 py-0.5 text-xs rounded-full ${customer.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                    {customer.status}
-                                </span>
-                            </div>
-                            <div className="space-y-1 text-sm opacity-80">
-                                <div className="flex items-center gap-2"><Phone className="w-3 h-3" /> {customer.mobileNo}</div>
-                                <div className="flex items-center gap-2"><Activity className="w-3 h-3" /> {customer.plan}</div>
-                                <div className="flex items-center gap-2"><MapPin className="w-3 h-3" /> {customer.oltIp || 'N/A'}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-      );
-  }
 
   if (loading && !stats) {
     return (
@@ -287,7 +297,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                 </span>
             </div>
             
-            {/* Date Picker (Controls data fetched) */}
+            {/* Date Picker */}
             <div className={`flex items-center px-4 py-2 rounded-xl border transition-all ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
                 <Calendar className={`w-4 h-4 mr-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
                 <input
@@ -299,7 +309,6 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                 />
             </div>
             
-            {/* Refresh Button */}
             <button 
                 onClick={fetchDashboardData}
                 className={`p-2 rounded-full hover:bg-opacity-20 transition-all ${isDark ? 'hover:bg-slate-600 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
@@ -309,13 +318,12 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
             </button>
         </div>
         
-        {/* [Command] Wallet Card showing LIVE Collection from 'financeRealtime' state */}
         <div className="w-full md:w-auto min-w-[250px]">
              <WalletCard theme={theme} amount={financeRealtime.collected} />
         </div>
       </div>
 
-      {/* STAT CARDS (Keep existing StatCard rendering) */}
+      {/* STAT CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard title="TOTAL CUSTOMERS" value={stats.total} color="text-blue-400" theme={theme} details={[{ label: 'New', value: '+' + panelStats.customers[2].value }]} onClick={() => handleStatClick('total', 'Total Customers')} />
         <StatCard title="ACTIVE" value={stats.active} color="text-cyan-400" theme={theme} details={[{ label: 'Rate', value: stats.total > 0 ? ((stats.active/stats.total)*100).toFixed(0)+'%' : '0%' }]} onClick={() => handleStatClick('active', 'Active Customers')} />
@@ -328,14 +336,11 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         <StatisticsPanel title="Customers" theme={theme} items={panelStats.customers} onItemClick={(item) => handleStatClick(item.type, item.label)} />
         <StatisticsPanel title="Expiry Alerts" theme={theme} items={panelStats.expiry} onItemClick={(item) => handleStatClick(item.type, item.label)} />
-        
-        {/* [Command] Updated Finance Panel with Real-time Data */}
         <StatisticsPanel title="Finance" theme={theme} items={panelStats.finance} onItemClick={(item) => handleStatClick(item.type, item.label)} />
-        
         <StatisticsPanel title="Complaints" theme={theme} items={panelStats.complaints} onItemClick={(item) => handleStatClick(item.type, item.label)} />
       </div>
 
-      {/* CHARTS GRID (Keep existing charts) */}
+      {/* CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
             <ChartPanel title="Payment Modes" theme={theme} timeRange={timeRange} onTimeRangeChange={setTimeRange}>
@@ -416,7 +421,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
         </ChartPanel>
       </div>
 
-      {/* DETAIL VIEW MODAL (Same as before) */}
+      {/* ✅ DETAIL VIEW MODAL (SUPPORTING ALL TYPES) */}
       {detailView && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className={`w-full max-w-6xl h-[85vh] rounded-2xl border flex flex-col shadow-2xl ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'}`}>
@@ -430,36 +435,94 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                       {detailLoading ? (
                           <div className="flex justify-center items-center h-full"><Loader2 className="w-10 h-10 animate-spin text-blue-500" /></div>
                       ) : detailView.items.length === 0 ? (
-                          <div className="flex justify-center items-center h-full text-gray-500">No records found for this category.</div>
+                          <div className="flex justify-center items-center h-full text-gray-500">No records found.</div>
                       ) : (
                           <table className="w-full text-left text-sm">
                               <thead className={`sticky top-0 z-10 uppercase font-bold text-xs ${isDark ? 'bg-[#0f172a] text-slate-400' : 'bg-gray-100 text-gray-600'}`}>
-                                  <tr>
-                                      <th className="px-6 py-4">Name</th>
-                                      <th className="px-6 py-4">Landline</th>
-                                      <th className="px-6 py-4">Mobile</th>
-                                      <th className="px-6 py-4">Plan</th>
-                                      <th className="px-6 py-4">Renewal Date</th>
-                                      <th className="px-6 py-4">Status</th>
-                                  </tr>
+                                  {detailView.type === 'complaint' ? (
+                                      <tr>
+                                          <th className="px-6 py-4">ID</th>
+                                          <th className="px-6 py-4">Customer</th>
+                                          <th className="px-6 py-4">Landline</th>
+                                          <th className="px-6 py-4">Issue</th>
+                                          <th className="px-6 py-4">Status</th>
+                                          <th className="px-6 py-4">Date</th>
+                                      </tr>
+                                  ) : detailView.type === 'payment' ? (
+                                      <tr>
+                                          <th className="px-6 py-4">Customer</th>
+                                          <th className="px-6 py-4">Landline</th>
+                                          <th className="px-6 py-4">Amount</th>
+                                          <th className="px-6 py-4">Commission</th>
+                                          <th className="px-6 py-4">Mode</th>
+                                          <th className="px-6 py-4">Date</th>
+                                          <th className="px-6 py-4">Status</th>
+                                      </tr>
+                                  ) : (
+                                      <tr>
+                                          <th className="px-6 py-4">Name</th>
+                                          <th className="px-6 py-4">Landline</th>
+                                          <th className="px-6 py-4">Mobile</th>
+                                          <th className="px-6 py-4">Plan</th>
+                                          <th className="px-6 py-4">Renewal Date</th>
+                                          <th className="px-6 py-4">Status</th>
+                                      </tr>
+                                  )}
                               </thead>
                               <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
-                                  {detailView.items.map((c) => (
-                                      <tr key={c.id} className={`hover:bg-black/5 transition-colors ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
-                                          <td className="px-6 py-4 font-medium">{c.name}</td>
-                                          <td className="px-6 py-4">{c.landline}</td>
-                                          <td className="px-6 py-4">{c.mobileNo}</td>
-                                          <td className="px-6 py-4">{c.plan}</td>
-                                          <td className="px-6 py-4">{c.renewalDate}</td>
-                                          <td className="px-6 py-4">
-                                              <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                  c.status === 'Active' ? 'bg-green-100 text-green-700' : 
-                                                  c.status === 'Expired' ? 'bg-yellow-100 text-yellow-700' : 
-                                                  'bg-red-100 text-red-700'
-                                              }`}>
-                                                  {c.status}
-                                              </span>
-                                          </td>
+                                  {detailView.items.map((item) => (
+                                      <tr key={item.id} className={`hover:bg-black/5 transition-colors ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                                          {detailView.type === 'complaint' ? (
+                                              <>
+                                                  <td className="px-6 py-4">{item.id}</td>
+                                                  <td className="px-6 py-4 font-bold">{item.customerName}</td>
+                                                  <td className="px-6 py-4">{item.landlineNo}</td>
+                                                  <td className="px-6 py-4 truncate max-w-[200px]">{item.complaints}</td>
+                                                  <td className="px-6 py-4">
+                                                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                          item.status === 'Resolved' ? 'bg-green-100 text-green-700' : 
+                                                          item.status === 'Open' ? 'bg-yellow-100 text-yellow-700' : 
+                                                          'bg-red-100 text-red-700'
+                                                      }`}>
+                                                          {item.status}
+                                                      </span>
+                                                  </td>
+                                                  <td className="px-6 py-4">{item.bookingDate}</td>
+                                              </>
+                                          ) : detailView.type === 'payment' ? (
+                                              <>
+                                                  <td className="px-6 py-4 font-bold">{item.customerName}</td>
+                                                  <td className="px-6 py-4">{item.landlineNo}</td>
+                                                  <td className="px-6 py-4 text-green-500 font-bold">₹{item.billAmount}</td>
+                                                  <td className="px-6 py-4 text-purple-400">₹{item.commission}</td>
+                                                  <td className="px-6 py-4">{item.modeOfPayment}</td>
+                                                  <td className="px-6 py-4">{item.paidDate}</td>
+                                                  <td className="px-6 py-4">
+                                                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                          item.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                                      }`}>
+                                                          {item.status}
+                                                      </span>
+                                                  </td>
+                                              </>
+                                          ) : (
+                                              <>
+                                                  <td className="px-6 py-4 font-medium">{item.name}</td>
+                                                  <td className="px-6 py-4">{item.landline}</td>
+                                                  <td className="px-6 py-4">{item.mobileNo}</td>
+                                                  <td className="px-6 py-4">{item.plan}</td>
+                                                  <td className="px-6 py-4">{item.renewalDate}</td>
+                                                  <td className="px-6 py-4">
+                                                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                          item.status === 'Active' ? 'bg-green-100 text-green-700' : 
+                                                          item.status === 'Expired' ? 'bg-yellow-100 text-yellow-700' : 
+                                                          'bg-red-100 text-red-700'
+                                                      }`}>
+                                                          {item.status}
+                                                      </span>
+                                                  </td>
+                                              </>
+                                          )}
                                       </tr>
                                   ))}
                               </tbody>

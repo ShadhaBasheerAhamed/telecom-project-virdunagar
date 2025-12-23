@@ -7,9 +7,8 @@ import { DeleteConfirmModal } from '../modals/DeleteConfirmModal';
 import { toast } from 'sonner';
 import { ComplaintsService } from '../../services/complaintsService';
 import { collection, onSnapshot, query, orderBy, db } from '../../firebase/config';
-
-// ✅ 1. Import Search Context
 import { useSearch } from '../../contexts/SearchContext';
+import { WhatsAppService } from '../../services/whatsappService';
 
 interface ComplaintsProps {
   dataSource: DataSource;
@@ -20,6 +19,7 @@ export interface Complaint {
   id: string;
   customerName: string;
   landlineNo: string;
+  mobileNo?: string;
   address?: string;
   plan?: string;
   complaints: string;
@@ -36,7 +36,6 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ✅ 2. Use Global Search
   const { searchQuery, setSearchQuery } = useSearch();
 
   const [filterStatus, setFilterStatus] = useState('All');
@@ -46,18 +45,12 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   
-  // File Input Ref for Upload
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load Data from Firebase with real-time updates
+  // Load Data
   useEffect(() => {
     setLoading(true);
-    
-    // Set up real-time listener for complaints collection
-    const complaintsQuery = query(
-      collection(db, 'complaints'),
-      orderBy('createdAt', 'desc')
-    );
+    const complaintsQuery = query(collection(db, 'complaints'), orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(complaintsQuery,
       (snapshot) => {
@@ -75,26 +68,16 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
       }
     );
 
-    return () => {
-      // Cleanup listener when component unmounts
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return () => unsubscribe();
   }, [dataSource]); 
 
-  // ✅ 3. Updated Filtering Logic (Uses searchQuery)
+  // Filtering Logic
   const filteredComplaints = complaints.filter(complaint => {
-    // A. Check Status & Source Filters First
     const matchesStatus = filterStatus === 'All' || complaint.status === filterStatus;
     const matchesSource = dataSource === 'All' || complaint.source === dataSource;
 
-    // B. If No Search, return based on filters
-    if (!searchQuery) {
-        return matchesStatus && matchesSource;
-    }
+    if (!searchQuery) return matchesStatus && matchesSource;
 
-    // C. Search Logic
     const searchLower = searchQuery.toLowerCase();
     let matchesSearch = false;
 
@@ -152,8 +135,8 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     }
   };
 
-  const handleStatusChange = async (id: string, currentStatus: 'Open' | 'Resolved' | 'Pending' | 'Not Resolved') => {
-    let newStatus: 'Open' | 'Resolved' | 'Pending';
+  const handleStatusChange = async (id: string, currentStatus: string, complaintData: Complaint) => {
+    let newStatus: any;
     
     if (currentStatus === 'Not Resolved' || currentStatus === 'Open') {
       newStatus = 'Pending';
@@ -165,7 +148,17 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     
     try {
       await ComplaintsService.updateComplaint(id, { status: newStatus });
-      toast.success(`Complaint status updated: ${currentStatus} → ${newStatus}`);
+      toast.success(`Status updated to ${newStatus}`);
+
+      if (newStatus === 'Resolved' && complaintData.mobileNo) {
+          WhatsAppService.sendComplaintResolved(
+              complaintData.customerName, 
+              complaintData.mobileNo, 
+              complaintData.id
+          );
+          toast.success("WhatsApp resolution message sent!");
+      }
+
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Failed to update complaint status');
@@ -233,47 +226,25 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* 🟢 CUSTOM SCROLLBAR STYLES (Added based on Customer Page) */}
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 10px;
-          height: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: ${isDark ? '#2d3748' : '#f1f5f9'};
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: ${isDark ? '#4a5568' : '#cbd5e1'};
-          border-radius: 4px;
-          border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'};
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: ${isDark ? '#718096' : '#94a3b8'};
-        }
-        .custom-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'};
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: ${isDark ? '#2d3748' : '#f1f5f9'}; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#4a5568' : '#cbd5e1'}; border-radius: 4px; border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'}; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#718096' : '#94a3b8'}; }
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'}; }
       `}</style>
 
-      {/* 🟢 HEADER SECTION - REORGANIZED LAYOUT */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Complaints Management</h1>
           <div className="flex items-center gap-2">
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-              isDark ? 'bg-green-900/20 text-green-400' : 'bg-green-100 text-green-800'
-            }`}>
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${isDark ? 'bg-green-900/20 text-green-400' : 'bg-green-100 text-green-800'}`}>
               🔥 Firebase Live Data
             </div>
           </div>
         </div>
         
-        {/* Controls Container */}
         <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
-          
-          {/* 🟢 LEFT SIDE: Search Input (Moved here as requested) */}
           <div className="relative w-full md:w-96">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -282,12 +253,11 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               type="text"
               className={`block w-full pl-10 pr-3 py-2.5 border rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300 placeholder-gray-400' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-500'}`}
               placeholder={`Search in ${searchField}...`}
-              value={searchQuery} // Uses Global State
+              value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)} 
             />
           </div>
 
-          {/* 🟢 RIGHT SIDE: Filters & Buttons (Aligned right) */}
           <div className="flex gap-3 w-full md:w-auto">
             <select
               value={searchField}
@@ -312,7 +282,6 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               <option value="Not Resolved">Not Resolved</option>
             </select>
 
-            {/* Bulk Upload Button */}
             <input type="file" ref={fileInputRef} accept=".csv" className="hidden" onChange={handleFileUpload} />
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -322,7 +291,6 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               <span className="hidden sm:inline">Upload</span>
             </button>
 
-            {/* Add Button */}
             <button
               onClick={() => setModalMode('add')}
               className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg shadow-blue-900/20"
@@ -334,39 +302,29 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
         </div>
       </div>
 
-      {/* 🟢 TABLE CONTAINER - Updated Structure for Fixed Header/Columns & Scrollbars */}
       <div className={`w-full rounded-lg border shadow-xl overflow-hidden flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
-        
         <div className="flex-1 overflow-auto custom-scrollbar relative">
           <table className="w-full whitespace-nowrap text-left text-sm border-separate border-spacing-0">
-            {/* Sticky Header */}
             <thead className={`font-semibold uppercase tracking-wider sticky top-0 z-30 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
               <tr>
                 <th className="px-6 py-4 min-w-[100px] border-b border-inherit bg-inherit">ID</th>
                 <th className="px-6 py-4 min-w-[200px] border-b border-inherit bg-inherit">Customer Name</th>
                 <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Landline No</th>
+                <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Mobile</th>
                 <th className="px-6 py-4 min-w-[300px] border-b border-inherit bg-inherit">Address</th>
                 <th className="px-6 py-4 min-w-[200px] border-b border-inherit bg-inherit">Complaints</th>
                 <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Employee</th>
                 <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Booking Date</th>
                 <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Resolve Date</th>
-
-                {/* Fixed Status Column Header */}
-                <th className={`px-6 py-4 min-w-[150px] border-b border-inherit sticky right-[110px] z-30 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
-                  Status
-                </th>
-                
-                {/* Fixed Options Column Header */}
-                <th className={`px-6 py-4 min-w-[110px] text-center border-b border-inherit sticky right-0 z-30 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
-                  Options
-                </th>
+                <th className={`px-6 py-4 min-w-[150px] border-b border-inherit sticky right-[110px] z-30 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>Status</th>
+                <th className={`px-6 py-4 min-w-[110px] text-center border-b border-inherit sticky right-0 z-30 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>Options</th>
               </tr>
             </thead>
             
             <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
               {filteredComplaints.length === 0 ? (
                  <tr>
-                  <td colSpan={10} className="px-6 py-8 text-center opacity-50">
+                  <td colSpan={11} className="px-6 py-8 text-center opacity-50">
                     No complaints found matching "{searchQuery}"
                   </td>
                 </tr>
@@ -376,40 +334,31 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                   <td className="px-6 py-4 font-medium border-b border-inherit">{complaint.id}</td>
                   <td className="px-6 py-4 font-medium border-b border-inherit">{complaint.customerName}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.landlineNo}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{complaint.mobileNo || '-'}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.address || '-'}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.complaints}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.employee}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.bookingDate}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.resolveDate || '-'}</td>
 
-                  {/* 🟢 Sticky Status Body Cell */}
                   <td className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
                     <button
-                      onClick={() => handleStatusChange(complaint.id, complaint.status)}
+                      onClick={() => handleStatusChange(complaint.id, complaint.status, complaint)} 
                       className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
-                        complaint.status === 'Open'
-                        ? 'bg-yellow-500 text-white border-yellow-600 shadow-md shadow-yellow-500/20'
-                        : complaint.status === 'Resolved'
-                        ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20'
-                        : 'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
+                        complaint.status === 'Open' ? 'bg-yellow-500 text-white border-yellow-600 shadow-md shadow-yellow-500/20' :
+                        complaint.status === 'Resolved' ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20' :
+                        'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
                       }`}
                     >
                       {complaint.status}
                     </button>
                   </td>
 
-                  {/* 🟢 Sticky Options Body Cell */}
                   <td className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-20 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
                     <div className="flex items-center justify-center gap-3">
-                      <button onClick={() => { setSelectedComplaint(complaint); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 transition-colors p-1" title="View">
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => { setSelectedComplaint(complaint); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 transition-colors p-1" title="Edit">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => { setSelectedComplaint(complaint); setDeleteModalOpen(true); }} className="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <button onClick={() => { setSelectedComplaint(complaint); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 transition-colors p-1" title="View"><Eye className="h-4 w-4" /></button>
+                      <button onClick={() => { setSelectedComplaint(complaint); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 transition-colors p-1" title="Edit"><Edit className="h-4 w-4" /></button>
+                      <button onClick={() => { setSelectedComplaint(complaint); setDeleteModalOpen(true); }} className="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -418,18 +367,12 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
           </table>
         </div>
         
-        {/* Footer */}
         <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-            <div className="text-sm">
-                Showing {filteredComplaints.length} of {complaints.length} results (Firebase Live Data)
-            </div>
-            <div className="text-xs opacity-70">
-                🔥 Real-time sync enabled
-            </div>
+            <div className="text-sm">Showing {filteredComplaints.length} of {complaints.length} results (Firebase Live Data)</div>
+            <div className="text-xs opacity-70">🔥 Real-time sync enabled</div>
         </div>
       </div>
 
-      {/* Modals */}
       {modalMode && (
         <ComplaintModal
           mode={modalMode}

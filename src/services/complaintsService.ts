@@ -8,14 +8,15 @@ import {
   query, 
   orderBy,
   limit 
-} from '../firebase/config';
+} from 'firebase/firestore'; 
 import { db } from '../firebase/config';
-import type { Complaint } from '../components/pages/Complaints'; // Assuming types are updated
+import type { Complaint } from '../components/pages/Complaints'; 
 
 const COMPLAINTS_COLLECTION = 'complaints';
 
 export const ComplaintsService = {
   
+  // 1. Add Complaint
   addComplaint: async (complaint: Omit<Complaint, 'id'>) => {
     try {
       const docRef = await addDoc(collection(db, COMPLAINTS_COLLECTION), {
@@ -29,6 +30,7 @@ export const ComplaintsService = {
     }
   },
 
+  // 2. Update Complaint
   updateComplaint: async (id: string, updates: Partial<Complaint>) => {
     try {
       const ref = doc(db, COMPLAINTS_COLLECTION, id);
@@ -39,6 +41,7 @@ export const ComplaintsService = {
     }
   },
 
+  // 3. Delete Complaint
   deleteComplaint: async (id: string) => {
     try {
       await deleteDoc(doc(db, COMPLAINTS_COLLECTION, id));
@@ -48,9 +51,14 @@ export const ComplaintsService = {
     }
   },
 
+  // 4. Get Complaints (Initial Load)
   getComplaints: async (): Promise<Complaint[]> => {
     try {
-      const q = query(collection(db, COMPLAINTS_COLLECTION), orderBy('createdAt', 'desc'), limit(500));
+      const q = query(
+        collection(db, COMPLAINTS_COLLECTION), 
+        orderBy('createdAt', 'desc'), 
+        limit(500)
+      );
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Complaint));
     } catch (error) {
