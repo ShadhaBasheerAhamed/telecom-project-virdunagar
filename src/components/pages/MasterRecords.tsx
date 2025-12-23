@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit, Trash2, Plus, 
   Users, Briefcase, UserCheck, Building2, 
-  Router, HardDrive, FileText, Network, Server, Loader2, Cpu
+  Router, HardDrive, FileText, Network, Server, Loader2, Cpu,Tv
 } from 'lucide-react';
 import { MasterRecordModal } from '@/components/modals/MasterRecordModal';
 import { MasterRecordService } from '@/services/masterRecordService';
@@ -110,6 +110,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     { id: 'ontType', label: 'ONT Type', icon: Server },
     { id: 'ontMac', label: 'ONT Mac', icon: Cpu },
     { id: 'plan', label: 'Plan', icon: FileText },
+    { id: 'ott', label: 'OTT Subscription', icon: Tv }, // ✅ Added OTT
     { id: 'oltIp', label: 'OLT IP', icon: Network },
     { id: 'employee', label: 'Employee', icon: Users },
     { id: 'department', label: 'Department', icon: Building2 },
@@ -149,6 +150,15 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
           { header: 'Price', accessor: 'price', render: (row: any) => `₹${row.price}` },
           { header: 'GST', accessor: 'gst', render: (row: any) => `${row.gst}%` },
           { header: 'Total', accessor: 'total', render: (row: any) => <span className="text-green-500 font-bold">₹{row.total}</span> },
+        ];
+
+        // ✅ ADDED OTT COLUMNS
+      case 'ott':
+        return [
+          { header: 'ID', accessor: 'id' },
+          { header: 'Platform / Plan', accessor: 'name', render: (row: any) => <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span> },
+          { header: 'Price', accessor: 'price', render: (row: any) => `₹${row.price || 0}` },
+          { header: 'Validity', accessor: 'validity', render: (row: any) => row.validity ? `${row.validity} Days` : '-' },
         ];
 
       case 'employee':

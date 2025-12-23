@@ -3,6 +3,10 @@ import autoTable from 'jspdf-autotable';
 import { Payment, Customer } from '../types';
 
 export const PDFService = {
+  
+  // =========================================================
+  // 1. PAYMENT INVOICE (For Plans/Recharges)
+  // =========================================================
   generateInvoice: (payment: Payment, customer: Customer) => {
     try {
         const doc = new jsPDF();
@@ -125,6 +129,78 @@ export const PDFService = {
     } catch (error) {
         console.error("PDF Generation Error:", error);
         alert("Failed to generate PDF. Please check data.");
+        return false;
+    }
+  },
+
+  // =========================================================
+  // 2. ✅ NEW: PRODUCT INVOICE (For Inventory Sales)
+  // =========================================================
+  generateProductInvoice: (cart: any[], customer: { name: string, phone: string, email: string, date: string, total: number }) => {
+    try {
+        const doc = new jsPDF();
+
+        // Header
+        doc.setFillColor(0, 102, 204); 
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text('SPT TELECOM SERVICES', 105, 18, { align: 'center' });
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text('Hardware Sales & Services', 105, 26, { align: 'center' });
+
+        // Customer Details
+        doc.setTextColor(0, 0, 0);
+        const startY = 50;
+        doc.setFont("helvetica", "bold");
+        doc.text("BILLED TO:", 14, startY);
+        doc.setFont("helvetica", "normal");
+        doc.text(customer.name.toUpperCase(), 14, startY + 6);
+        doc.text(`Phone: ${customer.phone}`, 14, startY + 12);
+        if(customer.email) doc.text(`Email: ${customer.email}`, 14, startY + 18);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("INVOICE INFO:", 140, startY);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Date: ${customer.date}`, 140, startY + 6);
+        doc.text(`Invoice No: SALES-${Date.now().toString().slice(-6)}`, 140, startY + 12);
+
+        // Table Data
+        const tableBody = cart.map((item, index) => [
+            index + 1,
+            item.name,
+            item.qty,
+            `Rs. ${item.sellPrice}`,
+            `Rs. ${(item.sellPrice * item.qty).toFixed(2)}`
+        ]);
+
+        autoTable(doc, {
+            startY: startY + 30,
+            head: [['#', 'Item Name', 'Qty', 'Unit Price', 'Total']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 102, 204], textColor: 255 },
+        });
+
+        // Totals
+        let finalY = (doc as any).lastAutoTable.finalY + 10;
+        doc.setFont("helvetica", "bold");
+        doc.text(`GRAND TOTAL:`, 140, finalY);
+        doc.setTextColor(0, 102, 204);
+        doc.text(`Rs. ${customer.total.toFixed(2)}`, 190, finalY, { align: 'right' });
+
+        // Footer
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(8);
+        doc.text("Thank you for your business!", 105, 280, { align: 'center' });
+
+        doc.save(`Sales_Invoice_${customer.name}_${customer.date}.pdf`);
+        return true;
+
+    } catch (error) {
+        console.error("PDF Generation Error:", error);
         return false;
     }
   }

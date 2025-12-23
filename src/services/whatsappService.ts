@@ -13,7 +13,6 @@ const getPhone = (customer?: Partial<Customer>, landline?: string, altMobile?: s
 const openWA = (phone: string, text: string) => {
     if (!phone || phone.length < 10) {
         console.warn("Invalid Mobile Number for WhatsApp:", phone);
-        // alert("Mobile number not found for WhatsApp!"); // Optional: Uncomment to debug
         return;
     }
     setTimeout(() => {
@@ -72,8 +71,6 @@ Please pay to avoid interruption.
     openWA(getPhone(undefined, undefined, phone), msg);
   },
 
-  // --- NEW: COMPLAINT MESSAGES ---
-
   // 4. Complaint Registered (Received)
   sendComplaintReceived: (name: string, phone: string, complaintId: string, issue: string) => {
       const msg = `🛠️ *Complaint Registered*
@@ -99,6 +96,26 @@ Your complaint (ID: ${complaintId}) has been successfully RESOLVED.
 
 If you face any further issues, feel free to contact us.
 Thank you for choosing SPT Telecom.`;
+      openWA(getPhone(undefined, undefined, phone), msg);
+  },
+
+  // ✅ 6. [NEW] Product/Inventory Sale Invoice
+  sendInvoice: (name: string, phone: string, itemsList: string, total: number) => {
+      const msg = `🛒 *Order Confirmation*
+
+Dear ${name},
+Thank you for purchasing from SPT Telecom!
+
+📦 *Items Purchased:*
+${itemsList}
+
+💰 *Total Paid:* ₹${total.toFixed(2)}
+
+Your invoice has been sent to your email.
+For support, contact us anytime.
+
+- *SPT Telecom Sales*`;
+      
       openWA(getPhone(undefined, undefined, phone), msg);
   }
 };

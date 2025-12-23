@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, Package, Upload, ShoppingCart, Minus, CheckCircle, User, Phone, Image as ImageIcon } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Upload, ShoppingCart, Minus, CheckCircle, User, Phone, Image as ImageIcon, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { WhatsAppService } from '../../services/whatsappService';
+import { PDFService } from '../../services/pdfService';
+import { EmailService } from '../../services/emailService';
 
-// ✅ 1. Import Search Context
+// Firebase Imports
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase/config';
+
 import { useSearch } from '../../contexts/SearchContext';
 
 interface InventoryProps {
@@ -20,52 +25,21 @@ export interface Product {
   sellPrice: number;
   stock: number;
   unit: 'Nos' | 'Mtr'; 
-  gst: number; // Percentage (e.g., 18)
-  image: string; // Base64 or URL
+  gst: number; 
+  image: string; 
 }
 
 interface CartItem extends Product {
   qty: number;
 }
 
-const INVENTORY_KEY = 'inventory-data';
-
-// Mock Data
-const mockProducts: Product[] = [
-    {
-        id: '1',
-        name: 'Dual Band Router',
-        description: 'High speed dual band router with 4 antennas',
-        category: 'Router',
-        buyPrice: 1200,
-        sellPrice: 1800,
-        stock: 50,
-        unit: 'Nos',
-        gst: 18,
-        image: ''
-    },
-    {
-        id: '2',
-        name: 'Fiber Cable (Drop)',
-        description: 'Outdoor fiber drop cable',
-        category: 'Cable',
-        buyPrice: 5,
-        sellPrice: 12,
-        stock: 1000,
-        unit: 'Mtr',
-        gst: 18,
-        image: ''
-    }
-];
-
 export function Inventory({ theme }: InventoryProps) {
   const isDark = theme === 'dark';
-  
-  // ✅ 2. Use Global Search
   const { searchQuery } = useSearch();
 
   // --- SHARED STATE ---
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // --- INVENTORY STATE ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,22 +56,27 @@ export function Inventory({ theme }: InventoryProps) {
   const [salesSearchTerm, setSalesSearchTerm] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState(''); // Added Email State
 
-  // Load Data
+  // --- FIREBASE REAL-TIME LISTENER ---
   useEffect(() => {
-    const stored = localStorage.getItem(INVENTORY_KEY);
-    if (stored) {
-        setProducts(JSON.parse(stored));
-    } else {
-        setProducts(mockProducts);
-        localStorage.setItem(INVENTORY_KEY, JSON.stringify(mockProducts));
-    }
-  }, []);
+    setLoading(true);
+    const q = query(collection(db, 'products'), orderBy('name'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const productsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Product[];
+      setProducts(productsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching products:", error);
+      toast.error("Failed to load inventory.");
+      setLoading(false);
+    });
 
-  const updateStorage = (data: Product[]) => {
-    setProducts(data);
-    localStorage.setItem(INVENTORY_KEY, JSON.stringify(data));
-  };
+    return () => unsubscribe();
+  }, []);
 
   // --- INVENTORY FUNCTIONS ---
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -111,25 +90,38 @@ export function Inventory({ theme }: InventoryProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editMode) {
-      const updated = products.map(p => p.id === formData.id ? formData : p);
-      updateStorage(updated);
-      toast.success("Product updated!");
-    } else {
-      const newProduct = { ...formData, id: Date.now().toString() };
-      updateStorage([newProduct, ...products]);
-      toast.success("Stock Added!");
+    try {
+      if (editMode && formData.id) {
+        // Update Existing
+        const productRef = doc(db, 'products', formData.id);
+        const { id, ...dataToUpdate } = formData;
+        await updateDoc(productRef, dataToUpdate);
+        toast.success("Product updated successfully!");
+      } else {
+        // Add New
+        const { id, ...newProductData } = formData; 
+        await addDoc(collection(db, 'products'), newProductData);
+        toast.success("Product added successfully!");
+      }
+      setIsModalOpen(false);
+      resetForm();
+    } catch (error) {
+      console.error("Error saving product:", error);
+      toast.error("Failed to save product.");
     }
-    setIsModalOpen(false);
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
-    if(confirm('Delete this product?')) {
-      updateStorage(products.filter(p => p.id !== id));
-      toast.success("Product deleted");
+  const handleDelete = async (id: string) => {
+    if(confirm('Are you sure you want to delete this product?')) {
+      try {
+        await deleteDoc(doc(db, 'products', id));
+        toast.success("Product deleted");
+      } catch (error) {
+        console.error("Error deleting product:", error);
+        toast.error("Failed to delete product.");
+      }
     }
   };
 
@@ -188,43 +180,79 @@ export function Inventory({ theme }: InventoryProps) {
 
   const calculateTotal = () => {
     const subtotal = cart.reduce((sum, item) => sum + (item.sellPrice * item.qty), 0);
-    const gstAmount = cart.reduce((sum, item) => sum + ((item.sellPrice * item.qty * item.gst) / 100), 0);
-    return { subtotal, gstAmount, total: subtotal + gstAmount };
+    return { total: subtotal };
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
     if (!customerName.trim() || !customerPhone.trim()) {
-        toast.error("Enter Customer details for billing");
+        toast.error("Enter Customer Name and WhatsApp Number");
         return;
     }
 
     const { total } = calculateTotal();
 
     if(confirm(`Confirm sale for ₹${total.toFixed(2)}?`)) {
-        // 1. Deduct Stock
-        const updatedInventory = products.map(p => {
-            const cartItem = cart.find(c => c.id === p.id);
-            if (cartItem) {
-                return { ...p, stock: p.stock - cartItem.qty };
+        try {
+            // 1. Update Stock in Firebase
+            for (const item of cart) {
+                const productRef = doc(db, 'products', item.id);
+                const currentStock = products.find(p => p.id === item.id)?.stock || 0;
+                await updateDoc(productRef, {
+                    stock: currentStock - item.qty
+                });
             }
-            return p;
-        });
-        updateStorage(updatedInventory);
 
-        // 2. Generate WhatsApp Bill
-        const itemsList = cart.map(item => `${item.name} (x${item.qty}): ₹${(item.sellPrice * item.qty).toFixed(2)}`).join('\n');
-        WhatsAppService.sendInvoice(customerName, customerPhone, itemsList, parseFloat(total.toFixed(2)));
+            // 2. Generate Invoice PDF
+            const invoiceGenerated = PDFService.generateProductInvoice(cart, {
+                name: customerName,
+                phone: customerPhone,
+                email: customerEmail,
+                date: new Date().toISOString().split('T')[0],
+                total: total
+            });
 
-        // 3. Reset
-        setCart([]);
-        setCustomerName('');
-        setCustomerPhone('');
-        toast.success("Sale Completed! Invoice sent.");
+            if (invoiceGenerated) {
+                toast.success("Invoice Downloaded!");
+            }
+
+            // 3. Send WhatsApp (Ensure this function exists in WhatsAppService)
+            const itemsList = cart.map(item => `${item.name} (x${item.qty})`).join(', ');
+            
+            // Check if sendInvoice exists on WhatsAppService to prevent TS error
+            if ('sendInvoice' in WhatsAppService) {
+                // @ts-ignore
+                WhatsAppService.sendInvoice(customerName, customerPhone, itemsList, parseFloat(total.toFixed(2)));
+            } else {
+                console.warn("WhatsAppService.sendInvoice is missing. Please implement it.");
+            }
+
+            // 4. Send Email (Optional)
+            if (customerEmail) {
+                EmailService.sendProductInvoiceEmail({
+                    name: customerName,
+                    email: customerEmail,
+                    total: total,
+                    items: cart
+                });
+                toast.info("Email draft opened!");
+            }
+
+            // 5. Reset
+            setCart([]);
+            setCustomerName('');
+            setCustomerPhone('');
+            setCustomerEmail('');
+            toast.success("Sale Completed Successfully!");
+
+        } catch (error) {
+            console.error("Checkout Error:", error);
+            toast.error("Checkout failed. Please try again.");
+        }
     }
   };
 
-  // ✅ 3. FILTERS (Updated to use Global Search + Local Search)
+  // --- FILTERS ---
   const filteredProducts = products.filter(p => {
     const globalMatch = !searchQuery || 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -240,7 +268,6 @@ export function Inventory({ theme }: InventoryProps) {
   const salesFilteredProducts = products.filter(p => {
     const globalMatch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
     const localMatch = p.name.toLowerCase().includes(salesSearchTerm.toLowerCase());
-    
     return globalMatch && localMatch;
   });
 
@@ -260,24 +287,10 @@ export function Inventory({ theme }: InventoryProps) {
 
       <Tabs defaultValue="stock" className="w-full space-y-8">
         <TabsList className={`inline-flex h-auto p-1.5 rounded-2xl border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-          <TabsTrigger 
-            value="stock" 
-            className={`px-6 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${
-               isDark 
-                 ? 'data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200' 
-                 : 'data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 text-gray-500 hover:text-gray-700'
-            }`}
-          >
+          <TabsTrigger value="stock" className={`px-6 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${isDark ? 'data-[state=active]:bg-blue-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200' : 'data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 text-gray-500 hover:text-gray-700'}`}>
             📦 Stock Management
           </TabsTrigger>
-          <TabsTrigger 
-            value="sales" 
-            className={`px-6 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${
-               isDark 
-                 ? 'data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200' 
-                 : 'data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 text-gray-500 hover:text-gray-700'
-            }`}
-          >
+          <TabsTrigger value="sales" className={`px-6 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${isDark ? 'data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200' : 'data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 text-gray-500 hover:text-gray-700'}`}>
             🛒 Sales Terminal (POS)
           </TabsTrigger>
         </TabsList>
@@ -287,74 +300,51 @@ export function Inventory({ theme }: InventoryProps) {
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                    <input 
-                        type="text" 
-                        placeholder="Search stock..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2 rounded-lg border ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'}`}
-                    />
+                    <input type="text" placeholder="Search stock..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2 rounded-lg border ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'}`} />
                 </div>
-                <button 
-                    onClick={() => { resetForm(); setIsModalOpen(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg transition-transform active:scale-95"
-                >
+                <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg transition-transform active:scale-95">
                     <Plus className="w-4 h-4" /> Add Product / Purchase
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProducts.map(product => (
-                <div key={product.id} className={`rounded-xl border p-4 flex flex-col gap-3 transition-all hover:shadow-xl ${isDark ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-800' : 'bg-white border-gray-200 shadow-sm hover:bg-gray-50'}`}>
-                    <div className="h-40 w-full bg-gray-700/20 rounded-lg overflow-hidden flex items-center justify-center relative group">
-                        {product.image ? (
-                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                            <ImageIcon className="w-12 h-12 text-gray-400" />
-                        )}
-                        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm shadow-sm">
-                            Stock: {product.stock} {product.unit}
+            {loading ? (
+                <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredProducts.map(product => (
+                    <div key={product.id} className={`rounded-xl border p-4 flex flex-col gap-3 transition-all hover:shadow-xl ${isDark ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-800' : 'bg-white border-gray-200 shadow-sm hover:bg-gray-50'}`}>
+                        <div className="h-40 w-full bg-gray-700/20 rounded-lg overflow-hidden flex items-center justify-center relative group">
+                            {product.image ? <img src={product.image} alt={product.name} className="w-full h-full object-cover" /> : <ImageIcon className="w-12 h-12 text-gray-400" />}
+                            <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm shadow-sm">Stock: {product.stock} {product.unit}</div>
                         </div>
-                    </div>
-                    
-                    <div>
-                        <div className="flex justify-between items-start">
-                            <h3 className={`font-bold text-lg truncate ${isDark ? 'text-white' : 'text-gray-900'}`} title={product.name}>{product.name}</h3>
-                            <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded font-medium">{product.category}</span>
-                        </div>
-                        <p className={`text-sm mt-1 line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {product.description}
-                        </p>
-                    </div>
-
-                    <div className="mt-auto pt-3 border-t border-dashed border-gray-500/30 flex justify-between items-center">
+                        
                         <div>
-                            <p className="text-xs text-gray-500">Selling (Inc. GST)</p>
-                            <p className="text-lg font-bold text-green-500">₹{product.sellPrice}</p>
+                            <div className="flex justify-between items-start">
+                                <h3 className={`font-bold text-lg truncate ${isDark ? 'text-white' : 'text-gray-900'}`} title={product.name}>{product.name}</h3>
+                                <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded font-medium">{product.category}</span>
+                            </div>
+                            <p className={`text-sm mt-1 line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{product.description}</p>
                         </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => handleEdit(product)} className="p-2 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
-                            <button onClick={() => handleDelete(product.id)} className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+
+                        <div className="mt-auto pt-3 border-t border-dashed border-gray-500/30 flex justify-between items-center">
+                            <div><p className="text-xs text-gray-500">Selling (Inc. GST)</p><p className="text-lg font-bold text-green-500">₹{product.sellPrice}</p></div>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleEdit(product)} className="p-2 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => handleDelete(product.id)} className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            </div>
                         </div>
                     </div>
+                    ))}
                 </div>
-                ))}
-            </div>
+            )}
         </TabsContent>
 
         {/* --- TAB 2: SALES TERMINAL --- */}
-        <TabsContent value="sales" className="flex flex-col lg:flex-row gap-6 h-[80vh] animate-in fade-in-50 duration-500">
-            {/* Left: Product List */}
+        <TabsContent value="sales" className="flex flex-col lg:flex-row gap-6 h-[85vh] animate-in fade-in-50 duration-500">
             <div className="flex-1 flex flex-col overflow-hidden">
                 <div className="relative mb-4">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                    <input 
-                        type="text" 
-                        placeholder="Search items for sale..." 
-                        value={salesSearchTerm}
-                        onChange={(e) => setSalesSearchTerm(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2 rounded-lg border ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'}`}
-                    />
+                    <input type="text" placeholder="Search items for sale..." value={salesSearchTerm} onChange={(e) => setSalesSearchTerm(e.target.value)} className={`w-full pl-10 pr-4 py-2 rounded-lg border ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300'}`} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 overflow-y-auto pb-4 custom-scrollbar">
                     {salesFilteredProducts.map(product => (
@@ -374,7 +364,6 @@ export function Inventory({ theme }: InventoryProps) {
                 </div>
             </div>
 
-            {/* Right: Cart */}
             <div className={`w-full lg:w-96 flex flex-col border rounded-xl shadow-2xl overflow-hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
                 <div className={`p-4 border-b z-10 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-gray-50 border-gray-200'}`}>
                     <h2 className="font-bold text-lg flex items-center gap-2"><ShoppingCart className="w-5 h-5 text-blue-500" /> Current Order</h2>
@@ -382,9 +371,7 @@ export function Inventory({ theme }: InventoryProps) {
                 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                     {cart.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-50">
-                            <p>Select items to add to cart</p>
-                        </div>
+                        <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-50"><p>Select items to add to cart</p></div>
                     ) : (
                         cart.map(item => (
                             <div key={item.id} className={`p-3 rounded-lg flex justify-between items-center ${isDark ? 'bg-slate-800' : 'bg-gray-50'}`}>
@@ -405,14 +392,9 @@ export function Inventory({ theme }: InventoryProps) {
 
                 <div className={`p-4 border-t ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-gray-50 border-gray-200'}`}>
                     <div className="space-y-3 mb-4">
-                        <div className="relative">
-                            <User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                            <input type="text" placeholder="Customer Name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={`${inputClass} pl-10`} />
-                        </div>
-                        <div className="relative">
-                            <Phone className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                            <input type="tel" placeholder="WhatsApp Number" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className={`${inputClass} pl-10`} />
-                        </div>
+                        <div className="relative"><User className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /><input type="text" placeholder="Customer Name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={`${inputClass} pl-10`} /></div>
+                        <div className="relative"><Phone className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /><input type="tel" placeholder="WhatsApp Number" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className={`${inputClass} pl-10`} /></div>
+                        <div className="relative"><Mail className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" /><input type="email" placeholder="Email (Optional)" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={`${inputClass} pl-10`} /></div>
                     </div>
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-dashed border-gray-600 mb-4">
                         <span>Total</span><span>₹{calculateTotal().total.toFixed(2)}</span>
