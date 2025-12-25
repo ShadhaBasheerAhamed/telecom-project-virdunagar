@@ -165,8 +165,10 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
         return [
           { header: 'ID', accessor: 'id' },
           { header: 'Name', accessor: 'name', render: (row: any) => <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span> },
+          { header: 'Role', accessor: 'role', render: (row: any) => <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-bold">{row.role || 'Staff'}</span> }, // ✅ Added Role
+          { header: 'Basic Salary', accessor: 'salary', render: (row: any) => <span className="font-mono">₹{row.salary || 0}</span> }, // ✅ Added Salary
           { header: 'Phone', accessor: 'mobile' },
-          { header: 'Address', accessor: 'address', render: (row: any) => <span className="truncate max-w-[200px] block">{row.address}</span> },
+          { header: 'Address', accessor: 'address', render: (row: any) => <span className="truncate max-w-[150px] block">{row.address}</span> },
           { header: 'Aadhaar', accessor: 'aadhaar' },
         ];
       

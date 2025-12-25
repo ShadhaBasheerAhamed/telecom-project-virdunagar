@@ -383,7 +383,7 @@ export interface ConversionData {
 
 // ==================== UTILITY TYPES ====================
 export type DataSource = string;
-export type Page = 'dashboard' | 'customers' | 'complaints' | 'leads' | 'payment' | 'master-records' | 'reports' | 'inventory' | 'network-providers';
+export type Page = 'dashboard' | 'customers' | 'complaints' | 'leads' | 'payment' |'expenses'|'master-records' | 'reports' | 'inventory' | 'network-providers';
 export type UserRole = 'Super Admin' | 'Sales' | 'Maintenance';
 
 export interface ApiResponse<T> {

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X, Package, Network } from 'lucide-react';
+import { LayoutDashboard, Users, MessageSquare, UserPlus, CreditCard, Database, FileText, LogOut, X, Package, Network, TrendingUp } from 'lucide-react'; // Added TrendingUp
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Page, UserRole } from '../types';
 
@@ -16,6 +16,10 @@ const allNavItems = [
   { id: 'leads' as Page, label: 'Leads', icon: UserPlus, roles: ['Super Admin', 'Sales'] },
   { id: 'customers' as Page, label: 'Customers', icon: Users, roles: ['Super Admin', 'Sales', 'Maintenance'] },
   { id: 'payment' as Page, label: 'Payment', icon: CreditCard, roles: ['Super Admin', 'Sales'] },
+  
+  // --- NEW: Expenses & P/L Tab (Only for Super Admin) ---
+  { id: 'expenses' as Page, label: 'Expenses & P/L', icon: TrendingUp, roles: ['Super Admin'] },
+
   { id: 'complaints' as Page, label: 'Complaints', icon: MessageSquare, roles: ['Super Admin', 'Maintenance'] },
   { id: 'inventory' as Page, label: 'Inventory & Sales', icon: Package, roles: ['Super Admin', 'Sales'] },
   { id: 'network-providers' as Page, label: 'Network Providers', icon: Network, roles: ['Super Admin', 'Sales', 'Maintenance'] },
@@ -101,6 +105,7 @@ const SidebarContent = ({ isDark, currentPage, onPageChange, onClose, userRole }
                   {isActive && (
                     <motion.div 
                       layoutId="activeDot"
+                      
                       className={`ml-auto w-2 h-2 rounded-full ${isDark ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' : 'bg-cyan-600'}`}
                     />
                   )}

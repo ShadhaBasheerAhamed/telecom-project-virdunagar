@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, Package, Upload, ShoppingCart, Minus, CheckCircle, User, Phone, Image as ImageIcon, Mail } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Upload, ShoppingCart, Minus, CheckCircle, User, Phone, Image as ImageIcon, Mail, History, Calendar } from 'lucide-react'; // Added History, Calendar Icon
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { WhatsAppService } from '../../services/whatsappService';
@@ -33,12 +33,25 @@ interface CartItem extends Product {
   qty: number;
 }
 
+// --- NEW INTERFACE FOR SALES HISTORY ---
+interface SaleRecord {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  items: CartItem[];
+  totalAmount: number;
+  date: string;     // Stored as ISO string
+  timestamp: number; // For sorting
+}
+
 export function Inventory({ theme }: InventoryProps) {
   const isDark = theme === 'dark';
   const { searchQuery } = useSearch();
 
   // --- SHARED STATE ---
   const [products, setProducts] = useState<Product[]>([]);
+  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]); // --- NEW STATE ---
   const [loading, setLoading] = useState(true);
   
   // --- INVENTORY STATE ---
@@ -56,9 +69,9 @@ export function Inventory({ theme }: InventoryProps) {
   const [salesSearchTerm, setSalesSearchTerm] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState(''); // Added Email State
+  const [customerEmail, setCustomerEmail] = useState('');
 
-  // --- FIREBASE REAL-TIME LISTENER ---
+  // --- FIREBASE REAL-TIME LISTENER FOR PRODUCTS ---
   useEffect(() => {
     setLoading(true);
     const q = query(collection(db, 'products'), orderBy('name'));
@@ -78,6 +91,25 @@ export function Inventory({ theme }: InventoryProps) {
     return () => unsubscribe();
   }, []);
 
+  // --- NEW: FIREBASE REAL-TIME LISTENER FOR SALES HISTORY ---
+  useEffect(() => {
+    // Listen to 'sales' collection, ordered by newest first
+    const q = query(collection(db, 'sales'), orderBy('timestamp', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const historyData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as SaleRecord[];
+      setSalesHistory(historyData);
+    }, (error) => {
+      console.error("Error fetching sales history:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+
   // --- INVENTORY FUNCTIONS ---
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,13 +126,11 @@ export function Inventory({ theme }: InventoryProps) {
     e.preventDefault();
     try {
       if (editMode && formData.id) {
-        // Update Existing
         const productRef = doc(db, 'products', formData.id);
         const { id, ...dataToUpdate } = formData;
         await updateDoc(productRef, dataToUpdate);
         toast.success("Product updated successfully!");
       } else {
-        // Add New
         const { id, ...newProductData } = formData; 
         await addDoc(collection(db, 'products'), newProductData);
         toast.success("Product added successfully!");
@@ -203,7 +233,21 @@ export function Inventory({ theme }: InventoryProps) {
                 });
             }
 
-            // 2. Generate Invoice PDF
+            // --- NEW: 2. Save Sales Record to Firebase 'sales' collection ---
+            const salesData = {
+              customerName,
+              customerPhone,
+              customerEmail,
+              items: cart, // Stores the full array of items bought
+              totalAmount: total,
+              date: new Date().toLocaleDateString('en-IN') + ' ' + new Date().toLocaleTimeString('en-IN'), // Formatted Date
+              timestamp: Date.now() // For sorting
+            };
+            
+            await addDoc(collection(db, 'sales'), salesData);
+
+
+            // 3. Generate Invoice PDF
             const invoiceGenerated = PDFService.generateProductInvoice(cart, {
                 name: customerName,
                 phone: customerPhone,
@@ -216,18 +260,15 @@ export function Inventory({ theme }: InventoryProps) {
                 toast.success("Invoice Downloaded!");
             }
 
-            // 3. Send WhatsApp (Ensure this function exists in WhatsAppService)
+            // 4. Send WhatsApp
             const itemsList = cart.map(item => `${item.name} (x${item.qty})`).join(', ');
-            
-            // Check if sendInvoice exists on WhatsAppService to prevent TS error
-            if ('sendInvoice' in WhatsAppService) {
+            // @ts-ignore
+            if (WhatsAppService.sendInvoice) {
                 // @ts-ignore
                 WhatsAppService.sendInvoice(customerName, customerPhone, itemsList, parseFloat(total.toFixed(2)));
-            } else {
-                console.warn("WhatsAppService.sendInvoice is missing. Please implement it.");
             }
 
-            // 4. Send Email (Optional)
+            // 5. Send Email
             if (customerEmail) {
                 EmailService.sendProductInvoiceEmail({
                     name: customerName,
@@ -235,15 +276,14 @@ export function Inventory({ theme }: InventoryProps) {
                     total: total,
                     items: cart
                 });
-                toast.info("Email draft opened!");
             }
 
-            // 5. Reset
+            // 6. Reset
             setCart([]);
             setCustomerName('');
             setCustomerPhone('');
             setCustomerEmail('');
-            toast.success("Sale Completed Successfully!");
+            toast.success("Sale Recorded Successfully!");
 
         } catch (error) {
             console.error("Checkout Error:", error);
@@ -281,7 +321,7 @@ export function Inventory({ theme }: InventoryProps) {
            <h1 className={`text-3xl font-bold flex items-center gap-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
              <Package className="w-8 h-8 text-blue-500" /> Inventory & Sales System
            </h1>
-           <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Manage stock levels and process sales invoices efficiently.</p>
+           <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Manage stock levels, process sales, and view history.</p>
         </div>
       </div>
 
@@ -291,7 +331,11 @@ export function Inventory({ theme }: InventoryProps) {
             📦 Stock Management
           </TabsTrigger>
           <TabsTrigger value="sales" className={`px-6 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${isDark ? 'data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200' : 'data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 text-gray-500 hover:text-gray-700'}`}>
-            🛒 Sales Terminal (POS)
+            🛒 Sales Terminal
+          </TabsTrigger>
+          {/* --- NEW TAB TRIGGER --- */}
+          <TabsTrigger value="history" className={`px-6 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${isDark ? 'data-[state=active]:bg-purple-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200' : 'data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 text-gray-500 hover:text-gray-700'}`}>
+            <History className="w-4 h-4" /> Sales History
           </TabsTrigger>
         </TabsList>
 
@@ -405,9 +449,69 @@ export function Inventory({ theme }: InventoryProps) {
                 </div>
             </div>
         </TabsContent>
+
+        {/* --- NEW TAB 3: SALES HISTORY --- */}
+        <TabsContent value="history" className="animate-in fade-in-50 duration-500">
+           <div className={`rounded-xl border overflow-hidden ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <div className="overflow-x-auto">
+                 <table className="w-full text-left">
+                    <thead className={`text-xs uppercase ${isDark ? 'bg-slate-900/50 text-slate-400' : 'bg-gray-50 text-gray-500'}`}>
+                       <tr>
+                          <th className="px-6 py-4 font-medium">Date</th>
+                          <th className="px-6 py-4 font-medium">Customer Details</th>
+                          <th className="px-6 py-4 font-medium">Items Purchased</th>
+                          <th className="px-6 py-4 font-medium text-right">Total Amount</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700/30">
+                       {salesHistory.length === 0 ? (
+                          <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No sales records found yet.</td></tr>
+                       ) : (
+                          salesHistory.map((sale) => (
+                             <tr key={sale.id} className={`transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
+                                <td className="px-6 py-4">
+                                   <div className="flex items-center gap-2 text-sm font-medium">
+                                      <Calendar className="w-4 h-4 text-purple-500" />
+                                      {sale.date}
+                                   </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                   <div className="flex flex-col gap-1">
+                                      <span className="font-bold text-sm">{sale.customerName}</span>
+                                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                                         <Phone className="w-3 h-3" /> {sale.customerPhone}
+                                      </div>
+                                      {sale.customerEmail && (
+                                         <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            <Mail className="w-3 h-3" /> {sale.customerEmail}
+                                         </div>
+                                      )}
+                                   </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                   <div className="flex flex-col gap-1">
+                                      {sale.items.map((item, idx) => (
+                                         <span key={idx} className="text-xs bg-gray-700/50 w-fit px-2 py-0.5 rounded-full text-gray-300 border border-gray-600">
+                                            {item.name} <span className="text-gray-500">x{item.qty}</span>
+                                         </span>
+                                      ))}
+                                   </div>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                   <span className="font-bold text-green-500">₹{sale.totalAmount.toFixed(2)}</span>
+                                </td>
+                             </tr>
+                          ))
+                       )}
+                    </tbody>
+                 </table>
+              </div>
+           </div>
+        </TabsContent>
+
       </Tabs>
 
-      {/* Product Modal */}
+      {/* Product Modal (Unchanged) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className={`w-full max-w-2xl rounded-2xl p-8 border shadow-2xl ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white text-gray-900'}`}>

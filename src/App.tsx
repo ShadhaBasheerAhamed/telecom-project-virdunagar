@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNetworkProvider } from './contexts/NetworkProviderContext';
 import { DashboardProvider } from './contexts/DashboardContext';
-import { NotificationProvider } from './contexts/NotificationContext'; // ✅ Added Import
+import { NotificationProvider } from './contexts/NotificationContext'; 
 
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
@@ -16,6 +16,8 @@ import { Inventory } from './components/pages/Inventory';
 import { MasterRecords } from './components/pages/MasterRecords';
 import { Reports } from './components/pages/Reports';
 import { NetworkProviders } from './components/pages/NetworkProviders';
+import { Expenses } from './components/pages/Expenses'; // ✅ Imported correctly
+
 import { SearchProvider } from './contexts/SearchContext';
 
 import type { Page, UserRole } from './types';
@@ -79,6 +81,7 @@ function App() {
     }
   };
 
+  // ✅ Updated Render Logic to include Expenses
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'dashboard':
@@ -89,6 +92,11 @@ function App() {
         return <Leads dataSource={dataSource} theme={theme} />;
       case 'payment':
         return <Payment dataSource={dataSource} theme={theme} userRole={userRole} />;
+      
+      // 👇 NEW: Expenses Page Case 👇
+      case 'expenses':
+        return <Expenses theme={theme} />;
+      
       case 'complaints':
         return <Complaints dataSource={dataSource} theme={theme} />;
       case 'inventory':
@@ -113,7 +121,7 @@ function App() {
   return (
     <SearchProvider>
     <DashboardProvider>
-      <NotificationProvider> {/* ✅ Added NotificationProvider here */}
+      <NotificationProvider>
         <div
           className={`min-h-screen ${
             theme === 'dark'
@@ -144,7 +152,7 @@ function App() {
             <main className="p-4 md:p-6">{renderCurrentPage()}</main>
           </div>
         </div>
-      </NotificationProvider> {/* ✅ Closed NotificationProvider */}
+      </NotificationProvider>
     </DashboardProvider>
   </SearchProvider>
   );
