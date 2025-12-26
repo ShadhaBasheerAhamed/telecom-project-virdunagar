@@ -49,7 +49,7 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
     // A. Fetch Employees from Master Records (Collection: 'employee')
     const fetchEmployees = async () => {
         try {
-            const querySnapshot = await getDocs(collection(db, 'employee')); // ✅ Fetching from 'employee' collection
+            const querySnapshot = await getDocs(collection(db, 'employees')); // ✅ Fetching from 'employee' collection
             const empList = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()

@@ -141,6 +141,14 @@ export function MasterRecordModal({ mode, recordType, data, theme, onClose, onSa
         { key: 'name', label: 'Router Mac Address', type: 'text', required: true },
         { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'] }
       ],
+      //✅ ADD THIS BLOCK for OTT
+      ott: [
+        { key: 'id', label: 'ID', type: 'text', required: false },
+        { key: 'name', label: 'Platform Name (e.g. Netflix)', type: 'text', required: true },
+        { key: 'price', label: 'Price (₹)', type: 'number', required: true },
+        { key: 'validity', label: 'Validity (Days)', type: 'number', required: true },
+        { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'] }
+      ],
       ontMake: [
         { key: 'id', label: 'ID', type: 'text', required: false },
         { key: 'name', label: 'Name', type: 'text', required: true },
@@ -173,6 +181,8 @@ export function MasterRecordModal({ mode, recordType, data, theme, onClose, onSa
       employee: [
         { key: 'id', label: 'ID', type: 'text', required: false },
         { key: 'name', label: 'Name', type: 'text', required: true },
+        { key: 'role', label: 'Role / Designation', type: 'text', required: true }, 
+        { key: 'salary', label: 'Basic Salary (₹)', type: 'number', required: true }, 
         { key: 'mobile', label: 'Phone Number', type: 'tel', required: true },
         { key: 'address', label: 'Address', type: 'textarea', required: true },
         { key: 'aadhaar', label: 'Aadhaar Number', type: 'text', required: true },

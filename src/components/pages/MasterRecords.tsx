@@ -2,15 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit, Trash2, Plus, 
   Users, Briefcase, UserCheck, Building2, 
-  Router, HardDrive, FileText, Network, Server, Loader2, Cpu,Tv
+  Router, HardDrive, FileText, Network, Server, Loader2, Cpu, Tv
 } from 'lucide-react';
 import { MasterRecordModal } from '@/components/modals/MasterRecordModal';
 import { MasterRecordService } from '@/services/masterRecordService';
 import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
 import type { DataSource } from '../../types';
 import { toast } from 'sonner';
-
-// ✅ 1. Import Search Context
 import { useSearch } from '../../contexts/SearchContext';
 
 interface MasterRecordsProps {
@@ -20,12 +18,9 @@ interface MasterRecordsProps {
 
 export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   const isDark = theme === 'dark';
-  
-  // ✅ 2. Use Global Search
   const { searchQuery, setSearchQuery } = useSearch();
 
   const [activeTab, setActiveTab] = useState('routerMake');
-  // ❌ REMOVED: const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
   // Modal states
@@ -37,7 +32,6 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   const [recordsData, setRecordsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load data from Firebase when tab or filters change
   useEffect(() => {
     loadRecordsData();
   }, [activeTab, statusFilter, dataSource]); 
@@ -46,13 +40,11 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     setLoading(true);
     try {
       let records: any[];
-      
       if (statusFilter === 'All') {
         records = await MasterRecordService.getRecords(activeTab);
       } else {
         records = await MasterRecordService.getRecordsByStatus(activeTab, statusFilter);
       }
-      
       setRecordsData(records);
     } catch (error) {
       console.error(`Error loading ${activeTab} data:`, error);
@@ -63,7 +55,6 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     }
   };
 
-  // Modal handlers
   const handleAddRecord = () => {
     setSelectedRecord(null);
     setIsAddModalOpen(true);
@@ -75,7 +66,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   };
 
   const handleSaveRecord = async () => {
-    await loadRecordsData(); // Reload data after save
+    await loadRecordsData();
     setIsAddModalOpen(false);
     setIsEditModalOpen(false);
     setIsViewModalOpen(false);
@@ -92,7 +83,6 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     try {
       await MasterRecordService.deleteRecord(activeTab, selectedRecord.id);
       toast.success("Record deleted successfully");
-      // Optimistic update
       setRecordsData(prev => prev.filter(r => r.id !== selectedRecord.id));
       setIsDeleteModalOpen(false);
       setSelectedRecord(null);
@@ -102,7 +92,6 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     }
   };
 
-  // --- TABS CONFIGURATION ---
   const tabs = [
     { id: 'routerMake', label: 'Router Make', icon: Router },
     { id: 'routerMac', label: 'Router Mac', icon: Cpu }, 
@@ -110,7 +99,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     { id: 'ontType', label: 'ONT Type', icon: Server },
     { id: 'ontMac', label: 'ONT Mac', icon: Cpu },
     { id: 'plan', label: 'Plan', icon: FileText },
-    { id: 'ott', label: 'OTT Subscription', icon: Tv }, // ✅ Added OTT
+    { id: 'ott', label: 'OTT Subscription', icon: Tv }, 
     { id: 'oltIp', label: 'OLT IP', icon: Network },
     { id: 'employee', label: 'Employee', icon: Users },
     { id: 'department', label: 'Department', icon: Building2 },
@@ -118,18 +107,15 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
     { id: 'user', label: 'User', icon: UserCheck },
   ];
 
-  // ✅ 3. Local Filtering using Global Search Query
   const currentData = useMemo(() => {
     if (!searchQuery) return recordsData;
     return recordsData.filter(record => {
-      // Generic search across all values in the record
       return Object.values(record).some(val => 
         String(val).toLowerCase().includes(searchQuery.toLowerCase())
       );
     });
   }, [recordsData, searchQuery]);
 
-  // --- COLUMN DEFINITIONS ---
   const getColumns = () => {
     switch (activeTab) {
       case 'routerMake':
@@ -152,7 +138,6 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
           { header: 'Total', accessor: 'total', render: (row: any) => <span className="text-green-500 font-bold">₹{row.total}</span> },
         ];
 
-        // ✅ ADDED OTT COLUMNS
       case 'ott':
         return [
           { header: 'ID', accessor: 'id' },
@@ -165,8 +150,8 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
         return [
           { header: 'ID', accessor: 'id' },
           { header: 'Name', accessor: 'name', render: (row: any) => <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span> },
-          { header: 'Role', accessor: 'role', render: (row: any) => <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-bold">{row.role || 'Staff'}</span> }, // ✅ Added Role
-          { header: 'Basic Salary', accessor: 'salary', render: (row: any) => <span className="font-mono">₹{row.salary || 0}</span> }, // ✅ Added Salary
+          { header: 'Role', accessor: 'role', render: (row: any) => <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-bold">{row.role || 'Staff'}</span> },
+          { header: 'Basic Salary', accessor: 'salary', render: (row: any) => <span className="font-mono">₹{row.salary || 0}</span> },
           { header: 'Phone', accessor: 'mobile' },
           { header: 'Address', accessor: 'address', render: (row: any) => <span className="truncate max-w-[150px] block">{row.address}</span> },
           { header: 'Aadhaar', accessor: 'aadhaar' },
@@ -203,15 +188,33 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
+      {/* ✅ SCROLLBAR STYLES
+          - Includes both Horizontal (x) for Tabs
+          - And Vertical (y) for Table
+      */}
+      <style>{`
+        /* Tabs (Horizontal) */
+        .custom-scrollbar-x::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar-x::-webkit-scrollbar-track { background: ${isDark ? '#2d3748' : '#f1f5f9'}; border-radius: 4px; }
+        .custom-scrollbar-x::-webkit-scrollbar-thumb { background: ${isDark ? '#4a5568' : '#cbd5e1'}; border-radius: 4px; }
+        .custom-scrollbar-x::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#718096' : '#94a3b8'}; }
+
+        /* Table (Vertical) */
+        .custom-scrollbar-y::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar-y::-webkit-scrollbar-track { background: ${isDark ? '#2d3748' : '#f1f5f9'}; border-radius: 4px; }
+        .custom-scrollbar-y::-webkit-scrollbar-thumb { background: ${isDark ? '#4a5568' : '#cbd5e1'}; border-radius: 4px; }
+        .custom-scrollbar-y::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#718096' : '#94a3b8'}; }
+      `}</style>
+
       <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Master Records</h1>
 
-      {/* TABS NAVIGATION */}
-      <div className="mb-6 w-full overflow-x-auto pb-2 custom-scrollbar">
+      {/* TABS NAVIGATION - SCROLLABLE */}
+      <div className="mb-6 w-full overflow-x-auto pb-2 custom-scrollbar-x">
         <div className={`p-1 rounded-lg inline-flex border min-w-max ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }} // ✅ Clear global search on tab switch
+              onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }} 
               className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-blue-600 text-white shadow-lg'
@@ -230,19 +233,17 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
       {/* CONTROLS */}
       <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
         
-        {/* ✅ 4. Updated Search Input (Binds to Global Context) */}
         <div className="relative w-full md:w-96">
           <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
           <input
             type="text"
             className={`block w-full pl-10 pr-3 py-2.5 border rounded-md outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-900'}`}
             placeholder={`Search ${tabs.find(t => t.id === activeTab)?.label}...`}
-            value={searchQuery} // ✅ Uses Global State
-            onChange={(e) => setSearchQuery(e.target.value)} // ✅ Updates Global State
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3 w-full md:w-auto">
           <div className="relative">
             <select
@@ -267,17 +268,20 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className={`w-full overflow-hidden rounded-lg border shadow-xl ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}>
-        <div className="overflow-x-auto w-full">
-          <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className={`font-bold uppercase tracking-wider ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+      {/* ✅ TABLE with FIXED HEADER and SCROLLABLE BODY */}
+      <div 
+        className={`w-full rounded-lg border shadow-xl flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}
+        style={{ height: 'calc(100vh - 240px)' }} // Fixed height for scrolling
+      >
+        <div className="flex-1 overflow-auto custom-scrollbar-y relative">
+          <table className="w-full whitespace-nowrap text-left text-sm border-separate border-spacing-0">
+            <thead className={`font-bold uppercase tracking-wider sticky top-0 z-30 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
               <tr>
                 {getColumns().map((col, idx) => (
-                  <th key={idx} className="px-6 py-4 border-b border-inherit">{col.header}</th>
+                  <th key={idx} className="px-6 py-4 border-b border-inherit bg-inherit">{col.header}</th>
                 ))}
-                <th className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-20 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Status</th>
-                <th className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-20 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Options</th>
+                <th className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-30 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Status</th>
+                <th className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-30 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Options</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
@@ -302,11 +306,11 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
                 currentData.map((row, index) => (
                   <tr key={index} className={`transition-colors group ${isDark ? 'hover:bg-[#2d3546]' : 'hover:bg-gray-50'}`}>
                     {getColumns().map((col, colIdx) => (
-                      <td key={colIdx} className={`px-6 py-4 ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
+                      <td key={colIdx} className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
                         {col.render ? col.render(row) : row[col.accessor]}
                       </td>
                     ))}
-                    <td className={`px-6 py-4 sticky right-[110px] z-10 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
+                    <td className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                         row.status === 'Active' 
                         ? 'bg-green-500/10 text-green-500 border-green-500/20' 
@@ -315,7 +319,7 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
                         {row.status}
                       </span>
                     </td>
-                    <td className={`px-6 py-4 text-center sticky right-0 z-10 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
+                    <td className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-20 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => handleViewRecord(row)} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded"><Eye className="h-4 w-4" /></button>
                         <button onClick={() => handleEditRecord(row)} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded"><Edit className="h-4 w-4" /></button>

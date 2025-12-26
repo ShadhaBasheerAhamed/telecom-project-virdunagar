@@ -24,7 +24,7 @@ const allNavItems = [
   { id: 'inventory' as Page, label: 'Inventory & Sales', icon: Package, roles: ['Super Admin', 'Sales'] },
   { id: 'network-providers' as Page, label: 'Network Providers', icon: Network, roles: ['Super Admin', 'Sales', 'Maintenance'] },
   { id: 'master-records' as Page, label: 'Master Records', icon: Database, roles: ['Super Admin'] }, 
-  { id: 'reports' as Page, label: 'Reports', icon: FileText, roles: ['Super Admin'] },
+  { id: 'reports' as Page, label: 'Reports', icon: FileText, roles: ['Super Admin', 'Sales', 'Maintenance'] },
 ];
 
 const getPillStyles = (isActive: boolean, isDark: boolean) => ({

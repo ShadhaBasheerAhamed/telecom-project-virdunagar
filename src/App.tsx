@@ -104,8 +104,7 @@ function App() {
       case 'master-records':
         return <MasterRecords dataSource={dataSource} theme={theme} />;
       case 'reports':
-        return <Reports dataSource={dataSource} theme={theme} />;
-      case 'network-providers':
+        return <Reports dataSource={dataSource} theme={theme} userRole={userRole} />;      case 'network-providers':
         return <NetworkProviders theme={theme} />;
       default:
         return <EnhancedDashboard dataSource={dataSource} theme={theme} />;

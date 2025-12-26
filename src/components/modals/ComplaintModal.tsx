@@ -1,249 +1,337 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Search, Loader2 } from 'lucide-react';
+import { X, Loader2, Search, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { collection, getDocs, query, where, limit, orderBy } from 'firebase/firestore';
+import type { DataSource } from '../../types';
+import type { Complaint } from '../pages/Complaints';
+
+// ✅ Firebase Imports
+import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { WhatsAppService } from '../../services/whatsappService';
 
 interface ComplaintModalProps {
   mode: 'add' | 'edit';
-  complaint?: any;
+  complaint: Complaint | null;
   theme: 'light' | 'dark';
-  dataSource: string;
+  dataSource: DataSource;
   onClose: () => void;
   onSave: (data: any) => void;
 }
 
 export function ComplaintModal({ mode, complaint, theme, dataSource, onClose, onSave }: ComplaintModalProps) {
   const isDark = theme === 'dark';
-  const [loading, setLoading] = useState(false);
-  const [employees, setEmployees] = useState<string[]>([]);
   
-  const [formData, setFormData] = useState({
+  // --- States ---
+  const [employees, setEmployees] = useState<string[]>([]); // ✅ State for Employee Dropdown
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const [formData, setFormData] = useState<Partial<Complaint>>({
     customerName: '',
     landlineNo: '',
-    mobileNo: '', 
+    mobileNo: '',
     address: '',
     complaints: '',
     employee: '',
-    bookingDate: new Date().toISOString().split('T')[0], // Default Today
+    bookingDate: new Date().toISOString().split('T')[0],
     resolveDate: '',
     status: 'Open',
-    source: dataSource === 'All' ? 'BSNL' : dataSource
+    source: dataSource === 'All' ? 'BSNL' : dataSource,
   });
 
-  // Load Data on Edit
+  // --- 1. Load Data on Edit ---
   useEffect(() => {
     if (mode === 'edit' && complaint) {
-      setFormData({
-        customerName: complaint.customerName || '',
-        landlineNo: complaint.landlineNo || '',
-        mobileNo: complaint.mobileNo || '',
-        address: complaint.address || '',
-        complaints: complaint.complaints || '',
-        employee: complaint.employee || '',
-        bookingDate: complaint.bookingDate || '',
-        resolveDate: complaint.resolveDate || '',
-        status: complaint.status || 'Open',
-        source: complaint.source || 'BSNL'
-      });
+      setFormData(complaint);
     }
   }, [mode, complaint]);
 
-  // --- 1. FETCH EMPLOYEES FROM MASTER RECORDS ---
+  // --- 2. FETCH EMPLOYEES (For Dropdown) ---
   useEffect(() => {
-      const fetchEmployees = async () => {
-          try {
-              const q = query(collection(db, 'employees'), orderBy('name', 'asc'));
-              const snap = await getDocs(q);
-              const empList = snap.docs.map(doc => doc.data().name);
-              setEmployees(empList);
-          } catch (e) {
-              console.error("Error fetching employees", e);
-          }
-      };
-      fetchEmployees();
+    const fetchEmployees = async () => {
+      try {
+        // Fetch from 'employees' collection
+        const q = query(collection(db, 'employees'), orderBy('name', 'asc'));
+        const querySnapshot = await getDocs(q);
+        const empList = querySnapshot.docs.map(doc => doc.data().name);
+        setEmployees(empList);
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+      }
+    };
+    fetchEmployees();
   }, []);
 
-  // --- 2. SMART SEARCH (Landline -> Customer -> Payment Fallback) ---
-  const handleSearch = async () => {
-      if (!formData.landlineNo) { toast.error("Enter Landline Number"); return; }
-      setLoading(true);
-      try {
-          // A. Search in Customers
-          const custQ = query(collection(db, 'customers'), where('landline', '==', formData.landlineNo));
-          const custSnap = await getDocs(custQ);
+  // --- 3. SMART SEARCH (Landline -> Customer -> Payment -> Complaint) ---
+  const handleLandlineBlur = async () => {
+    const landline = formData.landlineNo?.trim();
+    if (!landline || landline.length < 5 || mode === 'edit') return;
 
-          if (!custSnap.empty) {
-              const data = custSnap.docs[0].data();
-              setFormData(prev => ({
-                  ...prev,
-                  customerName: data.name,
-                  mobileNo: data.mobileNo,
-                  address: data.address,
-                  source: data.source || prev.source
-              }));
-              toast.success("Customer found in Database!");
-          } else {
-              // B. Fallback: Search in Payments
-              const payQ = query(collection(db, 'payments'), where('landlineNo', '==', formData.landlineNo), limit(1));
-              const paySnap = await getDocs(payQ);
-              
-              if (!paySnap.empty) {
-                  const data = paySnap.docs[0].data();
-                  setFormData(prev => ({
-                      ...prev,
-                      customerName: data.customerName,
-                      mobileNo: data.mobileNo || '',
-                      address: '', 
-                      source: data.source || prev.source
-                  }));
-                  toast.success("Found in Payment History");
-              } else {
-                  toast.error("Number not found. Please fill details manually.");
-              }
-          }
-      } catch (error) {
-          console.error(error);
-          toast.error("Search failed");
-      } finally {
-          setLoading(false);
+    setIsSearching(true);
+    try {
+      let found = false;
+
+      // A. Search in CUSTOMERS
+      const custQuery = query(collection(db, 'customers'), where('landline', '==', landline), limit(1));
+      const custSnap = await getDocs(custQuery);
+
+      if (!custSnap.empty) {
+        const data = custSnap.docs[0].data();
+        setFormData(prev => ({
+          ...prev,
+          customerName: data.name || prev.customerName,
+          mobileNo: data.mobileNo || prev.mobileNo,
+          address: data.address || prev.address,
+          source: data.source || prev.source
+        }));
+        toast.success("Details found in Customer Records!");
+        found = true;
+      } 
+
+      // B. Search in PAYMENTS
+      if (!found) {
+        const payQuery = query(collection(db, 'payments'), where('landlineNo', '==', landline), orderBy('paidDate', 'desc'), limit(1));
+        const paySnap = await getDocs(payQuery);
+        
+        if (!paySnap.empty) {
+          const data = paySnap.docs[0].data();
+          setFormData(prev => ({
+            ...prev,
+            customerName: data.customerName || prev.customerName,
+            mobileNo: data.mobileNo || prev.mobileNo,
+          }));
+          toast.success("Details found in Payment History!");
+          found = true;
+        }
       }
+
+      // C. Search in OLD COMPLAINTS
+      if (!found) {
+        const compQuery = query(collection(db, 'complaints'), where('landlineNo', '==', landline), limit(1));
+        const compSnap = await getDocs(compQuery);
+
+        if (!compSnap.empty) {
+          const data = compSnap.docs[0].data();
+          setFormData(prev => ({
+            ...prev,
+            customerName: data.customerName || prev.customerName,
+            mobileNo: data.mobileNo || prev.mobileNo,
+            address: data.address || prev.address,
+          }));
+          toast.success("Details found in Previous Complaints!");
+          found = true;
+        }
+      }
+
+      if (!found) {
+        toast.info("New number. Please enter details manually.");
+      }
+
+    } catch (error) {
+      console.error("Error fetching details:", error);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
-  // --- 3. SUBMIT HANDLER ---
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.customerName || !formData.complaints) {
-        toast.error("Name and Complaint details are required");
-        return;
-    }
+    setIsSubmitting(true);
+    
+    // Simulate API call delay
+    setTimeout(() => {
+      onSave(formData);
+      
+      // Optional: Trigger WhatsApp on Add
+      if (mode === 'add' && formData.mobileNo) {
+         // @ts-ignore
+         if (WhatsAppService.sendComplaintReceived) {
+             // @ts-ignore
+             WhatsAppService.sendComplaintReceived(
+                 formData.customerName, 
+                 formData.mobileNo, 
+                 'CMP-' + Math.floor(Math.random() * 1000), 
+                 formData.complaints
+             );
+         }
+      }
 
-    const complaintData = {
-        ...formData,
-        id: mode === 'edit' ? complaint.id : Date.now().toString()
-    };
-
-    onSave(complaintData);
-
-    // Trigger WhatsApp Message (Only for New Complaints)
-    if (mode === 'add' && formData.mobileNo) {
-        setTimeout(() => {
-            WhatsAppService.sendComplaintReceived(
-                formData.customerName, 
-                formData.mobileNo, 
-                complaintData.id, 
-                formData.complaints
-            );
-        }, 500); 
-    }
+      setIsSubmitting(false);
+    }, 500);
   };
 
-  const inputClass = `w-full p-2 rounded border ${isDark ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-300 text-gray-900'} focus:ring-2 focus:ring-blue-500 outline-none`;
+  const inputClass = `w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+    isDark 
+      ? 'bg-[#0f172a] border-slate-700 text-white placeholder-slate-500' 
+      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+  }`;
+
+  const labelClass = `block text-xs font-bold uppercase tracking-wider mb-1.5 ${
+    isDark ? 'text-slate-400' : 'text-gray-500'
+  }`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className={`w-full max-w-2xl rounded-xl shadow-2xl ${isDark ? 'bg-slate-800' : 'bg-white'} max-h-[90vh] overflow-y-auto`}>
-        <div className="p-6 border-b border-inherit flex justify-between items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className={`w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] ${
+        isDark ? 'bg-[#1e293b] border border-slate-700' : 'bg-white'
+      }`}>
+        
+        {/* Header */}
+        <div className={`p-6 border-b flex justify-between items-center ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
           <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
             {mode === 'add' ? 'Register New Complaint' : 'Edit Complaint'}
           </h2>
-          <button onClick={onClose}><X className="w-6 h-6 text-gray-500" /></button>
+          <button onClick={onClose} className={`p-2 rounded-full hover:bg-opacity-10 transition-colors ${isDark ? 'hover:bg-white text-slate-400' : 'hover:bg-black text-gray-500'}`}>
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          
-          {/* Row 1: Landline & Search */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                  <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Landline No</label>
-                  <div className="relative">
-                      <input 
-                          type="text" 
-                          value={formData.landlineNo} 
-                          onChange={e => setFormData({...formData, landlineNo: e.target.value})} 
-                          className={`${inputClass} pr-10`}
-                          placeholder="Search Landline..."
-                      />
-                      <button 
-                          type="button" 
-                          onClick={handleSearch}
-                          className="absolute right-2 top-2 text-gray-400 hover:text-blue-500"
-                          disabled={loading}
-                      >
-                          {loading ? <Loader2 className="w-5 h-5 animate-spin"/> : <Search className="w-5 h-5"/>}
-                      </button>
-                  </div>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+          <form id="complaintForm" onSubmit={handleSubmit} className="space-y-6">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Landline - With Search Trigger */}
+              <div className="relative">
+                <label className={labelClass}>Landline Number <span className="text-red-500">*</span></label>
+                <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={formData.landlineNo}
+                      onChange={(e) => setFormData({ ...formData, landlineNo: e.target.value })}
+                      onBlur={handleLandlineBlur} // 🔥 Trigger search on blur
+                      placeholder="Enter number..."
+                      className={`${inputClass} pr-10`}
+                    />
+                    <div className="absolute right-3 top-2.5">
+                        {isSearching ? (
+                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                        ) : (
+                            <Search className="w-5 h-5 text-gray-400" />
+                        )}
+                    </div>
+                </div>
+                <p className="text-[10px] text-blue-500 mt-1 ml-1">Type & click outside to search</p>
               </div>
-              
-              <div>
-                  <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Mobile No (WhatsApp)</label>
-                  <input type="text" value={formData.mobileNo} onChange={e => setFormData({...formData, mobileNo: e.target.value})} className={inputClass} placeholder="For updates" />
-              </div>
-          </div>
 
-          {/* Row 2: Name & Employee */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                  <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Customer Name</label>
-                  <input type="text" value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} className={inputClass} required />
+                <label className={labelClass}>Customer Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={formData.customerName}
+                  onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                  className={inputClass}
+                />
               </div>
-              <div>
-                  <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Assigned Employee</label>
-                  <select 
-                      value={formData.employee} 
-                      onChange={e => setFormData({...formData, employee: e.target.value})} 
-                      className={inputClass}
-                  >
-                      <option value="">-- Select Employee --</option>
-                      {employees.map(emp => (
-                          <option key={emp} value={emp}>{emp}</option>
-                      ))}
-                  </select>
-              </div>
-          </div>
 
-          {/* Row 3: Address */}
-          <div>
-              <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Address</label>
-              <textarea value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className={inputClass} rows={2}></textarea>
-          </div>
-
-          {/* Row 4: Complaint */}
-          <div>
-              <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Issue Description</label>
-              <textarea value={formData.complaints} onChange={e => setFormData({...formData, complaints: e.target.value})} className={inputClass} rows={3} placeholder="Describe the issue..." required></textarea>
-          </div>
-
-          {/* Row 5: Dates & Status */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                  <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Booking Date</label>
-                  <input type="date" value={formData.bookingDate} onChange={e => setFormData({...formData, bookingDate: e.target.value})} className={inputClass} />
+                <label className={labelClass}>Mobile Number</label>
+                <input
+                  type="tel"
+                  value={formData.mobileNo}
+                  onChange={(e) => setFormData({ ...formData, mobileNo: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Network Source</label>
+                <select
+                  value={formData.source}
+                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="BSNL">BSNL</option>
+                  <option value="RMAX">RMAX</option>
+                  <option value="RAILNET">RAILNET</option>
+                  <option value="AIRTEL">AIRTEL</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Address</label>
+              <textarea
+                rows={2}
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Complaint Description <span className="text-red-500">*</span></label>
+              <textarea
+                required
+                rows={3}
+                placeholder="Describe the issue (e.g., No Internet, Slow Speed)..."
+                value={formData.complaints}
+                onChange={(e) => setFormData({ ...formData, complaints: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* ✅ CHANGED TO DROPDOWN */}
+              <div>
+                <label className={labelClass}>Assign Employee</label>
+                <select
+                  value={formData.employee}
+                  onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="">-- Select Employee --</option>
+                  {employees.map((emp, index) => (
+                    <option key={index} value={emp}>{emp}</option>
+                  ))}
+                </select>
               </div>
               <div>
-                  <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Resolve Date</label>
-                  <input type="date" value={formData.resolveDate} onChange={e => setFormData({...formData, resolveDate: e.target.value})} className={inputClass} />
+                <label className={labelClass}>Booking Date</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.bookingDate}
+                  onChange={(e) => setFormData({ ...formData, bookingDate: e.target.value })}
+                  className={inputClass}
+                />
               </div>
-              <div>
-                  <label className="text-xs font-bold uppercase text-gray-500 mb-1 block">Status</label>
-                  <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className={inputClass}>
-                      <option value="Open">Open</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Resolved">Resolved</option>
-                      <option value="Not Resolved">Not Resolved</option>
-                  </select>
-              </div>
-          </div>
+            </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
-              <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600">Cancel</button>
-              <button type="submit" className="px-6 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2">
-                  <Save className="w-4 h-4" /> Save Complaint
-              </button>
-          </div>
-        </form>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className={`p-6 border-t flex justify-end gap-3 ${isDark ? 'border-slate-700 bg-[#1e293b]' : 'border-gray-100 bg-gray-50'} rounded-b-2xl`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`px-6 py-2.5 rounded-xl font-bold transition-colors ${
+              isDark 
+                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="complaintForm"
+            disabled={isSubmitting}
+            className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all active:scale-95"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              mode === 'add' ? 'Register Complaint' : 'Update Complaint'
+            )}
+          </button>
+        </div>
+
       </div>
     </div>
   );
