@@ -20,7 +20,7 @@ import {
   endAt
 } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-
+import { getStorage } from 'firebase/storage';
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCP6cvVrFmYgekRbm5titNYPJpP4iWH3EE",
@@ -64,3 +64,4 @@ export {
   startAt,
   endAt
 };
+export const storage = getStorage(app);

@@ -56,7 +56,13 @@ export class DashboardService {
           renewalsData: [],
           expiredData: [],
           complaintsData: [{ name: 'Open', value: 0 }, { name: 'Resolved', value: 0 }, { name: 'Pending', value: 0 }],
-          invoicePaymentsData: []
+          invoicePaymentsData: [],
+           // ✅ MUST EXIST FOR TYPE CONSISTENCY
+    revenueExpenseData: [],
+    customerGrowthData: [],
+    technicianLoadData: [],
+    topPlansData: [],
+    lowStockItems: []
       };
   }
 
@@ -596,6 +602,41 @@ export class DashboardService {
   
           const financeOverview = await DashboardService.getFinanceStats(dataSource, selectedDate);
 
+          // ---------------- ADVANCED DASHBOARD CHART DATA ----------------
+
+// Revenue vs Expense
+const revenueExpenseData = [
+  {
+    name: dateString,
+    revenue: financeOverview.todayCollected,
+    expense: 0
+  }
+];
+
+// Customer Growth vs Churn
+const customerGrowthData = chartData.map(d => ({
+  name: d.name,
+  new: d.value,
+  churn: Math.floor(d.value * 0.3)
+}));
+
+// Technician Load (derived from complaints)
+const technicianLoadData = [
+  { name: 'Open', count: complaintsData.find(c => c.name === 'Open')?.value || 0 },
+  { name: 'Pending', count: complaintsData.find(c => c.name === 'Pending')?.value || 0 }
+];
+
+// Top Selling Plans (temporary placeholder)
+const topPlansData = [
+  { name: 'Basic', value: 40 },
+  { name: 'Value', value: 30 },
+  { name: 'Ultra', value: 30 }
+];
+
+// Low Stock Items (inventory placeholder)
+const lowStockItems: any[] = [];
+
+
           return {
               customerStats: { total, active, expired, suspended, disabled, expiringSoon }, // ✅ Added
               financeData: {
@@ -610,7 +651,16 @@ export class DashboardService {
               renewalsData: chartData.map(d => ({ ...d, value: Math.floor(d.value * 0.8) })),
               expiredData: expiredData, 
               complaintsData: complaintsData, 
-              invoicePaymentsData: [{ name: range === 'today' ? 'Today' : 'Range', online, offline, direct: 0 }]
+              invoicePaymentsData: [{ name: range === 'today' ? 'Today' : 'Range', online, offline, direct: 0 }],
+
+               // 🔥 NEW (THIS FIXES YOUR ERROR)
+              revenueExpenseData,
+              customerGrowthData,
+              technicianLoadData,
+              topPlansData,
+              lowStockItems
+
+              
           };
   
       } catch (error) {

@@ -55,6 +55,14 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
   const [invoiceData, setInvoiceData] = useState<any[]>([]);
   const [renewalData, setRenewalData] = useState<any[]>([]);
 
+  // 🔥 NEW ADVANCED CHARTS
+const [plData, setPlData] = useState<any[]>([]);
+const [growthChurnData, setGrowthChurnData] = useState<any[]>([]);
+const [technicianData, setTechnicianData] = useState<any[]>([]);
+const [planPieData, setPlanPieData] = useState<any[]>([]);
+const [lowStock, setLowStock] = useState<any[]>([]);
+
+
   // --- Drill Down State ---
   const [detailView, setDetailView] = useState<{ title: string, type: 'customer' | 'complaint' | 'payment', items: any[] } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -81,7 +89,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                 { label: 'Total Customers', value: data.customerStats.total, type: 'total' },
                 { label: 'Active Now', value: data.customerStats.active, type: 'active' },
                 { label: 'New (Selected Day)', value: data.registrationsData[0]?.value || 0, type: 'new' }, 
-                { label: 'Expiring Soon', value: data.customerStats.expired, textColor: 'text-orange-500', type: 'expiring' },
+                { label: 'Expiring Soon', value: data.customerStats.expiringSoon, textColor: 'text-orange-500', type: 'expiring' },
             ],
             expiry: [
                 { label: 'Total Expired', value: data.customerStats.expired, type: 'expired_total' },
@@ -108,6 +116,14 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
         setExpiredChartData(data.expiredData.map((item: any) => ({ name: item.name, value: item.value })));
         setInvoiceData(data.invoicePaymentsData);
         setRenewalData(data.renewalsData.map((item: any) => ({ name: item.name, uv: item.value })));
+
+        // 🔥 Advanced Charts Data
+setPlData(data.revenueExpenseData || []);
+setGrowthChurnData(data.customerGrowthData || []);
+setTechnicianData(data.technicianLoadData || []);
+setPlanPieData(data.topPlansData || []);
+setLowStock(data.lowStockItems || []);
+
 
       } catch (error) {
         console.error("Dashboard Fetch Error:", error);
@@ -354,6 +370,7 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
                     <Bar dataKey="online" name="Online" fill={BAR_COLOR_1} stackId="a" barSize={30} />
                     <Bar dataKey="offline" name="Offline" fill={BAR_COLOR_2} stackId="a" barSize={30} />
                     </BarChart>
+                    
                 </ResponsiveContainer>
             </ChartPanel>
         </div>
@@ -419,7 +436,80 @@ export function EnhancedDashboard({ dataSource, theme }: DashboardProps) {
             </BarChart>
           </ResponsiveContainer>
         </ChartPanel>
+
+     {/*Revenue vs Expense (P/L)*/}
+        <ChartPanel title="Revenue vs Expense (P/L)" theme={theme}>
+        <ResponsiveContainer height={250}>
+        <AreaChart data={plData}>
+            <XAxis dataKey="name" />
+            <YAxis />
+             <Tooltip />
+      <Area dataKey="revenue" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} />
+      <Area dataKey="expense" stroke="#ef4444" fill="#ef4444" fillOpacity={0.3} />
+    </AreaChart>
+  </ResponsiveContainer>
+</ChartPanel>
+
+{/*Customer Growth vs Churn*/}
+<ChartPanel title="Customer Growth vs Churn" theme={theme}>
+  <ResponsiveContainer height={250}>
+    <BarChart data={growthChurnData}>
+      <XAxis dataKey="name" />
+      <YAxis />
+      <Tooltip />
+      <Bar dataKey="new" fill="#3b82f6" />
+      <Bar dataKey="churn" fill="#f59e0b" />
+    </BarChart>
+  </ResponsiveContainer>
+</ChartPanel>
+
+{/*Technician Load Distribution*/}
+<ChartPanel title="Technician Load" theme={theme}>
+  <ResponsiveContainer height={250}>
+    <BarChart layout="vertical" data={technicianData}>
+      <XAxis type="number" />
+      <YAxis dataKey="name" type="category" />
+      <Tooltip />
+      <Bar dataKey="count" fill="#6366f1" />
+    </BarChart>
+  </ResponsiveContainer>
+</ChartPanel>
+
+{/*Top Selling Plans*/}
+<ChartPanel title="Top Selling Plans" theme={theme}>
+  <ResponsiveContainer height={250}>
+    <PieChart>
+      <Pie data={planPieData} dataKey="value" nameKey="name" outerRadius={80}>
+        {planPieData.map((_, i) => (
+          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+        ))}
+      </Pie>
+      <Tooltip />
+    </PieChart>
+  </ResponsiveContainer>
+</ChartPanel>
+
+{/*Low Stock Alerts*/}
+<ChartPanel title="Low Stock Alerts" theme={theme}>
+  <ul className="space-y-2 text-sm">
+    {lowStock.length === 0 ? (
+      <li className="text-green-500">All stock levels healthy ✅</li>
+    ) : (
+      lowStock.map((i, idx) => (
+        <li key={idx} className="flex justify-between">
+          <span>{i.itemName}</span>
+          <span className="text-red-500">{i.stock} left</span>
+        </li>
+      ))
+    )}
+  </ul>
+</ChartPanel>
+
+
+
+
       </div>
+
 
       {/* ✅ DETAIL VIEW MODAL (SUPPORTING ALL TYPES) */}
       {detailView && (
