@@ -63,6 +63,7 @@ const QuickMasterSelect = ({ label, value, onChange, collectionName, options, th
   const [newValue, setNewValue] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isDark = theme === 'dark';
+  const storage = getStorage(); // Initialize storage inside or outside component
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -653,9 +654,17 @@ export function Inventory({ theme }: InventoryProps) {
                     <div className="flex justify-between text-xl font-bold pt-2 border-t border-dashed border-gray-600 mb-4">
                         <span>Total</span><span>₹{calculateTotal().total.toFixed(2)}</span>
                     </div>
-                    <button onClick={handleCheckout} disabled={cart.length === 0} className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 ${cart.length > 0 ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}>
-                        <CheckCircle className="w-5 h-5" /> Checkout & Send Bill
-                    </button>
+                    <button 
+  onClick={handleCheckout} 
+  disabled={cart.length === 0} 
+  className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg
+    ${cart.length === 0 
+      ? (isDark ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed') 
+      : (isDark ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200')
+    }`}
+>
+  <CheckCircle className="w-5 h-5" /> Checkout & Send Bill
+</button>
                 </div>
             </div>
         </TabsContent>
