@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Edit, Trash2, X, Loader2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, X, Loader2, ChevronDown } from 'lucide-react';
 import type { DataSource } from '../../types';
 import { LeadModal } from '@/components/modals/LeadModal';
 import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
@@ -246,6 +246,7 @@ export function Leads({ dataSource, theme }: LeadsProps) {
       `}</style>
 
       {/* Header & Controls */}
+      {/* Header & Controls */}
       <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border bg-inherit border-inherit shadow-sm">
         
         {/* LEFT SIDE: Search Input */}
@@ -262,31 +263,44 @@ export function Leads({ dataSource, theme }: LeadsProps) {
 
         {/* RIGHT SIDE: Filters & Add Button */}
         <div className="flex gap-3 w-full md:w-auto">
-          {/* Search Field Selection */}
-          <select
-            value={searchField}
-            onChange={(e) => setSearchField(e.target.value)}
-            className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
-          >
-            <option value="All">Search All</option>
-            <option value="Name">Customer Name</option>
-            <option value="ID">Lead ID</option>
-            <option value="Phone">Phone No</option>
-          </select>
+          
+          {/* ✅ CUSTOM SEARCH FIELD DROPDOWN */}
+          <div className="relative w-full sm:w-auto">
+            <select
+              value={searchField}
+              onChange={(e) => setSearchField(e.target.value)}
+              className={`w-full sm:w-auto px-4 py-2.5 rounded-md border outline-none text-sm font-medium appearance-none pr-10 cursor-pointer ${
+                isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'
+              }`}
+            >
+              <option value="All">Search All</option>
+              <option value="Name">Customer Name</option>
+              <option value="ID">Lead ID</option>
+              <option value="Phone">Phone No</option>
+            </select>
+            {/* Arrow Icon Line */}
+            <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+          </div>
 
-          {/* Status Filter */}
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
-          >
-            <option value="All">All Status</option>
-            <option value="Success">Success</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Sale">Sale</option>
-          </select>
+          {/* ✅ CUSTOM STATUS FILTER DROPDOWN */}
+          <div className="relative w-full sm:w-auto">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className={`w-full sm:w-auto px-4 py-2.5 rounded-md border outline-none text-sm font-medium appearance-none pr-10 cursor-pointer ${
+                isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'
+              }`}
+            >
+              <option value="All">All Status</option>
+              <option value="Success">Success</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Sale">Sale</option>
+            </select>
+            {/* Arrow Icon Line */}
+            <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+          </div>
 
-          <button onClick={() => setModalMode('add')} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow-lg transition-all">
+          <button onClick={() => setModalMode('add')} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md shadow-lg transition-all w-full sm:w-auto">
             <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add Lead</span>
           </button>
         </div>
