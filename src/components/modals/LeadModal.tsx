@@ -48,12 +48,32 @@ export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: Le
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+
+      {/* ✅ 1. DYNAMIC SCROLLBAR STYLES ADDED HERE */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: ${isDark ? '#1e293b' : '#f1f5f9'};
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: ${isDark ? '#475569' : '#cbd5e1'};
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? '#64748b' : '#94a3b8'};
+        }
+      `}</style>
+
+      {/* ✅ 2. ADDED 'custom-scrollbar' CLASS TO CONTAINER */}
       <div className={`w-full max-w-2xl rounded-xl border ${
         isDark
           ? 'bg-[#1e293b]/95 border-[#334155]'
           : 'bg-white/95 border-gray-200'
-      } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto`}>
+      } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar`}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-inherit sticky top-0 bg-inherit">
           <h2 className={`text-2xl ${isDark ? 'text-white' : 'text-gray-900'}`}>

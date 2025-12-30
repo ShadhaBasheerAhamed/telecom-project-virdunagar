@@ -382,14 +382,17 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
                    </div>
                 )}
 
-                <button 
-                  onClick={handleProcessSalary} 
-                  disabled={!salaryForm.employeeId}
-                  className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${!salaryForm.employeeId ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-500/20'}`}
-                >
-                    <CheckCircle className="w-5 h-5" /> Confirm & Add to Expenses
-                </button>
-             </div>
+<button 
+  onClick={handleProcessSalary} 
+  disabled={!salaryForm.employeeId}
+  className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg
+    ${!salaryForm.employeeId 
+      ? (isDark ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed') 
+      : (isDark ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200')
+    }`}
+>
+  <CheckCircle className="w-5 h-5" /> Confirm & Add to Expenses
+</button>             </div>
 
              {/* Side Info */}
              <div className={cardClass}>
