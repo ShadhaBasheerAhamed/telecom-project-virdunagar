@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+// Added ChevronDown to imports
 import { Plus, Search, Eye, Edit, Trash2, X, Loader2, ChevronDown } from 'lucide-react';
 import type { DataSource } from '../../types';
 import { LeadModal } from '@/components/modals/LeadModal';
@@ -36,7 +37,7 @@ const generateCustomerId = (): string => {
 export function Leads({ dataSource, theme }: LeadsProps) {
   const isDark = theme === 'dark';
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true); // Added loading state
+  const [loading, setLoading] = useState(true); 
   
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchField, setSearchField] = useState('All');
@@ -114,7 +115,6 @@ export function Leads({ dataSource, theme }: LeadsProps) {
     if (lead.status === newStatus) return;
 
     try {
-      // Logic: Sale -> Open Convert Modal
       if (newStatus === 'Sale') {
         setLeadToConvert(lead);
         setConvertModalOpen(true);
@@ -221,40 +221,42 @@ export function Leads({ dataSource, theme }: LeadsProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
 
-      {/* Dynamic Scrollbar Styles based on Theme */}
+      {/* FIXED SCROLLBAR STYLES: Matches Theme Colors */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 10px;
-          height: 10px;
+          width: 8px;
+          height: 8px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: ${isDark ? '#2d3748' : '#f1f5f9'};
+          background: ${isDark ? '#1a1f2c' : '#f1f5f9'};
           border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: ${isDark ? '#4a5568' : '#cbd5e1'};
+          background: ${isDark ? '#334155' : '#cbd5e1'};
           border-radius: 4px;
-          border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'};
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: ${isDark ? '#718096' : '#94a3b8'};
+          background: ${isDark ? '#475569' : '#94a3b8'};
         }
         .custom-scrollbar {
           scrollbar-width: thin;
-          scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'};
+          scrollbar-color: ${isDark ? '#334155 #1a1f2c' : '#cbd5e1 #f1f5f9'};
         }
       `}</style>
 
       {/* Header & Controls */}
-      {/* Header & Controls */}
-      <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border bg-inherit border-inherit shadow-sm">
+      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border shadow-sm ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
         
         {/* LEFT SIDE: Search Input */}
         <div className="relative w-full md:w-96">
-            <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+            <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
             <input
               type="text"
-              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200 placeholder-slate-500' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
               placeholder={`Search in ${searchField}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -262,15 +264,16 @@ export function Leads({ dataSource, theme }: LeadsProps) {
         </div>
 
         {/* RIGHT SIDE: Filters & Add Button */}
-        <div className="flex gap-3 w-full md:w-auto">
-          
-          {/* ✅ CUSTOM SEARCH FIELD DROPDOWN */}
-          <div className="relative w-full sm:w-auto">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          {/* FIXED: Search Field Selection with Custom Arrow */}
+          <div className="relative">
             <select
               value={searchField}
               onChange={(e) => setSearchField(e.target.value)}
-              className={`w-full sm:w-auto px-4 py-2.5 rounded-md border outline-none text-sm font-medium appearance-none pr-10 cursor-pointer ${
-                isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'
+              className={`appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                  : 'bg-white border-gray-200 text-gray-900'
               }`}
             >
               <option value="All">Search All</option>
@@ -278,17 +281,18 @@ export function Leads({ dataSource, theme }: LeadsProps) {
               <option value="ID">Lead ID</option>
               <option value="Phone">Phone No</option>
             </select>
-            {/* Arrow Icon Line */}
-            <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+            <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
           </div>
 
-          {/* ✅ CUSTOM STATUS FILTER DROPDOWN */}
-          <div className="relative w-full sm:w-auto">
+          {/* FIXED: Status Filter with Custom Arrow */}
+          <div className="relative">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className={`w-full sm:w-auto px-4 py-2.5 rounded-md border outline-none text-sm font-medium appearance-none pr-10 cursor-pointer ${
-                isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'
+              className={`appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                  : 'bg-white border-gray-200 text-gray-900'
               }`}
             >
               <option value="All">All Status</option>
@@ -296,17 +300,16 @@ export function Leads({ dataSource, theme }: LeadsProps) {
               <option value="Rejected">Rejected</option>
               <option value="Sale">Sale</option>
             </select>
-            {/* Arrow Icon Line */}
-            <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+            <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
           </div>
 
-          <button onClick={() => setModalMode('add')} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-md shadow-lg transition-all w-full sm:w-auto">
+          <button onClick={() => setModalMode('add')} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow-lg transition-all">
             <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add Lead</span>
           </button>
         </div>
       </div>
 
-      {/* TABLE CONTAINER - Fixed Height for Vertical Scroll */}
+      {/* TABLE CONTAINER */}
       <div className={`rounded-xl border shadow-lg overflow-hidden flex flex-col ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
         
         {/* Scrollable Area */}
@@ -352,15 +355,16 @@ export function Leads({ dataSource, theme }: LeadsProps) {
                 </tr>
               ) : (
                 filteredLeads.map((lead) => (
-                <tr key={lead.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'}`}>
+                // FIXED: HOVER COLOR. Using solid slate-800 for better sticky column blend in dark mode
+                <tr key={lead.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
                   <td className="px-6 py-4 font-medium border-b border-inherit">{lead.id}</td>
                   <td className="px-6 py-4 font-medium border-b border-inherit">{lead.customerName}</td>
                   <td className="px-6 py-4 border-b border-inherit">{lead.phoneNo}</td>
                   <td className="px-6 py-4 max-w-[200px] truncate border-b border-inherit" title={lead.address}>{lead.address}</td>
                   <td className="px-6 py-4 border-b border-inherit">{lead.followupDate}</td>
 
-                  {/* Sticky Status Action Body */}
-                  <td className={`px-6 py-4 text-center sticky right-[120px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800 group-hover:bg-slate-700/50' : 'bg-white group-hover:bg-gray-50'}`}>
+                  {/* Sticky Status Action Body - Matches group hover */}
+                  <td className={`px-6 py-4 text-center sticky right-[120px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                     <div className="flex items-center justify-center gap-2">
                       {/* Success Button */}
                       <button
@@ -397,8 +401,8 @@ export function Leads({ dataSource, theme }: LeadsProps) {
                     </div>
                   </td>
 
-                  {/* Sticky Options Body */}
-                  <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-inherit ${isDark ? 'bg-slate-800 group-hover:bg-slate-700/50' : 'bg-white group-hover:bg-gray-50'}`}>
+                  {/* Sticky Options Body - Matches group hover */}
+                  <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-inherit ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                     <div className="flex items-center justify-center gap-2">
                       <button onClick={() => { setSelectedLead(lead); setViewModalOpen(true); }} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                       <button onClick={() => { setSelectedLead(lead); setModalMode('edit'); }} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors" title="Edit"><Edit className="w-4 h-4" /></button>

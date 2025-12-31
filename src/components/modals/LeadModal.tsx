@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { Lead } from '../pages/Leads';
 
 interface LeadModalProps {
@@ -10,11 +10,6 @@ interface LeadModalProps {
   onClose: () => void;
   onSave: (lead: Omit<Lead, 'id'> | Lead) => void;
 }
-
-// ✅ HELPER: Capitalize First Letter of Each Word
-const capitalizeWords = (str: string) => {
-  return str.replace(/\b\w/g, char => char.toUpperCase());
-};
 
 export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: LeadModalProps) {
   const isDark = theme === 'dark';
@@ -51,50 +46,31 @@ export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: Le
       onSave(formData);
     }
   };
-  
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-
-      {/* ✅ 1. DYNAMIC SCROLLBAR STYLES ADDED HERE */}
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: ${isDark ? '#1e293b' : '#f1f5f9'};
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: ${isDark ? '#475569' : '#cbd5e1'};
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: ${isDark ? '#64748b' : '#94a3b8'};
-        }
-      `}</style>
-
-      {/* ✅ 2. ADDED 'custom-scrollbar' CLASS TO CONTAINER */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className={`w-full max-w-2xl rounded-xl border ${
         isDark
           ? 'bg-[#1e293b]/95 border-[#334155]'
           : 'bg-white/95 border-gray-200'
-      } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar`}>
+      } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto`}>
         {/* Header */}
-        <div className={`flex items-center justify-between p-6 border-b sticky top-0 z-10 backdrop-blur-md ${
-          isDark ? 'bg-[#1e293b]/90 border-[#334155]' : 'bg-white/90 border-gray-200'
-        }`}>
-          <h2 className={`text-xl md:text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        <div className="flex items-center justify-between p-6 border-b border-inherit sticky top-0 bg-inherit">
+          <h2 className={`text-2xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
             {mode === 'add' ? 'Create New Lead' : 'Edit Lead'}
           </h2>
-          <button onClick={onClose} className={`p-2 rounded-lg transition-all ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-lg transition-all ${
+              isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'
+            }`}
+          >
             <X className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
           </button>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* ✅ Responsive Grid: Mobile-1 col, Desktop-2 cols */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Customer Name */}
             <div>
@@ -105,7 +81,7 @@ export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: Le
                 type="text"
                 required
                 value={formData.customerName}
-                onChange={(e) => setFormData({ ...formData, customerName: capitalizeWords(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -143,7 +119,7 @@ export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: Le
                 type="text"
                 required
                 value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: capitalizeWords(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
@@ -221,7 +197,7 @@ export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: Le
               <textarea
                 rows={4}
                 value={formData.remarks}
-                onChange={(e) => setFormData({ ...formData, remarks: capitalizeWords(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark
                     ? 'bg-[#0F172A] border-[#334155] text-white'
