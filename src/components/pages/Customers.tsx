@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-// Added ChevronDown for the custom select style
 import { Plus, Search, Eye, Edit, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import type { DataSource } from '../../types';
 import { CustomerModal } from '@/components/modals/CustomerModal';
@@ -146,7 +145,7 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* FIXED SCROLLBAR STYLES: Matches Master Template */}
+      {/* FIXED SCROLLBAR STYLES: Matches Master Template (8px) */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 8px;
@@ -244,7 +243,8 @@ export function Customers({ dataSource, theme }: CustomersProps) {
         
         {/* Scrollable Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-          <table className="w-full text-sm text-left border-separate border-spacing-0">
+          {/* UPDATED: Added whitespace-nowrap to match Leads page width/row height */}
+          <table className="w-full text-sm text-left border-separate border-spacing-0 whitespace-nowrap">
             <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
               <tr>
                 <th className="px-6 py-4 min-w-[180px] border-b border-inherit bg-inherit">ID</th>
@@ -256,13 +256,13 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                 <th className="px-6 py-4 min-w-[120px] border-b border-inherit bg-inherit">OTT</th>
                 <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Install Date</th>
                 
-                {/* Fixed Status Column Header */}
-                <th className={`px-6 py-4 text-center min-w-[120px] sticky right-[110px] z-40 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+                {/* Fixed Status Column Header - Updated to right-[120px] to match Options width */}
+                <th className={`px-6 py-4 text-center min-w-[120px] sticky right-[120px] z-40 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
                   Status
                 </th>
                 
-                {/* Fixed Options Column Header */}
-                <th className={`px-6 py-4 text-center min-w-[110px] sticky right-0 z-40 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+                {/* Fixed Options Column Header - Updated to min-w-[120px] to match Leads */}
+                <th className={`px-6 py-4 text-center min-w-[120px] sticky right-0 z-40 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
                   Options
                 </th>
               </tr>
@@ -298,16 +298,17 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                   <td className={`px-6 py-4 text-xs font-bold border-b border-inherit ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{customer.ottSubscription || '-'}</td>
                   <td className="px-6 py-4 border-b border-inherit">{customer.installationDate}</td>
 
-                  {/* Sticky Status Column Body */}
-                  <td className={`px-6 py-4 text-center sticky right-[110px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
+                  {/* Sticky Status Column Body - Position updated to right-[120px] */}
+                  <td className={`px-6 py-4 text-center sticky right-[120px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                     <button
                       onClick={() => handleStatusToggle(customer.id, customer.status)}
                       disabled={updatingStatus === customer.id}
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold transition-all border ${
                         customer.status === 'Active'
-                          ? 'bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20'
-                          : 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20'
-                      }`}
+                          ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20'
+                          : 'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
+                      } ${updatingStatus === customer.id ? 'opacity-70 cursor-wait' : 'hover:scale-105'}`}
+                      title="Click to toggle status"
                     >
                       {updatingStatus === customer.id ? (
                         <div className="flex items-center gap-1">
