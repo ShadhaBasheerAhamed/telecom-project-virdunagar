@@ -110,7 +110,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
               : 'bg-white border-gray-300 text-gray-900 hover:border-cyan-500'
           } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
-          <span className="truncate pr-2">{displayValue}</span>
+          <span className={`truncate pr-2 ${!selectedOption ? 'text-gray-500' : ''}`}>{displayValue}</span>
           <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
         </div>
 
@@ -161,10 +161,11 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
 
   return (
     <>
+      {/* SCROLLBAR STYLES: Matched to Master Template (8px) */}
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'}; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'}; border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'}; }
       `}</style>
 
@@ -174,7 +175,9 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
           {/* Header */}
           <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-[#334155]' : 'border-gray-200'}`}>
             <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{mode === 'add' ? 'New Customer Registration' : 'Edit Customer Details'}</h2>
-            <button onClick={onClose}><X className={`w-6 h-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} /></button>
+            <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
+                <X className={`w-6 h-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+            </button>
           </div>
 
           {/* Form Content */}
@@ -185,11 +188,11 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
               <div>
                 <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-cyan-400 border-cyan-500/20' : 'text-cyan-700 border-cyan-200'}`}>Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div><label className={labelClasses}>Customer Name *</label><input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={textInputClass} /></div>
-                  <div><label className={labelClasses}>Mobile No *</label><input type="tel" required value={formData.mobileNo} onChange={e => setFormData({...formData, mobileNo: e.target.value})} className={textInputClass} /></div>
-                  <div><label className={labelClasses}>Alt. Mobile</label><input type="tel" value={formData.altMobileNo} onChange={e => setFormData({...formData, altMobileNo: e.target.value})} className={textInputClass} /></div>
+                  <div><label className={labelClasses}>Customer Name *</label><input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={textInputClass} placeholder="Enter name" /></div>
+                  <div><label className={labelClasses}>Mobile No *</label><input type="tel" required value={formData.mobileNo} onChange={e => setFormData({...formData, mobileNo: e.target.value})} className={textInputClass} placeholder="10-digit number" /></div>
+                  <div><label className={labelClasses}>Alt. Mobile</label><input type="tel" value={formData.altMobileNo} onChange={e => setFormData({...formData, altMobileNo: e.target.value})} className={textInputClass} placeholder="Optional" /></div>
                   <div><label className={labelClasses}>Landline (Unique ID) *</label><input type="text" required value={formData.landline} onChange={e => setFormData({...formData, landline: e.target.value})} className={textInputClass} placeholder="04562-xxxxxx" /></div>
-                  <div><label className={labelClasses}>Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={textInputClass} /></div>
+                  <div><label className={labelClasses}>Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={textInputClass} placeholder="email@example.com" /></div>
                   <div><label className={labelClasses}>Install Date</label><input type="date" value={formData.installationDate} onChange={e => setFormData({...formData, installationDate: e.target.value})} className={textInputClass} /></div>
                 </div>
               </div>
@@ -202,8 +205,8 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
                   <CustomSelect label="Plan" value={formData.plan} onChange={(val: any) => setFormData({...formData, plan: val})} options={plans} required={true} placeholder="Select Plan" />
                   <CustomSelect label="OLT IP" value={formData.oltIp} onChange={(val: any) => setFormData({...formData, oltIp: val})} options={oltIps} placeholder="Select OLT IP" />
                   
-                  <div><label className={labelClasses}>BB ID / User ID</label><input type="text" value={formData.bbId} onChange={e => setFormData({...formData, bbId: e.target.value})} className={textInputClass} /></div>
-                  <div><label className={labelClasses}>VLAN ID</label><input type="text" value={formData.vlanId} onChange={e => setFormData({...formData, vlanId: e.target.value})} className={textInputClass} /></div>
+                  <div><label className={labelClasses}>BB ID / User ID</label><input type="text" value={formData.bbId} onChange={e => setFormData({...formData, bbId: e.target.value})} className={textInputClass} placeholder="Broadband ID" /></div>
+                  <div><label className={labelClasses}>VLAN ID</label><input type="text" value={formData.vlanId} onChange={e => setFormData({...formData, vlanId: e.target.value})} className={textInputClass} placeholder="VLAN ID" /></div>
                   
                   <CustomSelect label="OTT Subscription" value={formData.ottSubscription} onChange={(val: any) => setFormData({...formData, ottSubscription: val})} options={otts} placeholder="Select OTT" />
                   <CustomSelect label="Status" value={formData.status} onChange={(val: any) => setFormData({...formData, status: val})} options={['Active', 'Inactive', 'Suspended', 'Expired']} />
@@ -218,12 +221,12 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
                   <CustomSelect label="ONT Type" value={formData.ontType} onChange={(val: any) => setFormData({...formData, ontType: val})} options={ontTypes} placeholder="Select Type" />
                   <CustomSelect label="ONT Mac" value={formData.ontMacAddress} onChange={(val: any) => setFormData({...formData, ontMacAddress: val})} options={ontMacs} placeholder="Select MAC" />
                   
-                  <div><label className={labelClasses}>Bill No</label><input type="text" value={formData.ontBillNo} onChange={e => setFormData({...formData, ontBillNo: e.target.value})} className={textInputClass} /></div>
+                  <div><label className={labelClasses}>Bill No</label><input type="text" value={formData.ontBillNo} onChange={e => setFormData({...formData, ontBillNo: e.target.value})} className={textInputClass} placeholder="Bill #" /></div>
                   
                   <CustomSelect label="ONT Status" value={formData.ont} onChange={(val: any) => setFormData({...formData, ont: val})} options={['Paid ONT', 'Free ONT', 'Offer Price', 'Rented ONT']} />
                   
                   {formData.ont === 'Offer Price' && (
-                       <div><label className={labelClasses}>Offer Price (₹)</label><input type="number" value={formData.offerPrize} onChange={e => setFormData({...formData, offerPrize: e.target.value})} className={textInputClass} /></div>
+                        <div><label className={labelClasses}>Offer Price (₹)</label><input type="number" value={formData.offerPrize} onChange={e => setFormData({...formData, offerPrize: e.target.value})} className={textInputClass} /></div>
                   )}
 
                   <CustomSelect label="Router Make" value={formData.routerMake} onChange={(val: any) => setFormData({...formData, routerMake: val})} options={routerMakes} placeholder="Select Router" />
@@ -236,7 +239,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
 
           {/* Footer */}
           <div className={`p-6 border-t flex justify-end gap-3 ${isDark ? 'border-[#334155] bg-[#1e293b]' : 'border-gray-200 bg-gray-50'} rounded-b-2xl`}>
-            <button onClick={onClose} className={`px-6 py-2.5 rounded-xl font-bold transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-white border hover:bg-gray-50 text-gray-700'}`}>Cancel</button>
+            <button onClick={onClose} type="button" className={`px-6 py-2.5 rounded-xl font-bold transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-white border hover:bg-gray-50 text-gray-700'}`}>Cancel</button>
             <button form="customerForm" type="submit" disabled={loading} className="px-8 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg transition-all flex items-center gap-2">
               {loading && <Loader2 className="w-4 h-4 animate-spin" />} Save Details
             </button>

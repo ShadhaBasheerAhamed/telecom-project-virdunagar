@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
+// Added ChevronDown for the custom select style
+import { Plus, Search, Eye, Edit, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import type { DataSource } from '../../types';
 import { CustomerModal } from '@/components/modals/CustomerModal';
 import { DeleteConfirmModal } from '@/components/modals/DeleteConfirmModal';
@@ -28,6 +29,9 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
+  
+  // Status updating loading state
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   // 1. Load Customers from Firebase
   const fetchCustomers = async () => {
@@ -90,8 +94,6 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   };
 
   // 5. Toggle Customer Status
-  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  
   const handleStatusToggle = async (customerId: string, currentStatus: string) => {
     if (updatingStatus === customerId) return;
     
@@ -144,119 +146,135 @@ export function Customers({ dataSource, theme }: CustomersProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* Dynamic Scrollbar Styles based on Theme */}
+      {/* FIXED SCROLLBAR STYLES: Matches Master Template */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 10px;
-          height: 10px;
+          width: 8px;
+          height: 8px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: ${isDark ? '#2d3748' : '#f1f5f9'};
+          background: ${isDark ? '#1a1f2c' : '#f1f5f9'};
           border-radius: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: ${isDark ? '#4a5568' : '#cbd5e1'};
+          background: ${isDark ? '#334155' : '#cbd5e1'};
           border-radius: 4px;
-          border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'};
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: ${isDark ? '#718096' : '#94a3b8'};
+          background: ${isDark ? '#475569' : '#94a3b8'};
         }
         .custom-scrollbar {
           scrollbar-width: thin;
-          scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'};
+          scrollbar-color: ${isDark ? '#334155 #1a1f2c' : '#cbd5e1 #f1f5f9'};
         }
       `}</style>
 
-      {/* Header Section */}
-      <div className="mb-6">
-        <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Customer Management {dataSource !== 'All' && `(${dataSource})`}
-        </h1>
+      {/* Header & Controls - Mobile Responsive */}
+      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border shadow-sm ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
         
-        <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
-          
-          <div className="relative w-full md:w-96">
-            <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+        {/* LEFT SIDE: Search Input */}
+        <div className="relative w-full md:w-96">
+            <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
             <input
               type="text"
-              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200 placeholder-slate-500' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
               placeholder={`Search in ${searchField}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+        </div>
 
-          <div className="flex gap-3 w-full md:w-auto">
+        {/* RIGHT SIDE: Filters & Add Button */}
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          
+           {/* Search Field Selection */}
+           <div className="relative flex-1 md:flex-none">
             <select
               value={searchField}
               onChange={(e) => setSearchField(e.target.value)}
-              className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+              className={`w-full md:w-auto appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
             >
               <option value="All">All Fields</option>
               <option value="Name">Name</option>
               <option value="Landline">Landline</option>
               <option value="OLT">OLT IP</option>
             </select>
+            <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
+          </div>
 
+          {/* Status Filter */}
+          <div className="relative flex-1 md:flex-none">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className={`px-4 py-2.5 rounded-md border outline-none text-sm font-medium ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+              className={`w-full md:w-auto appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
             >
               <option value="All">All Status</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
               <option value="Suspended">Suspended</option>
             </select>
-
-            <button
-              onClick={() => setModalMode('add')}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md shadow-lg transition-all"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Customer</span>
-            </button>
+            <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
           </div>
+
+          <button
+            onClick={() => setModalMode('add')}
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow-lg transition-all w-full md:w-auto"
+          >
+            <Plus className="h-4 w-4" /> 
+            <span>Add Customer</span>
+          </button>
         </div>
       </div>
 
-      {/* TABLE CONTAINER - Fixed Height for Vertical Scroll */}
-      <div className={`w-full rounded-lg border shadow-xl overflow-hidden flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+      {/* TABLE CONTAINER - Fixed Height */}
+      <div className={`rounded-xl border shadow-lg overflow-hidden flex flex-col ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
         
         {/* Scrollable Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-          <table className="w-full whitespace-nowrap text-left text-sm border-separate border-spacing-0">
-            <thead className={`font-semibold uppercase tracking-wider sticky top-0 z-40 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+          <table className="w-full text-sm text-left border-separate border-spacing-0">
+            <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
               <tr>
-                <th className="px-6 py-4 min-w-[180px] border-b border-gray-200 dark:border-gray-700 bg-inherit">ID</th>
-                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Landline</th>
-                <th className="px-6 py-4 min-w-[250px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Name</th>
-                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Mobile</th>
-                <th className="px-6 py-4 min-w-[180px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Plan</th>
-                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">OLT IP</th>
-                <th className="px-6 py-4 min-w-[120px] border-b border-gray-200 dark:border-gray-700 bg-inherit">OTT</th>
-                <th className="px-6 py-4 min-w-[140px] border-b border-gray-200 dark:border-gray-700 bg-inherit">Install Date</th>
+                <th className="px-6 py-4 min-w-[180px] border-b border-inherit bg-inherit">ID</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Landline</th>
+                <th className="px-6 py-4 min-w-[250px] border-b border-inherit bg-inherit">Name</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Mobile</th>
+                <th className="px-6 py-4 min-w-[180px] border-b border-inherit bg-inherit">Plan</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">OLT IP</th>
+                <th className="px-6 py-4 min-w-[120px] border-b border-inherit bg-inherit">OTT</th>
+                <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Install Date</th>
                 
                 {/* Fixed Status Column Header */}
-                <th className={`px-6 py-4 min-w-[120px] sticky right-[110px] z-40 border-b border-gray-200 dark:border-gray-700 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
+                <th className={`px-6 py-4 text-center min-w-[120px] sticky right-[110px] z-40 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
                   Status
                 </th>
                 
                 {/* Fixed Options Column Header */}
-                <th className={`px-6 py-4 min-w-[110px] text-center sticky right-0 z-40 border-b border-gray-200 dark:border-gray-700 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>
+                <th className={`px-6 py-4 text-center min-w-[110px] sticky right-0 z-40 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
                   Options
                 </th>
               </tr>
             </thead>
             
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+            <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
               {loading ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                      <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading customers from database...</p>
+                      <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading customers...</p>
                     </div>
                   </td>
                 </tr>
@@ -270,32 +288,30 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                 </tr>
               ) : (
                 filteredCustomers.map((customer) => (
-                <tr key={customer.id} className={`group hover:${isDark ? 'bg-[#2d3546]' : 'bg-blue-50'} transition-colors`}>
-                  <td className={`px-6 py-4 font-medium border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.id}</td>
-                  <td className={`px-6 py-4 border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{customer.landline}</td>
-                  <td className={`px-6 py-4 font-medium border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.name}</td>
-                  <td className="px-6 py-4 border-b border-gray-100 dark:border-gray-800">{customer.mobileNo}</td>
-                  <td className={`px-6 py-4 font-medium border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{customer.plan}</td>
-                  <td className="px-6 py-4 font-mono text-xs border-b border-gray-100 dark:border-gray-800">{customer.oltIp}</td>
-                  <td className={`px-6 py-4 text-xs font-bold border-b border-gray-100 dark:border-gray-800 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{customer.ottSubscription || '-'}</td>
-                  <td className="px-6 py-4 border-b border-gray-100 dark:border-gray-800">{customer.installationDate}</td>
+                <tr key={customer.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
+                  <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.id}</td>
+                  <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>{customer.landline}</td>
+                  <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.name}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{customer.mobileNo}</td>
+                  <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{customer.plan}</td>
+                  <td className="px-6 py-4 font-mono text-xs border-b border-inherit">{customer.oltIp}</td>
+                  <td className={`px-6 py-4 text-xs font-bold border-b border-inherit ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{customer.ottSubscription || '-'}</td>
+                  <td className="px-6 py-4 border-b border-inherit">{customer.installationDate}</td>
 
                   {/* Sticky Status Column Body */}
-                  <td className={`px-6 py-4 sticky right-[110px] z-20 border-b border-gray-100 dark:border-gray-800 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-blue-50'}`}>
+                  <td className={`px-6 py-4 text-center sticky right-[110px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                     <button
                       onClick={() => handleStatusToggle(customer.id, customer.status)}
                       disabled={updatingStatus === customer.id}
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 hover:shadow-md ${
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                         customer.status === 'Active'
-                          ? 'bg-green-900/30 text-green-400 border-green-800 hover:bg-green-800/50'
-                          : 'bg-red-900/30 text-red-400 border-red-800 hover:bg-red-800/50'
-                      } ${updatingStatus === customer.id ? 'cursor-wait' : 'cursor-pointer'}`}
-                      title={`Click to change status to ${customer.status === 'Active' ? 'Inactive' : 'Active'}`}
+                          ? 'bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20'
+                          : 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20'
+                      }`}
                     >
                       {updatingStatus === customer.id ? (
                         <div className="flex items-center gap-1">
                           <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Updating...</span>
                         </div>
                       ) : (
                         customer.status
@@ -304,11 +320,11 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                   </td>
 
                   {/* Sticky Options Column Body */}
-                  <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-gray-100 dark:border-gray-800 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-blue-50'}`}>
-                    <div className="flex items-center justify-center gap-3">
-                      <button onClick={() => { setSelectedCustomer(customer); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 p-1"><Eye className="h-4 w-4" /></button>
-                      <button onClick={() => { setSelectedCustomer(customer); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 p-1"><Edit className="h-4 w-4" /></button>
-                      <button onClick={() => { setSelectedCustomer(customer); setDeleteModalOpen(true); }} className="text-red-400 hover:text-red-300 p-1"><Trash2 className="h-4 w-4" /></button>
+                  <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-inherit ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
+                    <div className="flex items-center justify-center gap-2">
+                      <button onClick={() => { setSelectedCustomer(customer); setViewModalOpen(true); }} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                      <button onClick={() => { setSelectedCustomer(customer); setModalMode('edit'); }} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors" title="Edit"><Edit className="w-4 h-4" /></button>
+                      <button onClick={() => { setSelectedCustomer(customer); setDeleteModalOpen(true); }} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -318,8 +334,10 @@ export function Customers({ dataSource, theme }: CustomersProps) {
         </div>
         
         {/* Footer */}
-        <div className={`px-6 py-3 border-t text-xs font-medium uppercase tracking-wide ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
-            Total Customers: {filteredCustomers.length}
+        <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-slate-700 bg-slate-900 text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+            <div className="text-sm">
+                Total Customers: {filteredCustomers.length}
+            </div>
         </div>
       </div>
 
