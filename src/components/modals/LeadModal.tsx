@@ -49,18 +49,41 @@ export function LeadModal({ mode, lead, theme, dataSource, onClose, onSave }: Le
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      
+      {/* Dynamic Scrollbar CSS based on Theme */}
+      <style>{`
+        .custom-modal-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-modal-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-modal-scrollbar::-webkit-scrollbar-thumb {
+          background-color: ${isDark ? '#475569' : '#cbd5e1'};
+          border-radius: 20px;
+          border: 2px solid transparent;
+          background-clip: content-box;
+        }
+        .custom-modal-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: ${isDark ? '#64748b' : '#94a3b8'};
+        }
+      `}</style>
+
+      {/* Added 'custom-modal-scrollbar' class here */}
       <div className={`w-full max-w-2xl rounded-xl border ${
         isDark
           ? 'bg-[#1e293b]/95 border-[#334155]'
           : 'bg-white/95 border-gray-200'
-      } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto`}>
+      } backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto custom-modal-scrollbar`}>
+        
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-inherit sticky top-0 bg-inherit">
+        <div className="flex items-center justify-between p-6 border-b border-inherit sticky top-0 bg-inherit z-10">
           <h2 className={`text-2xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
             {mode === 'add' ? 'Create New Lead' : 'Edit Lead'}
           </h2>
           <button
             onClick={onClose}
+            type="button"
             className={`p-2 rounded-lg transition-all ${
               isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'
             }`}
