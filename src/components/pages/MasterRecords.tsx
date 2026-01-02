@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit, Trash2, Plus, 
   Users, Briefcase, UserCheck, Building2, 
-  Router, HardDrive, FileText, Network, Server, Loader2, Cpu, Tv
+  Router, HardDrive, FileText, Network, Server, Loader2, Cpu, Tv, ChevronDown 
 } from 'lucide-react';
 import { MasterRecordModal } from '@/components/modals/MasterRecordModal';
 import { MasterRecordService } from '@/services/masterRecordService';
@@ -150,10 +150,10 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
         return [
           { header: 'ID', accessor: 'id' },
           { header: 'Name', accessor: 'name', render: (row: any) => <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{row.name}</span> },
-          { header: 'Role', accessor: 'role', render: (row: any) => <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-bold">{row.role || 'Staff'}</span> },
-          { header: 'Basic Salary', accessor: 'salary', render: (row: any) => <span className="font-mono">₹{row.salary || 0}</span> },
+          { header: 'Role', accessor: 'role', render: (row: any) => <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-xs font-bold border border-blue-500/20">{row.role || 'Staff'}</span> },
+          { header: 'Basic Salary', accessor: 'salary', render: (row: any) => <span className="font-mono text-green-500">₹{row.salary || 0}</span> },
           { header: 'Phone', accessor: 'mobile' },
-          { header: 'Address', accessor: 'address', render: (row: any) => <span className="truncate max-w-[150px] block">{row.address}</span> },
+          { header: 'Address', accessor: 'address', render: (row: any) => <span className="truncate max-w-[150px] block" title={row.address}>{row.address}</span> },
           { header: 'Aadhaar', accessor: 'aadhaar' },
         ];
       
@@ -188,38 +188,35 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* ✅ SCROLLBAR STYLES
-          - Includes both Horizontal (x) for Tabs
-          - And Vertical (y) for Table
-      */}
+      {/* SCROLLBAR STYLES - Matches Payment Page Exactly (8px) */}
       <style>{`
-        /* Tabs (Horizontal) */
-        .custom-scrollbar-x::-webkit-scrollbar { height: 6px; }
-        .custom-scrollbar-x::-webkit-scrollbar-track { background: ${isDark ? '#2d3748' : '#f1f5f9'}; border-radius: 4px; }
-        .custom-scrollbar-x::-webkit-scrollbar-thumb { background: ${isDark ? '#4a5568' : '#cbd5e1'}; border-radius: 4px; }
-        .custom-scrollbar-x::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#718096' : '#94a3b8'}; }
+        /* Horizontal Scrollbar (Tabs) */
+        .custom-scrollbar-x::-webkit-scrollbar { height: 8px; }
+        .custom-scrollbar-x::-webkit-scrollbar-track { background: ${isDark ? '#1a1f2c' : '#f1f5f9'}; border-radius: 4px; }
+        .custom-scrollbar-x::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'}; border-radius: 4px; }
+        .custom-scrollbar-x::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'}; }
 
-        /* Table (Vertical) */
-        .custom-scrollbar-y::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar-y::-webkit-scrollbar-track { background: ${isDark ? '#2d3748' : '#f1f5f9'}; border-radius: 4px; }
-        .custom-scrollbar-y::-webkit-scrollbar-thumb { background: ${isDark ? '#4a5568' : '#cbd5e1'}; border-radius: 4px; }
-        .custom-scrollbar-y::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#718096' : '#94a3b8'}; }
+        /* Vertical Scrollbar (Table) */
+        .custom-scrollbar-y::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar-y::-webkit-scrollbar-track { background: ${isDark ? '#1a1f2c' : '#f1f5f9'}; border-radius: 4px; }
+        .custom-scrollbar-y::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'}; border-radius: 4px; }
+        .custom-scrollbar-y::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'}; }
       `}</style>
 
-      <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Master Records</h1>
+      <h1 className={`text-3xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Master Records</h1>
 
       {/* TABS NAVIGATION - SCROLLABLE */}
       <div className="mb-6 w-full overflow-x-auto pb-2 custom-scrollbar-x">
-        <div className={`p-1 rounded-lg inline-flex border min-w-max ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className={`p-1 rounded-xl inline-flex border min-w-max ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }} 
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-blue-600 text-white shadow-lg'
+                  ? 'bg-blue-600 text-white shadow-md'
                   : isDark
-                    ? 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                    ? 'text-gray-400 hover:text-white hover:bg-slate-700/50'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
@@ -231,60 +228,71 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
       </div>
 
       {/* CONTROLS */}
-      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border shadow-sm ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
         
+        {/* Search Input */}
         <div className="relative w-full md:w-96">
-          <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+          <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
           <input
             type="text"
-            className={`block w-full pl-10 pr-3 py-2.5 border rounded-md outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-900'}`}
+            className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200 placeholder-slate-500' 
+                  : 'bg-white border-gray-200 text-gray-900'
+            }`}
             placeholder={`Search ${tabs.find(t => t.id === activeTab)?.label}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="flex gap-3 w-full md:w-auto">
-          <div className="relative">
+        {/* Filter & Add Button */}
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:flex-none">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`appearance-none py-2.5 px-4 pr-8 rounded-md outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium min-w-[140px] border ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300 text-gray-900'}`}
+              className={`w-full md:w-auto appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
             >
               <option value="All">All Status</option>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
-            <Filter className="absolute right-2 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
+            <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
           </div>
 
           <button 
             onClick={handleAddRecord}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg"
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow-lg transition-all w-full md:w-auto"
           >
             <Plus className="h-4 w-4" />
-            <span>Add {tabs.find(t => t.id === activeTab)?.label}</span>
+            <span className="hidden sm:inline">Add {tabs.find(t => t.id === activeTab)?.label}</span>
           </button>
         </div>
       </div>
 
-      {/* ✅ TABLE with FIXED HEADER and SCROLLABLE BODY */}
+      {/* TABLE CONTAINER - Fixed Height */}
       <div 
-        className={`w-full rounded-lg border shadow-xl flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`}
-        style={{ height: 'calc(100vh - 240px)' }} // Fixed height for scrolling
+        className={`rounded-xl border shadow-lg overflow-hidden flex flex-col ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`}
+        style={{ height: 'calc(100vh - 220px)' }}
       >
         <div className="flex-1 overflow-auto custom-scrollbar-y relative">
-          <table className="w-full whitespace-nowrap text-left text-sm border-separate border-spacing-0">
-            <thead className={`font-bold uppercase tracking-wider sticky top-0 z-30 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+          <table className="w-full text-sm text-left border-separate border-spacing-0 whitespace-nowrap">
+            <thead className={`uppercase font-bold sticky top-0 z-30 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
               <tr>
                 {getColumns().map((col, idx) => (
                   <th key={idx} className="px-6 py-4 border-b border-inherit bg-inherit">{col.header}</th>
                 ))}
-                <th className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-30 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Status</th>
-                <th className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-30 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Options</th>
+                <th className={`px-6 py-4 text-center min-w-[120px] sticky right-[110px] z-30 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>Status</th>
+                <th className={`px-6 py-4 text-center min-w-[110px] sticky right-0 z-30 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>Options</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+            
+            <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
               {loading ? (
                  <tr>
                   <td colSpan={10} className="py-12 text-center">
@@ -296,34 +304,38 @@ export const MasterRecords = ({ dataSource, theme }: MasterRecordsProps) => {
                 </tr>
               ) : currentData.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-10 text-center text-gray-500">
-                    {searchQuery 
-                        ? `No records found matching "${searchQuery}"`
-                        : "No records found. Add a new record to get started."}
+                  <td colSpan={10} className="py-12 text-center">
+                    <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {searchQuery ? `No records found matching "${searchQuery}"` : "No records found. Add a new record to get started."}
+                    </p>
                   </td>
                 </tr>
               ) : (
                 currentData.map((row, index) => (
-                  <tr key={index} className={`transition-colors group ${isDark ? 'hover:bg-[#2d3546]' : 'hover:bg-gray-50'}`}>
+                  <tr key={index} className={`transition-colors group ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
                     {getColumns().map((col, colIdx) => (
                       <td key={colIdx} className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>
                         {col.render ? col.render(row) : row[col.accessor]}
                       </td>
                     ))}
-                    <td className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                    
+                    {/* Sticky Status Column Body */}
+                    <td className={`px-6 py-4 text-center sticky right-[110px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                         row.status === 'Active' 
-                        ? 'bg-green-500/10 text-green-500 border-green-500/20' 
-                        : 'bg-red-500/10 text-red-500 border-red-500/20'
+                          ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                          : 'bg-red-500/10 text-red-500 border-red-500/20'
                       }`}>
                         {row.status}
                       </span>
                     </td>
-                    <td className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-20 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
+
+                    {/* Sticky Options Column Body */}
+                    <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-inherit ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleViewRecord(row)} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded"><Eye className="h-4 w-4" /></button>
-                        <button onClick={() => handleEditRecord(row)} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded"><Edit className="h-4 w-4" /></button>
-                        <button onClick={() => { setSelectedRecord(row); setIsDeleteModalOpen(true); }} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"><Trash2 className="h-4 w-4" /></button>
+                        <button onClick={() => handleViewRecord(row)} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded transition-colors" title="View"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => handleEditRecord(row)} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors" title="Edit"><Edit className="h-4 w-4" /></button>
+                        <button onClick={() => { setSelectedRecord(row); setIsDeleteModalOpen(true); }} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors" title="Delete"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>

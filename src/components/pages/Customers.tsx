@@ -290,7 +290,7 @@ export function Customers({ dataSource, theme }: CustomersProps) {
                 filteredCustomers.map((customer) => (
                 <tr key={customer.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
                   <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.id}</td>
-                  <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>{customer.landline}</td>
+                  <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-white-300' : 'text-black-900'}`}>{customer.landline}</td>
                   <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{customer.name}</td>
                   <td className="px-6 py-4 border-b border-inherit">{customer.mobileNo}</td>
                   <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{customer.plan}</td>

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   TrendingUp, TrendingDown, DollarSign, Calendar, Plus, 
-  Users, Zap, FileText, CheckCircle, AlertCircle, Trash2 
+  Users, FileText, CheckCircle, AlertCircle, Trash2, ChevronDown, Check 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, Timestamp, getDocs } from 'firebase/firestore';
@@ -22,7 +22,7 @@ interface Employee {
   id: string;
   name: string;
   role: string;
-  salary: number; // Matches the field in Master Records
+  salary: number;
 }
 
 export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
@@ -34,8 +34,9 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
   // Financials
   const [totalSalesIncome, setTotalSalesIncome] = useState(0);
   const [totalRechargeIncome, setTotalRechargeIncome] = useState(0);
+  const [totalPurchaseCost, setTotalPurchaseCost] = useState(0);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]); // ✅ Real Employees
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Forms
@@ -46,28 +47,22 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
   useEffect(() => {
     setLoading(true);
     
-    // A. Fetch Employees from Master Records (Collection: 'employee')
+    // A. Fetch Employees
     const fetchEmployees = async () => {
         try {
-            const querySnapshot = await getDocs(collection(db, 'employees')); // ✅ Fetching from 'employee' collection
-            const empList = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as any[];
-            // Map fields if necessary (ensure salary exists)
+            const querySnapshot = await getDocs(collection(db, 'employees'));
+            const empList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
             setEmployees(empList.map(e => ({
                 id: e.id,
                 name: e.name,
                 role: e.role || 'Staff',
-                salary: Number(e.salary) || 0 // Ensure number
+                salary: Number(e.salary) || 0
             })));
-        } catch (error) {
-            console.error("Error fetching employees:", error);
-        }
+        } catch (error) { console.error("Error fetching employees:", error); }
     };
     fetchEmployees();
 
-    // B. Real-time Listeners for Month Data
+    // B. Real-time Listeners
     const startOfMonth = `${currentMonth}-01`;
     const endOfMonth = `${currentMonth}-31`;
 
@@ -82,14 +77,13 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
     const unsubExpenses = onSnapshot(expenseQuery, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExpenseRecord));
       setExpenses(data);
-    }, (err) => console.log("Expense permission/index error:", err));
+    });
 
-    // 2. Sales Income (Calculated locally for simplicity)
+    // 2. Sales Income
     const unsubSales = onSnapshot(query(collection(db, 'sales')), (snapshot) => {
       let total = 0;
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        // Check date match (Supports YYYY-MM-DD)
         if (data.date && String(data.date).includes(currentMonth)) {
             total += Number(data.totalAmount) || 0;
         }
@@ -102,12 +96,23 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
       let total = 0;
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        // Check date match
         if (data.paidDate && String(data.paidDate).includes(currentMonth) && data.status === 'Paid') {
              total += Number(data.billAmount) || 0;
         }
       });
       setTotalRechargeIncome(total);
+    });
+
+    // 4. Purchases Cost (Inventory)
+    const unsubPurchases = onSnapshot(query(collection(db, 'purchases')), (snapshot) => {
+      let total = 0;
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.date && String(data.date).includes(currentMonth)) {
+             total += Number(data.totalCost) || 0;
+        }
+      });
+      setTotalPurchaseCost(total);
       setLoading(false);
     });
 
@@ -115,13 +120,14 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
       unsubExpenses();
       unsubSales();
       unsubPayments();
+      unsubPurchases();
     };
   }, [currentMonth]);
 
   // --- CALCULATIONS ---
   const totalIncome = totalSalesIncome + totalRechargeIncome;
-  const totalExpenses = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
-  const netProfit = totalIncome - totalExpenses;
+  const totalExpenseValue = expenses.reduce((sum, item) => sum + Number(item.amount), 0) + totalPurchaseCost;
+  const netProfit = totalIncome - totalExpenseValue;
   const isProfit = netProfit >= 0;
 
   // --- HANDLERS ---
@@ -130,7 +136,6 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
     if (!expenseForm.amount || !expenseForm.description) return toast.error("Please fill all details");
 
     try {
-      // ✅ Creates 'expenses' collection if not exists
       await addDoc(collection(db, 'expenses'), {
         category: expenseForm.category,
         amount: parseFloat(expenseForm.amount),
@@ -141,7 +146,6 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
       toast.success("Expense Added!");
       setExpenseForm({ ...expenseForm, amount: '', description: '' });
     } catch (err) {
-      console.error(err);
       toast.error("Failed to add expense");
     }
   };
@@ -181,55 +185,137 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
     }
   };
 
+  // --- CUSTOM SELECT COMPONENT ---
+  const CustomSelect = ({ label, value, onChange, options, placeholder = "Select..." }: any) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const selectedLabel = options.find((opt: any) => opt.value === value)?.label || value;
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">{label}</label>
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm font-medium flex items-center justify-between cursor-pointer transition-all ${
+                    isDark ? 'bg-[#0f172a] border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-gray-900'
+                }`}
+            >
+                <span>{selectedLabel || placeholder}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''} text-gray-500`} />
+            </div>
+
+            {isOpen && (
+                <div className={`absolute z-50 w-full mt-1 rounded-lg border shadow-xl max-h-48 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100 ${
+                    isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'
+                }`}>
+                    {options.map((opt: any, idx: number) => (
+                        <div
+                            key={idx}
+                            onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                            className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${
+                                value === opt.value 
+                                    ? (isDark ? 'bg-blue-600/20 text-blue-400' : 'bg-blue-50 text-blue-600')
+                                    : (isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-gray-700 hover:bg-gray-50')
+                            }`}
+                        >
+                            <span>{opt.label}</span>
+                            {value === opt.value && <Check className="w-4 h-4" />}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+  };
+
   // --- STYLES ---
-  const cardClass = `p-6 rounded-2xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-gray-100 shadow-sm'}`;
-  const inputClass = `w-full px-4 py-2.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} focus:ring-2 focus:ring-blue-500 outline-none`;
+  const cardClass = `p-6 rounded-xl border ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200 shadow-sm'}`;
+  const inputClass = `w-full px-4 py-2.5 rounded-lg border outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+    isDark 
+      ? 'bg-[#0f172a] border-slate-700 text-slate-200 focus:border-blue-500' 
+      : 'bg-white border-gray-200 text-gray-900 focus:border-blue-500'
+  }`;
+
+  const categoryOptions = [
+      { value: 'Rent', label: 'Rent' },
+      { value: 'EB Bill', label: 'EB Bill' },
+      { value: 'Snacks', label: 'Snacks' },
+      { value: 'Maintenance', label: 'Maintenance' },
+      { value: 'Other', label: 'Other' }
+  ];
+
+  const employeeOptions = employees.map(emp => ({ value: emp.id, label: `${emp.name} (${emp.role})` }));
 
   return (
-    <div className={`p-6 min-h-screen ${isDark ? 'bg-[#1a1f2c] text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
+      {/* Scrollbar Style */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'}; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'}; }
+      `}</style>
+
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
+          <h1 className={`text-3xl font-bold flex items-center gap-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
             <TrendingUp className={`w-8 h-8 ${isProfit ? 'text-green-500' : 'text-red-500'}`} /> 
             Profit & Loss Management
           </h1>
           <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Track income, expenses, salaries, and net profit.</p>
         </div>
-        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 rounded-lg border border-gray-200 dark:border-slate-700">
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
           <Calendar className="w-5 h-5 text-gray-500" />
           <input 
             type="month" 
             value={currentMonth} 
             onChange={(e) => setCurrentMonth(e.target.value)}
-            className="bg-transparent outline-none text-sm font-bold w-32"
+            className={`bg-transparent outline-none text-sm font-bold w-32 ${isDark ? 'text-white' : 'text-gray-900'}`}
           />
         </div>
       </div>
 
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Income Card */}
         <div className={`${cardClass} relative overflow-hidden group`}>
           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><TrendingUp className="w-24 h-24 text-green-500" /></div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Income</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">Total Income</p>
           <h2 className="text-3xl font-bold text-green-500">₹{totalIncome.toLocaleString()}</h2>
-          <div className="flex gap-4 mt-2 text-xs text-gray-400">
-            <span>Sales: ₹{totalSalesIncome}</span>
-            <span>Recharges: ₹{totalRechargeIncome}</span>
+          <div className="flex flex-col mt-2 text-xs text-gray-400 gap-1">
+            <span>Sales: ₹{totalSalesIncome.toLocaleString()}</span>
+            <span>Recharges: ₹{totalRechargeIncome.toLocaleString()}</span>
           </div>
         </div>
 
+        {/* Expense Card */}
         <div className={`${cardClass} relative overflow-hidden group`}>
           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><TrendingDown className="w-24 h-24 text-red-500" /></div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Total Expenses</p>
-          <h2 className="text-3xl font-bold text-red-500">₹{totalExpenses.toLocaleString()}</h2>
-          <p className="text-xs text-gray-400 mt-2">{expenses.length} transactions this month</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">Total Expenses</p>
+          <h2 className="text-3xl font-bold text-red-500">₹{totalExpenseValue.toLocaleString()}</h2>
+          <div className="flex flex-col mt-2 text-xs text-gray-400 gap-1">
+             <span>Purchases: ₹{totalPurchaseCost.toLocaleString()}</span>
+             <span>Operational: ₹{(totalExpenseValue - totalPurchaseCost).toLocaleString()}</span>
+          </div>
         </div>
 
+        {/* Profit Card */}
         <div className={`${cardClass} relative overflow-hidden group`}>
           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><DollarSign className={`w-24 h-24 ${isProfit ? 'text-blue-500' : 'text-orange-500'}`} /></div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Net Profit / Loss</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">Net Profit / Loss</p>
           <h2 className={`text-3xl font-bold ${isProfit ? 'text-blue-500' : 'text-orange-500'}`}>
             {isProfit ? '+' : ''}₹{netProfit.toLocaleString()}
           </h2>
@@ -241,7 +327,7 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
 
       {/* MAIN CONTENT TABS */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={`p-1 rounded-xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+        <TabsList className={`p-1 rounded-xl border ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
           <TabsTrigger value="overview" className="px-6 py-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white">Overview & History</TabsTrigger>
           <TabsTrigger value="add-expense" className="px-6 py-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white">Add Expense</TabsTrigger>
           <TabsTrigger value="payroll" className="px-6 py-2 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white">Employee Payroll</TabsTrigger>
@@ -249,41 +335,42 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
 
         {/* TAB 1: OVERVIEW TABLE */}
         <TabsContent value="overview">
-          <div className={`${cardClass} p-0 overflow-hidden`}>
-             <div className="p-4 border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 flex justify-between items-center">
+          <div className={`${cardClass} p-0 overflow-hidden flex flex-col`} style={{ maxHeight: '600px' }}>
+             <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800/50' : 'border-gray-200 bg-gray-50/50'} flex justify-between items-center`}>
                  <h3 className="font-bold flex items-center gap-2"><FileText className="w-4 h-4" /> Expense History</h3>
-                 <span className="text-xs font-mono bg-gray-200 dark:bg-slate-700 px-2 py-1 rounded">{expenses.length} Records</span>
+                 <span className={`text-xs font-mono px-2 py-1 rounded ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-200 text-gray-700'}`}>{expenses.length} Records</span>
              </div>
-             <div className="overflow-x-auto">
-                 <table className="w-full text-left text-sm">
-                     <thead className="bg-gray-100 dark:bg-slate-900 text-gray-500 dark:text-gray-400 uppercase text-xs">
+             
+             <div className="overflow-auto custom-scrollbar flex-1">
+                 <table className="w-full text-left text-sm whitespace-nowrap">
+                     <thead className={`sticky top-0 z-10 uppercase text-xs font-bold ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
                          <tr>
-                             <th className="px-6 py-3">Date</th>
-                             <th className="px-6 py-3">Category</th>
-                             <th className="px-6 py-3">Description</th>
-                             <th className="px-6 py-3 text-right">Amount</th>
-                             <th className="px-6 py-3 text-center">Action</th>
+                             <th className="px-6 py-4">Date</th>
+                             <th className="px-6 py-4">Category</th>
+                             <th className="px-6 py-4">Description</th>
+                             <th className="px-6 py-4 text-right">Amount</th>
+                             <th className="px-6 py-4 text-center">Action</th>
                          </tr>
                      </thead>
-                     <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
+                     <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
                          {expenses.length === 0 ? (
                              <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No expenses recorded for {currentMonth}</td></tr>
                          ) : (
                              expenses.map((exp) => (
-                                 <tr key={exp.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                                     <td className="px-6 py-3 text-gray-500">{exp.date}</td>
-                                     <td className="px-6 py-3">
-                                         <span className={`px-2 py-1 rounded-md text-xs font-medium border
-                                            ${exp.category === 'Salary' ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800' : 
-                                              exp.category === 'Rent' ? 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800' :
-                                              'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-gray-300 dark:border-slate-700'}`}>
+                                 <tr key={exp.id} className={`transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
+                                     <td className={`px-6 py-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{exp.date}</td>
+                                     <td className="px-6 py-4">
+                                         <span className={`px-2 py-1 rounded text-xs font-medium border
+                                            ${exp.category === 'Salary' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20' : 
+                                              exp.category === 'Rent' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
+                                              'bg-gray-500/10 text-gray-500 border-gray-500/20'}`}>
                                             {exp.category}
                                          </span>
                                      </td>
-                                     <td className="px-6 py-3 font-medium">{exp.description}</td>
-                                     <td className="px-6 py-3 text-right font-bold text-red-500">-₹{exp.amount.toLocaleString()}</td>
-                                     <td className="px-6 py-3 text-center">
-                                         <button onClick={() => handleDelete(exp.id)} className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                     <td className={`px-6 py-4 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{exp.description}</td>
+                                     <td className="px-6 py-4 text-right font-bold text-red-500">-₹{exp.amount.toLocaleString()}</td>
+                                     <td className="px-6 py-4 text-center">
+                                         <button onClick={() => handleDelete(exp.id)} className="text-gray-400 hover:text-red-500 p-2 rounded hover:bg-red-500/10 transition-colors"><Trash2 className="w-4 h-4" /></button>
                                      </td>
                                  </tr>
                              ))
@@ -302,29 +389,44 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
                 <form onSubmit={handleAddExpense} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 mb-1 block">Date</label>
+                            <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">Date</label>
                             <input type="date" value={expenseForm.date} onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} className={inputClass} required />
                         </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 mb-1 block">Category</label>
-                            <select value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value})} className={inputClass}>
-                                <option>Rent</option>
-                                <option>EB Bill</option>
-                                <option>Snacks</option>
-                                <option>Maintenance</option>
-                                <option>Other</option>
-                            </select>
-                        </div>
+                        
+                        {/* Custom Dropdown for Category */}
+                        <CustomSelect 
+                            label="Category"
+                            value={expenseForm.category} 
+                            onChange={(val: string) => setExpenseForm({...expenseForm, category: val})}
+                            options={categoryOptions}
+                        />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 mb-1 block">Amount (₹)</label>
-                        <input type="number" placeholder="0.00" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} className={inputClass} required />
+                        <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">Amount (₹)</label>
+                        <input 
+                            type="number" 
+                            placeholder="0.00" 
+                            value={expenseForm.amount} 
+                            onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} 
+                            className={inputClass} 
+                            required 
+                            onWheel={(e) => e.currentTarget.blur()}
+                        />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 mb-1 block">Description</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">Description</label>
                         <textarea rows={3} placeholder="Details about this expense..." value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} className={inputClass} required />
                     </div>
-                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95">
+                    
+                    {/* BUTTON COLOR CHANGE based on TOGGLE */}
+                    <button 
+                        type="submit" 
+                        className={`w-full font-bold py-3 rounded-lg transition-all shadow-lg active:scale-95 ${
+                            isDark 
+                                ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20' 
+                                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+                        }`}
+                    >
                         Save Expense Record
                     </button>
                 </form>
@@ -335,33 +437,47 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
         {/* TAB 3: PAYROLL */}
         <TabsContent value="payroll">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             {/* Employee List / Selection */}
+             {/* Employee Selection & Form */}
              <div className={`${cardClass} lg:col-span-2`}>
                 <h3 className="font-bold mb-4 flex items-center gap-2"><Users className="w-5 h-5 text-purple-500" /> Process Salary</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 mb-1 block">Select Employee</label>
-                        <select value={salaryForm.employeeId} onChange={e => setSalaryForm({...salaryForm, employeeId: e.target.value})} className={inputClass}>
-                            <option value="">-- Choose Employee --</option>
-                            {employees.map(emp => (
-                                <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
-                            ))}
-                        </select>
+                    {/* Custom Dropdown for Employee Selection */}
+                    <div className="col-span-2 md:col-span-1">
+                        <CustomSelect 
+                            label="Select Employee"
+                            value={salaryForm.employeeId}
+                            onChange={(val: string) => setSalaryForm({...salaryForm, employeeId: val})}
+                            options={employeeOptions}
+                            placeholder="-- Choose Employee --"
+                        />
                     </div>
-                    <div className="flex gap-2">
+
+                    <div className="flex gap-2 col-span-2 md:col-span-1">
                         <div className="flex-1">
-                            <label className="text-xs font-bold text-gray-500 mb-1 block">OT Hours</label>
-                            <input type="number" value={salaryForm.otHours} onChange={e => setSalaryForm({...salaryForm, otHours: parseFloat(e.target.value)})} className={inputClass} />
+                            <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">OT Hours</label>
+                            <input 
+                                type="number" 
+                                value={salaryForm.otHours} 
+                                onChange={e => setSalaryForm({...salaryForm, otHours: parseFloat(e.target.value)})} 
+                                className={inputClass}
+                                onWheel={(e) => e.currentTarget.blur()}
+                            />
                         </div>
                         <div className="w-24">
-                            <label className="text-xs font-bold text-gray-500 mb-1 block">OT Rate</label>
-                            <input type="number" value={salaryForm.otRate} onChange={e => setSalaryForm({...salaryForm, otRate: parseFloat(e.target.value)})} className={inputClass} />
+                            <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5 block">OT Rate</label>
+                            <input 
+                                type="number" 
+                                value={salaryForm.otRate} 
+                                onChange={e => setSalaryForm({...salaryForm, otRate: parseFloat(e.target.value)})} 
+                                className={inputClass}
+                                onWheel={(e) => e.currentTarget.blur()}
+                            />
                         </div>
                     </div>
                 </div>
 
-                {/* Salary Preview */}
+                {/* Salary Preview Box */}
                 {salaryForm.employeeId && (
                    <div className={`p-4 rounded-xl border mb-6 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                       <div className="flex justify-between items-center mb-2">
@@ -372,27 +488,29 @@ export function Expenses({ theme }: { theme: 'light' | 'dark' }) {
                          <span className="text-gray-500">Overtime ({salaryForm.otHours}hrs x ₹{salaryForm.otRate})</span>
                          <span className="font-medium text-orange-500">+ ₹{salaryForm.otHours * salaryForm.otRate}</span>
                       </div>
-                      <div className="border-t border-dashed border-gray-400 my-2"></div>
+                      <div className={`border-t border-dashed my-2 ${isDark ? 'border-slate-700' : 'border-gray-300'}`}></div>
                       <div className="flex justify-between items-center text-lg font-bold">
                          <span>Total Payable</span>
                          <span className="text-green-500">
-                            ₹{(employees.find(e => e.id === salaryForm.employeeId)?.salary || 0) + (salaryForm.otHours * salaryForm.otRate)}
+                           ₹{(employees.find(e => e.id === salaryForm.employeeId)?.salary || 0) + (salaryForm.otHours * salaryForm.otRate)}
                          </span>
                       </div>
                    </div>
                 )}
 
-<button 
-  onClick={handleProcessSalary} 
-  disabled={!salaryForm.employeeId}
-  className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg
-    ${!salaryForm.employeeId 
-      ? (isDark ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed') 
-      : (isDark ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200')
-    }`}
->
-  <CheckCircle className="w-5 h-5" /> Confirm & Add to Expenses
-</button>             </div>
+                {/* BUTTON COLOR CHANGE based on TOGGLE */}
+                <button 
+                  onClick={handleProcessSalary} 
+                  disabled={!salaryForm.employeeId}
+                  className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg
+                    ${!salaryForm.employeeId 
+                      ? (isDark ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed') 
+                      : (isDark ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-95')
+                    }`}
+                >
+                  <CheckCircle className="w-5 h-5" /> Confirm & Add to Expenses
+                </button>
+             </div>
 
              {/* Side Info */}
              <div className={cardClass}>

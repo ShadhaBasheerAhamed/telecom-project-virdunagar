@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Eye, Upload, Loader2 } from 'lucide-react';
+import { Plus, Search, Eye, Upload, Loader2, ChevronDown } from 'lucide-react';
 import type { DataSource, UserRole, Payment, Customer } from '../../types';
 import { ViewPaymentModal } from '../modals/ViewPaymentModal';
 import { PaymentModal } from '../modals/PaymentModal';
@@ -31,6 +31,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
 
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   // --- Fetch Payments ---
   const fetchPayments = async () => {
@@ -66,6 +67,8 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
 
   // --- Status Toggle ---
   const handleStatusToggle = async (payment: Payment, newStatus: 'Paid' | 'Unpaid') => {
+    if (updatingStatus === payment.id) return;
+
     if (payment.status === 'Unpaid' && newStatus === 'Paid') {
         setSelectedPayment(payment);
         setPaymentModalMode('edit');
@@ -76,6 +79,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
 
     try {
       if (confirm("Are you sure you want to revert this to UNPAID?")) {
+          setUpdatingStatus(payment.id);
           await PaymentService.updatePayment(payment.id, { status: newStatus });
           const customer = await CustomerService.findCustomerByLandline(payment.landlineNo);
           if (customer) await CustomerService.updateCustomer(customer.id, { status: 'Inactive' });
@@ -84,23 +88,20 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
           toast.success('Status reverted to Unpaid');
       }
     } catch (error) { toast.error('Failed to update status'); }
+    finally { setUpdatingStatus(null); }
   };
 
-  // --- Save Logic (FIXED: INSTANT TABLE UPDATE) ---
+  // --- Save Logic ---
   const handleSavePayment = async (paymentData: any, customerId: string) => {
-    console.log("🟢 Save Button Clicked!", paymentData);
-
     try {
       let finalCustomerId = customerId;
       
-      // 1. Auto-Fix: Find Customer ID if missing
       if (!finalCustomerId && paymentData.landlineNo) {
           const foundCustomer = await CustomerService.findCustomerByLandline(paymentData.landlineNo);
           if (foundCustomer) finalCustomerId = foundCustomer.id;
       }
 
       if (paymentModalMode === 'add') {
-          // 2. Duplicate Check
           const exists = await PaymentService.checkDuplicatePayment(paymentData.landlineNo, paymentData.paidDate);
           if (exists) { 
               toast.error('Payment already exists for this month!'); 
@@ -112,19 +113,14 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
               return; 
           }
 
-          // 3. Save to Database & Get ID
           const newDocId = await PaymentService.addPayment(paymentData, finalCustomerId);
-          
-          // 4. 🔥 IMPORTANT: Add to Table Manually (No waiting for fetch)
           const newRecord = { ...paymentData, id: newDocId } as Payment;
           setPayments(prev => [newRecord, ...prev]);
 
           toast.success('Payment Added Successfully');
       } else {
-          // Update Existing
           await PaymentService.updatePayment(paymentData.id, paymentData);
           
-          // Update Wallet
           if(finalCustomerId && paymentData.finalPendingAmount !== undefined) {
                  await CustomerService.updateCustomer(finalCustomerId, { 
                      pendingAmount: paymentData.finalPendingAmount,
@@ -134,26 +130,20 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                  });
           }
           
-          // 🔥 Manual Update for Edit
           setPayments(prev => prev.map(p => p.id === paymentData.id ? { ...p, ...paymentData } : p));
-          
           toast.success('Payment Updated');
       }
 
-      // 5. Close Modal Immediately
       setPaymentModalOpen(false);
       setSelectedPayment(null);
 
-      // 🛑 STOPPED: fetchPayments() remove pannitten.
-      // Idhu dhaan unga data varama thaduthuttu irundhudhu.
-
     } catch (error) { 
-        console.error("🔴 Save Failed:", error);
+        console.error("Save Failed:", error);
         toast.error('Save failed. Check console for details.'); 
     }
   };
 
-  // --- Bulk Upload (Fix: Adds Customers & Types) ---
+  // --- Bulk Upload ---
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -224,7 +214,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
           try { 
               await PaymentService.addBulkPayments(validPayments); 
               
-              // Create customers so search works next time
               let newCustCount = 0;
               for (const cust of customersToCreate) {
                   const exists = await CustomerService.findCustomerByLandline(cust.landline);
@@ -261,30 +250,90 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 10px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#4a5568' : '#cbd5e1'}; border-radius: 4px; }`}</style>
+      {/* FIXED SCROLLBAR STYLES: Matches Master Template (8px) */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: ${isDark ? '#1a1f2c' : '#f1f5f9'};
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: ${isDark ? '#334155' : '#cbd5e1'};
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? '#475569' : '#94a3b8'};
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: ${isDark ? '#334155 #1a1f2c' : '#cbd5e1 #f1f5f9'};
+        }
+      `}</style>
       
-      <div className="mb-6">
-        <h1 className={`text-3xl mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Payment Management {dataSource !== 'All' && `(${dataSource})`}</h1>
-        <div className={`flex flex-col md:flex-row gap-4 justify-between p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
-            
-            <div className="relative w-full md:w-96">
-                <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                <input type="text" className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-300'}`} placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            </div>
-            
-            <div className="flex gap-3">
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={`px-4 py-2 rounded-md ${isDark ? 'bg-gray-800 text-white' : 'bg-white border'}`}><option value="All">All Status</option><option value="Paid">Paid</option><option value="Unpaid">Unpaid</option></select>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition"><Upload className="h-4 w-4" /> <span className="hidden md:inline">Bulk Upload</span></button>
-                <button onClick={openAddModal} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"><Plus className="h-4 w-4" /> <span className="hidden md:inline">Add Payment</span></button>
-            </div>
-        </div>
+      {/* Header & Controls - Mobile Responsive */}
+      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border shadow-sm ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
+           
+           {/* LEFT SIDE: Search Input */}
+           <div className="relative w-full md:w-96">
+               <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
+               <input
+                 type="text"
+                 className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
+                   isDark 
+                     ? 'bg-[#0f172a] border-slate-700 text-slate-200 placeholder-slate-500' 
+                     : 'bg-white border-gray-200 text-gray-900'
+                 }`}
+                 placeholder="Search payments..."
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+               />
+           </div>
+           
+           {/* RIGHT SIDE: Filters & Actions */}
+           <div className="flex flex-wrap gap-3 w-full md:w-auto">
+               
+               {/* Status Filter */}
+               <div className="relative flex-1 md:flex-none">
+                 <select
+                   value={filterStatus}
+                   onChange={(e) => setFilterStatus(e.target.value)}
+                   className={`w-full md:w-auto appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                     isDark 
+                       ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                       : 'bg-white border-gray-200 text-gray-900'
+                   }`}
+                 >
+                   <option value="All">All Status</option>
+                   <option value="Paid">Paid</option>
+                   <option value="Unpaid">Unpaid</option>
+                 </select>
+                 <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
+               </div>
+
+               <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
+               
+               <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md shadow-lg transition-all flex-1 md:flex-none">
+                   <Upload className="h-4 w-4" /> 
+                   <span className="hidden sm:inline">Bulk Upload</span>
+               </button>
+               
+               <button onClick={openAddModal} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow-lg transition-all flex-1 md:flex-none">
+                   <Plus className="h-4 w-4" /> 
+                   <span className="hidden sm:inline">Add Payment</span>
+               </button>
+           </div>
       </div>
 
-      <div className={`rounded-lg border shadow-xl overflow-hidden flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+      {/* TABLE CONTAINER - Fixed Height */}
+      <div className={`rounded-xl border shadow-lg overflow-hidden flex flex-col ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+        
+        {/* Scrollable Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-            <table className="w-full text-sm text-left border-separate border-spacing-0">
-                <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
+            <table className="w-full text-sm text-left border-separate border-spacing-0 whitespace-nowrap">
+                <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
                     <tr>
                         <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Landline</th>
                         <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Mobile</th>
@@ -295,30 +344,64 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                         {userRole === 'Super Admin' && <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Commission</th>}
                         <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Paid Date</th>
                         <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Renewal</th>
-                        <th className={`px-6 py-4 min-w-[120px] border-b border-inherit sticky right-[100px] z-40 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Status</th>
-                        <th className={`px-6 py-4 min-w-[100px] text-center border-b border-inherit sticky right-0 z-40 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-100'}`}>Action</th>
+                        
+                        {/* Sticky Status Column Header */}
+                        <th className={`px-6 py-4 min-w-[120px] sticky right-[100px] z-40 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>Status</th>
+                        
+                        {/* Sticky Action Column Header */}
+                        <th className={`px-6 py-4 min-w-[100px] text-center sticky right-0 z-40 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>Action</th>
                     </tr>
                 </thead>
-                <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-                    {loading ? (<tr><td colSpan={11} className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto" /><p>Loading...</p></td></tr>) : filteredPayments.length === 0 ? (<tr><td colSpan={11} className="px-6 py-8 text-center text-gray-500">No records found.</td></tr>) : (
+                <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
+                    {loading ? (
+                        <tr>
+                            <td colSpan={11} className="py-12 text-center">
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                                    <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading payments...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    ) : filteredPayments.length === 0 ? (
+                        <tr>
+                            <td colSpan={11} className="py-12 text-center">
+                                <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>No payment records found.</p>
+                            </td>
+                        </tr>
+                    ) : (
                         filteredPayments.map((p) => (
-                        <tr key={p.id} className={`group hover:bg-opacity-50 transition ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}>
-                            <td className="px-6 py-4 text-gray-300 border-b border-inherit">{p.landlineNo}</td>
-                            <td className="px-6 py-4 text-gray-400 border-b border-inherit">{p.mobileNo || '-'}</td>
-                            <td className="px-6 py-4 text-gray-400 border-b border-inherit">{p.email || '-'}</td>
-                            <td className="px-6 py-4 font-bold border-b border-inherit">{p.customerName}</td>
-                            <td className="px-6 py-4 border-b border-inherit">{p.rechargePlan}</td>
-                            <td className="px-6 py-4 text-green-400 font-bold border-b border-inherit">₹{p.billAmount}</td>
-                            {userRole === 'Super Admin' && <td className="px-6 py-4 text-purple-400 font-medium border-b border-inherit">₹{p.commission.toFixed(2)}</td>}
+                        <tr key={p.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
+                            <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>{p.landlineNo}</td>
+                            
+                            {/* UPDATED: Mobile & Email with Toggle Color */}
+                            <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-white-400' : 'text-black-500'}`}>{p.mobileNo || '-'}</td>
+                            <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-white-400' : 'text-black-500'}`}>{p.email || '-'}</td>
+                            
+                            <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{p.customerName}</td>
+                            <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{p.rechargePlan}</td>
+                            <td className="px-6 py-4 text-green-500 font-bold border-b border-inherit">₹{p.billAmount}</td>
+                            {userRole === 'Super Admin' && <td className="px-6 py-4 text-purple-500 font-medium border-b border-inherit">₹{p.commission.toFixed(2)}</td>}
                             <td className="px-6 py-4 border-b border-inherit">{p.paidDate}</td>
                             <td className="px-6 py-4 border-b border-inherit">{p.renewalDate}</td>
                             
-                            <td className={`px-6 py-4 border-b border-inherit sticky right-[100px] z-20 ${isDark ? 'bg-[#242a38] group-hover:bg-gray-800' : 'bg-white group-hover:bg-gray-50'}`}>
-                                <button onClick={() => handleStatusToggle(p, p.status === 'Paid' ? 'Unpaid' : 'Paid')} className={`px-3 py-1 rounded-full text-xs font-bold border ${p.status === 'Paid' ? 'bg-green-500 text-white border-green-600' : 'bg-red-500 text-white border-red-600'}`}>{p.status}</button>
+                            {/* Sticky Status Column Body */}
+                            <td className={`px-6 py-4 border-b border-inherit sticky right-[100px] z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
+                                <button 
+                                    onClick={() => handleStatusToggle(p, p.status === 'Paid' ? 'Unpaid' : 'Paid')} 
+                                    disabled={updatingStatus === p.id}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                                        p.status === 'Paid' 
+                                            ? 'bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20' 
+                                            : 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20'
+                                    } ${updatingStatus === p.id ? 'opacity-50 cursor-wait' : ''}`}
+                                >
+                                    {updatingStatus === p.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : p.status}
+                                </button>
                             </td>
                             
-                            <td className={`px-6 py-4 text-center border-b border-inherit sticky right-0 z-20 ${isDark ? 'bg-[#242a38] group-hover:bg-gray-800' : 'bg-white group-hover:bg-gray-50'}`}>
-                                <button onClick={() => { setSelectedPayment(p); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 p-2 rounded hover:bg-blue-900/20"><Eye className="w-4 h-4" /></button>
+                            {/* Sticky Action Column Body */}
+                            <td className={`px-6 py-4 text-center border-b border-inherit sticky right-0 z-20 ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
+                                <button onClick={() => { setSelectedPayment(p); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 p-2 rounded hover:bg-blue-500/10 transition-colors"><Eye className="w-4 h-4" /></button>
                             </td>
                         </tr>
                     )))}

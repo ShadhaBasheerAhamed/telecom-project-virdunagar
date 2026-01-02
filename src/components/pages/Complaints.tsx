@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Eye, Edit, Trash2, Upload } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Upload, ChevronDown, Loader2 } from 'lucide-react';
 import type { DataSource } from '../../types';
 import { ComplaintModal } from '../modals/ComplaintModal';
 import { ViewComplaintModal } from '../modals/ViewComplaintModal';
@@ -44,6 +44,7 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,6 +137,9 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
   };
 
   const handleStatusChange = async (id: string, currentStatus: string, complaintData: Complaint) => {
+    if (updatingStatus === id) return;
+    setUpdatingStatus(id);
+
     let newStatus: any;
     
     if (currentStatus === 'Not Resolved' || currentStatus === 'Open') {
@@ -162,6 +166,8 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Failed to update complaint status');
+    } finally {
+        setUpdatingStatus(null);
     }
   };
 
@@ -210,70 +216,69 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
     event.target.value = '';
   };
 
-  if (loading) {
-    return (
-      <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-4 text-lg">Loading complaints from Firebase...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
+      {/* FIXED SCROLLBAR STYLES: Matches Master Template (8px) */}
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: ${isDark ? '#2d3748' : '#f1f5f9'}; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#4a5568' : '#cbd5e1'}; border-radius: 4px; border: 2px solid ${isDark ? '#2d3748' : '#f1f5f9'}; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#718096' : '#94a3b8'}; }
-        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: ${isDark ? '#4a5568 #2d3748' : '#cbd5e1 #f1f5f9'}; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: ${isDark ? '#1a1f2c' : '#f1f5f9'}; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'}; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'}; }
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: ${isDark ? '#334155 #1a1f2c' : '#cbd5e1 #f1f5f9'}; }
       `}</style>
 
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Complaints Management</h1>
-          <div className="flex items-center gap-2">
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${isDark ? 'bg-green-900/20 text-green-400' : 'bg-green-100 text-green-800'}`}>
-              🔥 Firebase Live Data
-            </div>
-          </div>
-        </div>
+      {/* Header & Controls - Mobile Responsive */}
+      <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border shadow-sm ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
         
-        <div className={`flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border ${isDark ? 'bg-[#242a38] border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="relative w-full md:w-96">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className={`h-5 w-5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
-            </div>
+        {/* LEFT SIDE: Search Input */}
+        <div className="relative w-full md:w-96">
+            <Search className={`absolute left-3 top-2.5 h-5 w-5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
             <input
               type="text"
-              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300 placeholder-gray-400' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-500'}`}
+              className={`block w-full pl-10 pr-3 py-2.5 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200 placeholder-slate-500' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
               placeholder={`Search in ${searchField}...`}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)} 
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
+        </div>
 
-          <div className="flex gap-3 w-full md:w-auto">
+        {/* RIGHT SIDE: Filters & Add Button */}
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          
+           {/* Search Field Selection */}
+           <div className="relative flex-1 md:flex-none">
             <select
               value={searchField}
               onChange={(e) => setSearchField(e.target.value)}
-              className={`px-4 py-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium min-w-[140px] ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+              className={`w-full md:w-auto appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
             >
-              <option value="All">Search All</option>
-              <option value="Name">Customer Name</option>
-              <option value="ID">Complaint ID</option>
+              <option value="All">All Fields</option>
+              <option value="Name">Name</option>
+              <option value="ID">ID</option>
               <option value="Complaint">Complaint</option>
             </select>
+            <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
+          </div>
 
+          {/* Status Filter */}
+          <div className="relative flex-1 md:flex-none">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className={`px-4 py-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium min-w-[140px] ${isDark ? 'bg-[#1a1f2c] border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'}`}
+              className={`w-full md:w-auto appearance-none px-4 py-2.5 pr-10 rounded-md border outline-none text-sm font-medium transition-colors ${
+                isDark 
+                  ? 'bg-[#0f172a] border-slate-700 text-slate-200' 
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}
             >
               <option value="All">All Status</option>
               <option value="Open">Open</option>
@@ -281,33 +286,32 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
               <option value="Pending">Pending</option>
               <option value="Not Resolved">Not Resolved</option>
             </select>
-
-            <input type="file" ref={fileInputRef} accept=".csv" className="hidden" onChange={handleFileUpload} />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg shadow-green-900/20"
-            >
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Upload</span>
-            </button>
-
-            <button
-              onClick={() => setModalMode('add')}
-              className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-md transition-colors text-sm font-medium shadow-lg shadow-blue-900/20"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add</span>
-            </button>
+            <ChevronDown className={`absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
           </div>
+
+          <input type="file" ref={fileInputRef} accept=".csv" className="hidden" onChange={handleFileUpload} />
+          
+          <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md shadow-lg transition-all w-full md:w-auto">
+             <Upload className="h-4 w-4" /> 
+             <span className="hidden sm:inline">Upload</span>
+          </button>
+
+          <button onClick={() => setModalMode('add')} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow-lg transition-all w-full md:w-auto">
+            <Plus className="h-4 w-4" /> 
+            <span>Add Complaint</span>
+          </button>
         </div>
       </div>
 
-      <div className={`w-full rounded-lg border shadow-xl overflow-hidden flex flex-col ${isDark ? 'border-gray-700 bg-[#242a38]' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+      {/* TABLE CONTAINER - Fixed Height */}
+      <div className={`rounded-xl border shadow-lg overflow-hidden flex flex-col ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
+        
+        {/* Scrollable Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-          <table className="w-full whitespace-nowrap text-left text-sm border-separate border-spacing-0">
-            <thead className={`font-semibold uppercase tracking-wider sticky top-0 z-30 ${isDark ? 'bg-[#1f2533] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+          <table className="w-full text-sm text-left border-separate border-spacing-0 whitespace-nowrap">
+            <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
               <tr>
-                <th className="px-6 py-4 min-w-[100px] border-b border-inherit bg-inherit">ID</th>
+                <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">ID</th>
                 <th className="px-6 py-4 min-w-[200px] border-b border-inherit bg-inherit">Customer Name</th>
                 <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Landline No</th>
                 <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Mobile</th>
@@ -316,49 +320,83 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
                 <th className="px-6 py-4 min-w-[150px] border-b border-inherit bg-inherit">Employee</th>
                 <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Booking Date</th>
                 <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Resolve Date</th>
-                <th className={`px-6 py-4 min-w-[150px] border-b border-inherit sticky right-[110px] z-30 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>Status</th>
-                <th className={`px-6 py-4 min-w-[110px] text-center border-b border-inherit sticky right-0 z-30 ${isDark ? 'bg-[#1f2533]' : 'bg-gray-50'}`}>Options</th>
+                
+                {/* Fixed Status Column Header */}
+                <th className={`px-6 py-4 text-center min-w-[150px] sticky right-[110px] z-40 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+                  Status
+                </th>
+                
+                {/* Fixed Options Column Header */}
+                <th className={`px-6 py-4 text-center min-w-[110px] sticky right-0 z-40 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+                  Options
+                </th>
               </tr>
             </thead>
             
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
-              {filteredComplaints.length === 0 ? (
+            <tbody className={`divide-y ${isDark ? 'divide-slate-700' : 'divide-gray-200'}`}>
+              {loading ? (
+                <tr>
+                  <td colSpan={11} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Loading complaints...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredComplaints.length === 0 ? (
                  <tr>
-                  <td colSpan={11} className="px-6 py-8 text-center opacity-50">
-                    No complaints found matching "{searchQuery}"
+                  <td colSpan={11} className="py-12 text-center">
+                    <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {dataSource === 'All' ? 'No complaints found.' : `No ${dataSource} complaints found.`}
+                    </p>
                   </td>
                 </tr>
               ) : (
                 filteredComplaints.map((complaint) => (
-                <tr key={complaint.id} className={`group hover:${isDark ? 'bg-[#2d3546]' : 'bg-gray-50'} transition-colors`}>
-                  <td className="px-6 py-4 font-medium border-b border-inherit">{complaint.id}</td>
-                  <td className="px-6 py-4 font-medium border-b border-inherit">{complaint.customerName}</td>
-                  <td className="px-6 py-4 border-b border-inherit">{complaint.landlineNo}</td>
-                  <td className="px-6 py-4 border-b border-inherit">{complaint.mobileNo || '-'}</td>
+                <tr key={complaint.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
+                  <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.id}</td>
+                  <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{complaint.customerName}</td>
+                  
+                  {/* Landline Color Toggle */}
+                  <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>{complaint.landlineNo}</td>
+                  
+                  {/* Mobile Color Toggle */}
+                  <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{complaint.mobileNo || '-'}</td>
+                  
                   <td className="px-6 py-4 border-b border-inherit">{complaint.address || '-'}</td>
-                  <td className="px-6 py-4 border-b border-inherit">{complaint.complaints}</td>
+                  <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{complaint.complaints}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.employee}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.bookingDate}</td>
                   <td className="px-6 py-4 border-b border-inherit">{complaint.resolveDate || '-'}</td>
 
-                  <td className={`px-6 py-4 border-b border-inherit sticky right-[110px] z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
+                  {/* Sticky Status Column Body */}
+                  <td className={`px-6 py-4 text-center sticky right-[110px] z-20 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                     <button
-                      onClick={() => handleStatusChange(complaint.id, complaint.status, complaint)} 
-                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
-                        complaint.status === 'Open' ? 'bg-yellow-500 text-white border-yellow-600 shadow-md shadow-yellow-500/20' :
-                        complaint.status === 'Resolved' ? 'bg-green-500 text-white border-green-600 shadow-md shadow-green-500/20' :
-                        'bg-red-500 text-white border-red-600 shadow-md shadow-red-500/20'
-                      }`}
+                      onClick={() => handleStatusChange(complaint.id, complaint.status, complaint)}
+                      disabled={updatingStatus === complaint.id}
+                      className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                        complaint.status === 'Resolved' ? 'bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20' :
+                        complaint.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/20' :
+                        complaint.status === 'Open' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20' :
+                        'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20'
+                      } ${updatingStatus === complaint.id ? 'opacity-70 cursor-wait' : 'hover:scale-105'}`}
                     >
-                      {complaint.status}
+                      {updatingStatus === complaint.id ? (
+                        <div className="flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        </div>
+                      ) : (
+                        complaint.status
+                      )}
                     </button>
                   </td>
 
-                  <td className={`px-6 py-4 border-b border-inherit text-center sticky right-0 z-20 ${isDark ? 'bg-[#242a38] group-hover:bg-[#2d3546]' : 'bg-white group-hover:bg-gray-50'}`}>
-                    <div className="flex items-center justify-center gap-3">
-                      <button onClick={() => { setSelectedComplaint(complaint); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 transition-colors p-1" title="View"><Eye className="h-4 w-4" /></button>
-                      <button onClick={() => { setSelectedComplaint(complaint); setModalMode('edit'); }} className="text-yellow-400 hover:text-yellow-300 transition-colors p-1" title="Edit"><Edit className="h-4 w-4" /></button>
-                      <button onClick={() => { setSelectedComplaint(complaint); setDeleteModalOpen(true); }} className="text-red-400 hover:text-red-300 transition-colors p-1" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                  {/* Sticky Options Column Body */}
+                  <td className={`px-6 py-4 text-center sticky right-0 z-20 border-b border-inherit ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
+                    <div className="flex items-center justify-center gap-2">
+                      <button onClick={() => { setSelectedComplaint(complaint); setViewModalOpen(true); }} className="p-1.5 text-blue-400 hover:bg-blue-500/10 rounded transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                      <button onClick={() => { setSelectedComplaint(complaint); setModalMode('edit'); }} className="p-1.5 text-yellow-400 hover:bg-yellow-500/10 rounded transition-colors" title="Edit"><Edit className="w-4 h-4" /></button>
+                      <button onClick={() => { setSelectedComplaint(complaint); setDeleteModalOpen(true); }} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -367,12 +405,15 @@ export function Complaints({ dataSource, theme }: ComplaintsProps) {
           </table>
         </div>
         
-        <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-gray-700 bg-[#1f2533] text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-            <div className="text-sm">Showing {filteredComplaints.length} of {complaints.length} results (Firebase Live Data)</div>
-            <div className="text-xs opacity-70">🔥 Real-time sync enabled</div>
+        {/* Footer */}
+        <div className={`px-6 py-4 border-t flex justify-between items-center ${isDark ? 'border-slate-700 bg-slate-900 text-gray-400' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+            <div className="text-sm">
+                Total Complaints: {filteredComplaints.length}
+            </div>
         </div>
       </div>
 
+      {/* Modals */}
       {modalMode && (
         <ComplaintModal
           mode={modalMode}
