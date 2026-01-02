@@ -5,6 +5,8 @@ import {
   updateDoc, 
   deleteDoc, 
   getDocs, 
+  getDoc, 
+  setDoc, 
   query, 
   where, 
   orderBy, 
@@ -17,20 +19,20 @@ import type { Payment } from '../types';
 import { CustomerService } from './customerService';
 
 const PAYMENTS_COLLECTION = 'payments';
+const COMMISSIONS_COLLECTION = 'commission_rates';
 
 export const PaymentService = {
   
-  // 1. Add Payment
+  // 1. Add Payment (Verified)
   addPayment: async (payment: Omit<Payment, 'id'>, customerId: string) => {
     try {
-      // Create the record
+      console.log("Saving Payment to DB:", payment); // Debug Log
       const docRef = await addDoc(collection(db, PAYMENTS_COLLECTION), {
         ...payment,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
 
-      // Update Wallet if needed
       if (customerId) {
           if (payment.addedToWallet && payment.addedToWallet > 0) {
               await CustomerService.updateWallet(customerId, payment.addedToWallet, 'credit');
@@ -46,14 +48,12 @@ export const PaymentService = {
     }
   },
 
-  // 2. Check Duplicate (Modified to show Index Link)
+  // 2. Check Duplicate
   checkDuplicatePayment: async (landlineNo: string, paidDate: string): Promise<boolean> => {
     try {
       const date = new Date(paidDate);
       const start = new Date(date.getFullYear(), date.getMonth(), 1);
       const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
-
-      console.log(`🔎 Checking duplicate for ${landlineNo}...`);
 
       const q = query(
         collection(db, PAYMENTS_COLLECTION),
@@ -66,13 +66,6 @@ export const PaymentService = {
       return !snap.empty; 
     } catch (error: any) {
       console.error('❌ Error checking duplicate:', error);
-      
-      // THIS IS THE IMPORTANT PART FOR YOU
-      if (error.code === 'failed-precondition') {
-          console.error("⚠️ DUPLICATE CHECK INDEX MISSING! Click the link below in console to create it.");
-          // We return false so the user can still save even if index is missing (Temporary Fix)
-          return false; 
-      }
       return false; 
     }
   },
@@ -129,7 +122,7 @@ export const PaymentService = {
     }
   },
 
-  // 7. Get By Source (With Fallback)
+  // 7. Get By Source
   getPaymentsBySource: async (source: string): Promise<Payment[]> => {
     try {
       const q = query(
@@ -140,7 +133,6 @@ export const PaymentService = {
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
     } catch (error: any) {
-      // Use fallback if index missing
       if (error.code === 'failed-precondition') {
           return PaymentService.getPaymentsBySourceFallback(source);
       }
@@ -165,5 +157,35 @@ export const PaymentService = {
           const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
           callback(payments);
       });
+  },
+
+  // 10. Get Commission Rate
+  getCommissionRate: async (source: string): Promise<number> => {
+    try {
+      const docRef = doc(db, COMMISSIONS_COLLECTION, source);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data().rate || 0;
+      }
+      return 30; // Default
+    } catch (error) {
+      console.error("Error fetching rate:", error);
+      return 30;
+    }
+  },
+
+  // 11. Save Commission Rate
+  saveCommissionRate: async (source: string, rate: number) => {
+    try {
+      const docRef = doc(db, COMMISSIONS_COLLECTION, source);
+      await setDoc(docRef, { 
+        rate: rate,
+        lastUpdated: new Date().toISOString(),
+        source: source
+      }, { merge: true });
+    } catch (error) {
+      console.error("Error saving rate:", error);
+      throw error;
+    }
   }
 };

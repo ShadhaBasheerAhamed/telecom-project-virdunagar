@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Eye, Upload, Loader2, ChevronDown } from 'lucide-react';
+import { Plus, Search, Eye, Upload, Loader2, ChevronDown, Percent, Save, Check } from 'lucide-react'; 
 import type { DataSource, UserRole, Payment, Customer } from '../../types';
 import { ViewPaymentModal } from '../modals/ViewPaymentModal';
 import { PaymentModal } from '../modals/PaymentModal';
 import { PaymentService } from '../../services/paymentService';
-import { WhatsAppService } from '../../services/whatsappService';
 import { CustomerService } from '../../services/customerService';
 import { toast } from 'sonner';
 import { useSearch } from '../../contexts/SearchContext';
@@ -23,6 +22,12 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   const { searchQuery, setSearchQuery } = useSearch();
   const [filterStatus, setFilterStatus] = useState('All');
   
+  // ✅ Commission Logic State
+  const [commissionPercent, setCommissionPercent] = useState<string>('');
+  const [isSavingComm, setIsSavingComm] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // --- Modal States ---
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -33,7 +38,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  // --- Fetch Payments ---
+  // --- Fetch Payments & Commission Rate ---
   const fetchPayments = async () => {
     setLoading(true);
     try {
@@ -41,6 +46,15 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
         ? await PaymentService.getPayments() 
         : await PaymentService.getPaymentsBySource(dataSource);
       setPayments(data as Payment[]);
+
+      // ✅ Fetch Saved Rate from DB if specific source is selected
+      if (dataSource !== 'All') {
+          const rate = await PaymentService.getCommissionRate(dataSource);
+          setCommissionPercent(rate.toString());
+      } else {
+          setCommissionPercent(''); // Clear if viewing All
+      }
+
     } catch (error) {
       toast.error("Failed to load payments");
       setPayments([]); 
@@ -48,6 +62,26 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   };
 
   useEffect(() => { fetchPayments(); }, [dataSource]);
+
+  // ✅ Save Commission Rate Handler (Super Admin Only)
+  const handleSaveCommission = async () => {
+      if (dataSource === 'All' || !commissionPercent) return;
+      
+      setIsSavingComm(true);
+      try {
+          await PaymentService.saveCommissionRate(dataSource, parseFloat(commissionPercent));
+          
+          // Success Animation
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 2000); 
+          
+          toast.success(`${dataSource} Commission set to ${commissionPercent}%`);
+      } catch (error) {
+          toast.error("Failed to save rate");
+      } finally {
+          setIsSavingComm(false);
+      }
+  };
 
   // --- Filter Logic ---
   const filteredPayments = payments.filter(payment => {
@@ -91,46 +125,94 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
     finally { setUpdatingStatus(null); }
   };
 
-  // --- Save Logic ---
+  // --- 🔴 CRITICAL FIX: Save Logic (Add/Edit Payment) ---
   const handleSavePayment = async (paymentData: any, customerId: string) => {
     try {
       let finalCustomerId = customerId;
       
+      // 1. Get Correct Commission Rate
+      let rateToUse = 30; // Fallback default
+
+      if (dataSource !== 'All') {
+          // If we are on a specific tab (e.g. BSNL), FORCE that source rate
+          rateToUse = await PaymentService.getCommissionRate(dataSource);
+      } else {
+          // If on 'All', check the form data for source rate
+          if(paymentData.source) {
+             rateToUse = await PaymentService.getCommissionRate(paymentData.source);
+          }
+      }
+
+      // ✅ 2. FIX NaN ERROR: Force Numbers
+      // If parsing fails, default to 0. This prevents Firebase rejection.
+      const safeBillAmount = parseFloat(paymentData.billAmount) || 0;
+      const safeRate = isNaN(parseFloat(rateToUse.toString())) ? 30 : parseFloat(rateToUse.toString());
+      const calculatedCommission = (safeBillAmount * safeRate) / 100;
+      
+      // ✅ 3. FIX MISSING SOURCE: Force Source String
+      // If source is missing, use 'BSNL' or current dataSource
+      const safeSource = paymentData.source || (dataSource === 'All' ? 'BSNL' : dataSource);
+
+      // ✅ 4. Construct Final Safe Data
+      const finalPaymentData = {
+  ...paymentData,
+
+  paidDate: new Date(paymentData.paidDate).toISOString(),
+  renewalDate: new Date(paymentData.renewalDate).toISOString(),
+
+  billAmount: safeBillAmount,
+  source: safeSource,
+  commission: isNaN(calculatedCommission) ? 0 : calculatedCommission,
+
+  mobileNo: paymentData.mobileNo || "",
+  email: paymentData.email || "",
+  customerName: paymentData.customerName || "Unknown",
+  rechargePlan: paymentData.rechargePlan || "Plan",
+};
+
+
+      console.log("🚀 Attempting to Save:", finalPaymentData); // Debug Log
+
+      // Find Customer ID if missing
       if (!finalCustomerId && paymentData.landlineNo) {
           const foundCustomer = await CustomerService.findCustomerByLandline(paymentData.landlineNo);
           if (foundCustomer) finalCustomerId = foundCustomer.id;
       }
 
       if (paymentModalMode === 'add') {
+          // Check Duplicate
           const exists = await PaymentService.checkDuplicatePayment(paymentData.landlineNo, paymentData.paidDate);
           if (exists) { 
               toast.error('Payment already exists for this month!'); 
               return; 
           }
           
-          if (!finalCustomerId) { 
-              toast.error("Customer not found! Please check Landline."); 
-              return; 
-          }
+          
 
-          const newDocId = await PaymentService.addPayment(paymentData, finalCustomerId);
-          const newRecord = { ...paymentData, id: newDocId } as Payment;
-          setPayments(prev => [newRecord, ...prev]);
+          // ✅ 5. ADD TO FIREBASE
+          const newDocId = await PaymentService.addPayment(finalPaymentData, finalCustomerId || null);
 
-          toast.success('Payment Added Successfully');
+          
+          // ✅ 6. UPDATE UI IMMEDIATELY
+          const newRecord = { ...finalPaymentData, id: newDocId } as Payment;
+          await fetchPayments();
+
+
+          toast.success(`Payment Saved! (Comm: ${safeRate}%)`);
       } else {
-          await PaymentService.updatePayment(paymentData.id, paymentData);
+          // Update Logic
+          await PaymentService.updatePayment(paymentData.id, finalPaymentData);
           
           if(finalCustomerId && paymentData.finalPendingAmount !== undefined) {
-                 await CustomerService.updateCustomer(finalCustomerId, { 
-                     pendingAmount: paymentData.finalPendingAmount,
-                     walletBalance: paymentData.finalWalletBalance,
-                     status: 'Active', 
-                     renewalDate: paymentData.renewalDate 
-                 });
+               await CustomerService.updateCustomer(finalCustomerId, { 
+                   pendingAmount: paymentData.finalPendingAmount,
+                   walletBalance: paymentData.finalWalletBalance,
+                   status: 'Active', 
+                   renewalDate: paymentData.renewalDate 
+               });
           }
           
-          setPayments(prev => prev.map(p => p.id === paymentData.id ? { ...p, ...paymentData } : p));
+          setPayments(prev => prev.map(p => p.id === paymentData.id ? { ...p, ...finalPaymentData } : p));
           toast.success('Payment Updated');
       }
 
@@ -138,15 +220,21 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
       setSelectedPayment(null);
 
     } catch (error) { 
-        console.error("Save Failed:", error);
-        toast.error('Save failed. Check console for details.'); 
+        console.error("❌ Save Failed:", error);
+        toast.error('Save failed. Open Console (F12) to see why.'); 
     }
   };
 
   // --- Bulk Upload ---
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    let rate = 30;
+    if (dataSource !== 'All') {
+        rate = await PaymentService.getCommissionRate(dataSource);
+    }
+
     const reader = new FileReader();
     
     reader.onload = async (e) => {
@@ -174,6 +262,8 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
             pDate.setMonth(pDate.getMonth() + 1); 
             const renewalDate = pDate.toISOString().split('T')[0];
             
+            const calculatedComm = billAmt * (rate / 100);
+
             validPayments.push({
                 landlineNo, customerName, mobileNo, email,
                 billAmount: billAmt,
@@ -183,7 +273,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                 renewalDate: renewalDate,
                 rechargePlan: planName,
                 duration: '30',
-                commission: billAmt * 0.30, 
+                commission: calculatedComm, 
                 source: dataSource === 'All' ? 'BSNL' : dataSource,
                 walletBalance: 0, 
                 pendingAmount: 0 
@@ -229,7 +319,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
               }
 
               fetchPayments(); 
-              toast.success(`Imported ${validPayments.length} payments & synced ${newCustCount} customers!`); 
+              toast.success(`Imported ${validPayments.length} payments with ${rate}% Commission!`); 
           } catch (error) { 
               console.error(error);
               toast.error("Import failed partly."); 
@@ -250,30 +340,25 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
   return (
     <div className={`w-full p-6 min-h-screen font-sans ${isDark ? 'bg-[#1a1f2c] text-gray-200' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* FIXED SCROLLBAR STYLES: Matches Master Template (8px) */}
+      {/* Scrollbar Styles */}
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-          height: 8px;
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: ${isDark ? '#1a1f2c' : '#f1f5f9'}; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'}; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'}; }
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: ${isDark ? '#334155 #1a1f2c' : '#cbd5e1 #f1f5f9'}; }
+        
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: ${isDark ? '#1a1f2c' : '#f1f5f9'};
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: ${isDark ? '#334155' : '#cbd5e1'};
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: ${isDark ? '#475569' : '#94a3b8'};
-        }
-        .custom-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: ${isDark ? '#334155 #1a1f2c' : '#cbd5e1 #f1f5f9'};
+        input[type=number] {
+          -moz-appearance: textfield;
         }
       `}</style>
       
-      {/* Header & Controls - Mobile Responsive */}
+      {/* Header & Controls */}
       <div className={`mb-6 flex flex-col md:flex-row gap-4 justify-between items-end md:items-center p-4 rounded-lg border shadow-sm ${isDark ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-gray-200'}`}>
            
            {/* LEFT SIDE: Search Input */}
@@ -293,8 +378,60 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
            </div>
            
            {/* RIGHT SIDE: Filters & Actions */}
-           <div className="flex flex-wrap gap-3 w-full md:w-auto">
+           <div className="flex flex-wrap gap-3 w-full md:w-auto items-center justify-end">
                
+               {/* ✅ NEAT & STATIC COMMISSION BOX */}
+               {userRole === 'Super Admin' && dataSource !== 'All' && (
+                 <div className={`flex items-center justify-between gap-3 pl-3 pr-2 py-1.5 rounded-lg border transition-all ${
+                    isDark 
+                        ? 'bg-slate-800/80 border-slate-600 shadow-inner' 
+                        : 'bg-indigo-50/80 border-indigo-200 shadow-sm'
+                 }`}>
+                    {/* Label & Input Group */}
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-indigo-500'}`}>
+                            {dataSource} COMM
+                        </span>
+                        
+                        <div className="flex items-center bg-transparent relative">
+                            <input 
+                                type="number"
+                                value={commissionPercent}
+                                onChange={(e) => setCommissionPercent(e.target.value)}
+                                onWheel={(e) => e.currentTarget.blur()} 
+                                className={`w-12 bg-transparent text-lg font-bold outline-none p-0 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                    isDark ? 'text-blue-400 placeholder-slate-600' : 'text-indigo-600 placeholder-indigo-300'
+                                }`}
+                                placeholder="0"
+                            />
+                            <Percent className={`w-3.5 h-3.5 ${isDark ? 'text-slate-500' : 'text-indigo-400'}`} />
+                        </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <div className={`h-6 w-[1px] ${isDark ? 'bg-slate-700' : 'bg-indigo-200'}`}></div>
+                    
+                    <button 
+                        onClick={handleSaveCommission}
+                        disabled={isSavingComm}
+                        className={`p-1.5 rounded-md transition-all ${
+                            saveSuccess 
+                                ? 'bg-green-500 text-white shadow-lg scale-105'
+                                : isSavingComm 
+                                    ? 'bg-gray-500/10 cursor-not-allowed'
+                                    : isDark 
+                                        ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' 
+                                        : 'bg-white text-indigo-600 border border-indigo-100 hover:bg-white hover:text-indigo-700 hover:border-indigo-300'
+                        }`}
+                        title="Save Rate"
+                    >
+                        {saveSuccess ? <Check className="w-4 h-4" /> : isSavingComm ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    </button>
+                 </div>
+               )}
+
+               <div className={`h-8 w-[1px] hidden md:block ${isDark ? 'bg-slate-700' : 'bg-gray-300'}`}></div>
+
                {/* Status Filter */}
                <div className="relative flex-1 md:flex-none">
                  <select
@@ -317,20 +454,19 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                
                <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md shadow-lg transition-all flex-1 md:flex-none">
                    <Upload className="h-4 w-4" /> 
-                   <span className="hidden sm:inline">Bulk Upload</span>
+                   <span className="hidden sm:inline">Bulk</span>
                </button>
                
                <button onClick={openAddModal} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md shadow-lg transition-all flex-1 md:flex-none">
                    <Plus className="h-4 w-4" /> 
-                   <span className="hidden sm:inline">Add Payment</span>
+                   <span className="hidden sm:inline">Add</span>
                </button>
            </div>
       </div>
 
-      {/* TABLE CONTAINER - Fixed Height */}
+      {/* TABLE CONTAINER */}
       <div className={`rounded-xl border shadow-lg overflow-hidden flex flex-col ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-white'}`} style={{ height: 'calc(100vh - 220px)' }}>
         
-        {/* Scrollable Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative">
             <table className="w-full text-sm text-left border-separate border-spacing-0 whitespace-nowrap">
                 <thead className={`uppercase font-bold sticky top-0 z-40 ${isDark ? 'bg-slate-900 text-slate-400' : 'bg-gray-50 text-gray-600'}`}>
@@ -344,11 +480,7 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                         {userRole === 'Super Admin' && <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Commission</th>}
                         <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Paid Date</th>
                         <th className="px-6 py-4 min-w-[140px] border-b border-inherit bg-inherit">Renewal</th>
-                        
-                        {/* Sticky Status Column Header */}
                         <th className={`px-6 py-4 min-w-[120px] sticky right-[100px] z-40 border-b border-inherit shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>Status</th>
-                        
-                        {/* Sticky Action Column Header */}
                         <th className={`px-6 py-4 min-w-[100px] text-center sticky right-0 z-40 border-b border-inherit ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>Action</th>
                     </tr>
                 </thead>
@@ -372,19 +504,14 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                         filteredPayments.map((p) => (
                         <tr key={p.id} className={`transition-colors group ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50'}`}>
                             <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>{p.landlineNo}</td>
-                            
-                            {/* UPDATED: Mobile & Email with Toggle Color */}
                             <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-white-400' : 'text-black-500'}`}>{p.mobileNo || '-'}</td>
                             <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-white-400' : 'text-black-500'}`}>{p.email || '-'}</td>
-                            
                             <td className={`px-6 py-4 font-medium border-b border-inherit ${isDark ? 'text-white' : 'text-gray-900'}`}>{p.customerName}</td>
                             <td className={`px-6 py-4 border-b border-inherit ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>{p.rechargePlan}</td>
                             <td className="px-6 py-4 text-green-500 font-bold border-b border-inherit">₹{p.billAmount}</td>
-                            {userRole === 'Super Admin' && <td className="px-6 py-4 text-purple-500 font-medium border-b border-inherit">₹{p.commission.toFixed(2)}</td>}
+                            {userRole === 'Super Admin' && <td className="px-6 py-4 text-purple-500 font-medium border-b border-inherit">₹{p.commission ? p.commission.toFixed(2) : '0.00'}</td>}
                             <td className="px-6 py-4 border-b border-inherit">{p.paidDate}</td>
                             <td className="px-6 py-4 border-b border-inherit">{p.renewalDate}</td>
-                            
-                            {/* Sticky Status Column Body */}
                             <td className={`px-6 py-4 border-b border-inherit sticky right-[100px] z-20 shadow-[-5px_0px_10px_rgba(0,0,0,0.05)] ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                                 <button 
                                     onClick={() => handleStatusToggle(p, p.status === 'Paid' ? 'Unpaid' : 'Paid')} 
@@ -398,8 +525,6 @@ export function Payment({ dataSource, theme, userRole }: PaymentProps) {
                                     {updatingStatus === p.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : p.status}
                                 </button>
                             </td>
-                            
-                            {/* Sticky Action Column Body */}
                             <td className={`px-6 py-4 text-center border-b border-inherit sticky right-0 z-20 ${isDark ? 'bg-slate-800/90 group-hover:bg-slate-800' : 'bg-white group-hover:bg-gray-50'}`}>
                                 <button onClick={() => { setSelectedPayment(p); setViewModalOpen(true); }} className="text-blue-400 hover:text-blue-300 p-2 rounded hover:bg-blue-500/10 transition-colors"><Eye className="w-4 h-4" /></button>
                             </td>
