@@ -1,15 +1,4 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  query,
-  where,
-  orderBy
-} from '../firebase/config';
-import { db } from '../firebase/config';
+import api from './api';
 
 // Master record collection names mapping
 const COLLECTION_MAPPING: { [key: string]: string } = {
@@ -38,12 +27,10 @@ export class MasterRecordService {
 
       const recordData = {
         ...record,
-        status: record.status || 'Active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        status: record.status || 'Active'
       };
 
-      await addDoc(collection(db, collectionName), recordData);
+      await api.post(`/master-records/${collectionName}`, recordData);
     } catch (error) {
       console.error(`Error adding ${type} record:`, error);
       throw new Error(`Failed to add ${type} record`);
@@ -55,11 +42,7 @@ export class MasterRecordService {
       const collectionName = COLLECTION_MAPPING[type];
       if (!collectionName) throw new Error(`Unknown record type: ${type}`);
 
-      const recordRef = doc(db, collectionName, id);
-      await updateDoc(recordRef, {
-        ...record,
-        updatedAt: new Date().toISOString()
-      });
+      await api.put(`/master-records/${collectionName}/${id}`, record);
     } catch (error) {
       console.error(`Error updating ${type} record:`, error);
       throw new Error(`Failed to update ${type} record`);
@@ -70,7 +53,7 @@ export class MasterRecordService {
     try {
       const collectionName = COLLECTION_MAPPING[type];
       if (!collectionName) throw new Error(`Unknown record type: ${type}`);
-      await deleteDoc(doc(db, collectionName, id));
+      await api.delete(`/master-records/${collectionName}/${id}`);
     } catch (error) {
       console.error(`Error deleting ${type} record:`, error);
       throw new Error(`Failed to delete ${type} record`);
@@ -82,15 +65,8 @@ export class MasterRecordService {
       const collectionName = COLLECTION_MAPPING[type];
       if (!collectionName) throw new Error(`Unknown record type: ${type}`);
 
-      const q = query(collection(db, collectionName), orderBy('name', 'asc'));
-      const querySnapshot = await getDocs(q);
-
-      const records: any[] = [];
-      querySnapshot.forEach((doc) => {
-        records.push({ id: doc.id, ...doc.data() });
-      });
-
-      return records;
+      const response = await api.get(`/master-records/${collectionName}`);
+      return response.data;
     } catch (error) {
       console.error(`Error fetching ${type} records:`, error);
       throw new Error(`Failed to fetch ${type} records`);
@@ -102,15 +78,8 @@ export class MasterRecordService {
       const collectionName = COLLECTION_MAPPING[type];
       if (!collectionName) throw new Error(`Unknown record type: ${type}`);
 
-      const q = query(collection(db, collectionName), where('status', '==', status), orderBy('name', 'asc'));
-      const querySnapshot = await getDocs(q);
-
-      const records: any[] = [];
-      querySnapshot.forEach((doc) => {
-        records.push({ id: doc.id, ...doc.data() });
-      });
-
-      return records;
+      const response = await api.get(`/master-records/${collectionName}?status=${status}`);
+      return response.data;
     } catch (error) {
       console.error(`Error fetching ${type} records by status:`, error);
       throw new Error(`Failed to fetch ${type} records by status`);

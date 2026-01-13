@@ -1,47 +1,24 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  Timestamp
-} from '../firebase/config';
-import { db } from '../firebase/config';
+import api from './api';
 import type { NetworkProvider } from '../types';
-
-const COLLECTION_NAME = 'network_providers';
 
 export const NetworkProviderService = {
 
-  // Get all providers (One-time fetch)
+  // Get all providers
   getNetworkProviders: async (): Promise<NetworkProvider[]> => {
     try {
-      const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NetworkProvider));
+      const response = await api.get('/network-providers');
+      return response.data;
     } catch (error) {
       console.error('Error fetching network providers:', error);
       return [];
     }
   },
 
-  // Get active providers (One-time fetch)
+  // Get active providers
   getActiveNetworkProviders: async (): Promise<NetworkProvider[]> => {
     try {
-      const q = query(
-        collection(db, COLLECTION_NAME),
-        where('status', '==', 'Active'),
-        orderBy('createdAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NetworkProvider));
+      const response = await api.get('/network-providers?status=Active');
+      return response.data;
     } catch (error) {
       console.error('Error fetching active network providers:', error);
       return [];
@@ -51,13 +28,8 @@ export const NetworkProviderService = {
   // Add Provider
   addNetworkProvider: async (providerData: Omit<NetworkProvider, 'id'>): Promise<string> => {
     try {
-      // Auto-generate ID using addDoc
-      const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-        ...providerData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      return docRef.id;
+      const response = await api.post('/network-providers', providerData);
+      return response.data.id;
     } catch (error) {
       console.error('Error adding network provider:', error);
       throw error;
@@ -67,14 +39,7 @@ export const NetworkProviderService = {
   // Update Provider
   updateNetworkProvider: async (id: string, updates: Partial<NetworkProvider>): Promise<void> => {
     try {
-      const docRef = doc(db, COLLECTION_NAME, id);
-      // Verify existence or handle hybrid ID? 
-      // We'll rely on Doc ID as per best practice for new service.
-      // But to be safe against manual edits/legacy:
-      await updateDoc(docRef, {
-        ...updates,
-        updatedAt: new Date().toISOString()
-      });
+      await api.put(`/network-providers/${id}`, updates);
     } catch (error) {
       console.error('Error updating network provider:', error);
       throw error;
@@ -84,35 +49,39 @@ export const NetworkProviderService = {
   // Delete Provider
   deleteNetworkProvider: async (id: string): Promise<void> => {
     try {
-      await deleteDoc(doc(db, COLLECTION_NAME, id));
+      await api.delete(`/network-providers/${id}`);
     } catch (error) {
       console.error('Error deleting network provider:', error);
       throw error;
     }
   },
 
-  // Real-time Subscriptions
+  // Real-time Subscriptions (using polling for now)
   subscribeToNetworkProviders: (callback: (providers: NetworkProvider[]) => void) => {
-    const q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
-      const providers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NetworkProvider));
+    const interval = setInterval(async () => {
+      const providers = await NetworkProviderService.getNetworkProviders();
       callback(providers);
-    });
+    }, 5000);
+
+    // Initial fetch
+    NetworkProviderService.getNetworkProviders().then(callback);
+
+    return () => clearInterval(interval);
   },
 
   subscribeToActiveNetworkProviders: (callback: (providers: NetworkProvider[]) => void) => {
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('status', '==', 'Active'),
-      orderBy('createdAt', 'desc')
-    );
-    return onSnapshot(q, (snapshot) => {
-      const providers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NetworkProvider));
+    const interval = setInterval(async () => {
+      const providers = await NetworkProviderService.getActiveNetworkProviders();
       callback(providers);
-    });
+    }, 5000);
+
+    // Initial fetch
+    NetworkProviderService.getActiveNetworkProviders().then(callback);
+
+    return () => clearInterval(interval);
   },
 
-  // Validation Logic (Ported from Mock)
+  // Validation Logic
   validateNetworkProviderData: (data: Partial<NetworkProvider>): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
