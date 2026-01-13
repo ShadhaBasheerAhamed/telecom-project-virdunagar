@@ -25,17 +25,13 @@ describe('Core Services Tests', () => {
     describe('AuthService', () => {
         it('should login successfully', async () => {
             const mockUser = { id: '1', name: 'Admin', role: 'Super Admin', token: 'fake-token' };
-            // API call returns { data: { user, token } }
             (api.post as any).mockResolvedValue({ data: { user: mockUser, token: 'fake-token' } });
 
             const result = await AuthService.signIn('admin@example.com', 'password');
 
             expect(api.post).toHaveBeenCalledWith('/auth/login', { email: 'admin@example.com', password: 'password' });
-
-            // AuthService.signIn returns { success: true, data: user }
             expect(result.success).toBe(true);
             expect(result.data).toEqual(mockUser);
-
             expect(localStorage.getItem('auth_token')).toBe('fake-token');
         });
 
@@ -63,14 +59,25 @@ describe('Core Services Tests', () => {
             const result = await CustomerService.addCustomer(newCustomer as any);
 
             expect(api.post).toHaveBeenCalledWith('/customers', newCustomer);
-            // CustomerService.addCustomer returns ONLY the ID string
             expect(result).toBe('2');
+        });
+
+        it('should update a customer', async () => {
+            (api.put as any).mockResolvedValue({ data: { success: true } });
+            await CustomerService.updateCustomer('1', { name: 'Jane Smith' });
+            expect(api.put).toHaveBeenCalledWith('/customers/1', { name: 'Jane Smith' });
+        });
+
+        it('should delete a customer', async () => {
+            (api.delete as any).mockResolvedValue({ data: { success: true } });
+            await CustomerService.deleteCustomer('1');
+            expect(api.delete).toHaveBeenCalledWith('/customers/1');
         });
     });
 
     describe('PaymentService', () => {
         it('should fetch payments', async () => {
-            const mockPayments = [{ id: 'p1', amount: 500 }];
+            const mockPayments = [{ id: 'p1', billAmount: 500 }];
             (api.get as any).mockResolvedValue({ data: mockPayments });
 
             const result = await PaymentService.getPayments();
@@ -80,7 +87,7 @@ describe('Core Services Tests', () => {
         });
 
         it('should add a payment', async () => {
-            const newPayment = { amount: 100 };
+            const newPayment = { billAmount: 100 };
             const customerId = '1';
             (api.post as any).mockResolvedValue({ data: { id: 'p2', ...newPayment, customerId } });
 
@@ -93,6 +100,18 @@ describe('Core Services Tests', () => {
             }));
 
             expect(result.id).toBe('p2');
+        });
+
+        it('should update a payment', async () => {
+            (api.put as any).mockResolvedValue({ data: { success: true } });
+            await PaymentService.updatePayment('p1', { billAmount: 600 });
+            expect(api.put).toHaveBeenCalledWith('/payments/p1', { billAmount: 600 });
+        });
+
+        it('should delete a payment', async () => {
+            (api.delete as any).mockResolvedValue({ data: { success: true } });
+            await PaymentService.deletePayment('p1');
+            expect(api.delete).toHaveBeenCalledWith('/payments/p1');
         });
     });
 

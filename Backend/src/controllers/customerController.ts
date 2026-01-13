@@ -103,19 +103,32 @@ export const updateCustomer = async (req: Request, res: Response) => {
 
 // Delete a customer
 export const deleteCustomer = async (req: Request, res: Response) => {
+    const client = await pool.connect();
     try {
         const { id } = req.params;
-        const deleteCustomer = await pool.query('DELETE FROM customers WHERE id = $1', [id]);
 
-        if (deleteCustomer.rowCount === 0) { // Check rowCount instead of rows for DELETE
+        await client.query('BEGIN');
+
+        // Delete related records first to avoid foreign key errors
+        await client.query('DELETE FROM payments WHERE customer_id = $1', [id]);
+        await client.query('DELETE FROM complaints WHERE customer_id = $1', [id]);
+
+        const deleteCustomer = await client.query('DELETE FROM customers WHERE id = $1', [id]);
+
+        if (deleteCustomer.rowCount === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).send("Customer not found");
         }
 
+        await client.query('COMMIT');
         res.json("Customer was deleted!");
     } catch (err) {
+        await client.query('ROLLBACK');
         if (err instanceof Error) {
             console.error(err.message);
             res.status(500).send('Server Error');
         }
+    } finally {
+        client.release();
     }
 };

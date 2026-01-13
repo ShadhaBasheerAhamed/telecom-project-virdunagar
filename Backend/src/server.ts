@@ -32,6 +32,7 @@ import expenseRoutes from './routes/expenseRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import reportRoutes from './routes/reportRoutes';
 import salesRoutes from './routes/salesRoutes';
+import masterRecordRoutes from './routes/masterRecordRoutes';
 // import uploadRoutes from './routes/uploadRoutes'; // Temporarily disabled until multer installs
 
 // Routes
@@ -49,6 +50,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/sales', salesRoutes);
+app.use('/api/master-records', masterRecordRoutes);
 // app.use('/api/upload', uploadRoutes); // Temporarily disabled until multer installs
 
 // Health Check
@@ -57,6 +59,32 @@ app.get('/', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+const startServer = async () => {
+    try {
+        // Initialize Database Tables
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS notifications (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                type TEXT CHECK (type IN ('info', 'success', 'warning', 'error')) DEFAULT 'info',
+                link TEXT,
+                read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+            CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
+        `);
+        console.log('Database initialized successfully');
+
+        app.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('Failed to initialize database or start server:', err);
+    }
+};
+
+startServer();

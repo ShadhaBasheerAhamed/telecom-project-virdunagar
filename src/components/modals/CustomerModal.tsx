@@ -8,7 +8,7 @@ interface CustomerModalProps {
   mode: 'add' | 'edit';
   customer: Customer | null;
   theme: 'light' | 'dark';
-  defaultSource?: string; 
+  defaultSource?: string;
   onClose: () => void;
   onSave: (customer: any) => void;
 }
@@ -25,7 +25,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
   const [ontTypes, setOntTypes] = useState<any[]>([]);
   const [routerMacs, setRouterMacs] = useState<any[]>([]);
   const [ontMacs, setOntMacs] = useState<any[]>([]);
-  const [otts, setOtts] = useState<any[]>([]); 
+  const [otts, setOtts] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     id: '', landline: '', name: '', mobileNo: '', altMobileNo: '', vlanId: '', bbId: '', voipPassword: '',
@@ -39,14 +39,14 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
   const loadMasterData = async () => {
     try {
       const [p, i, rMake, rMac, oMake, oType, oMac, ottData] = await Promise.all([
-          MasterRecordService.getRecords('plan'),
-          MasterRecordService.getRecords('oltIp'),
-          MasterRecordService.getRecords('routerMake'),
-          MasterRecordService.getRecords('routerMac'), 
-          MasterRecordService.getRecords('ontMake'),
-          MasterRecordService.getRecords('ontType'),
-          MasterRecordService.getRecords('ontMac'),
-          MasterRecordService.getRecords('ott') 
+        MasterRecordService.getRecords('plan'),
+        MasterRecordService.getRecords('oltIp'),
+        MasterRecordService.getRecords('routerMake'),
+        MasterRecordService.getRecords('routerMac'),
+        MasterRecordService.getRecords('ontMake'),
+        MasterRecordService.getRecords('ontType'),
+        MasterRecordService.getRecords('ontMac'),
+        MasterRecordService.getRecords('ott')
       ]);
       setPlans(p.filter((x: any) => x.status === 'Active'));
       setOltIps(i.filter((x: any) => x.status === 'Active'));
@@ -65,7 +65,14 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
 
   useEffect(() => {
     if (mode === 'edit' && customer) {
-      setFormData({ ...customer } as any);
+      // Ensure no null/undefined values leak into form state
+      const sanitizedCustomer = { ...customer };
+      Object.keys(sanitizedCustomer).forEach((key: string) => {
+        if ((sanitizedCustomer as any)[key] === null || (sanitizedCustomer as any)[key] === undefined) {
+          (sanitizedCustomer as any)[key] = '';
+        }
+      });
+      setFormData(prev => ({ ...prev, ...sanitizedCustomer }));
     }
   }, [mode, customer]);
 
@@ -92,7 +99,7 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
     }, []);
 
     const selectedOption = options.find((opt: any) => (opt.name || opt) === value);
-    const displayValue = selectedOption 
+    const displayValue = selectedOption
       ? (selectedOption.name ? `${selectedOption.name} ${selectedOption.total ? `(₹${selectedOption.total})` : ''}` : selectedOption)
       : placeholder;
 
@@ -101,23 +108,21 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
         <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
           {label} {required && <span className="text-red-500">*</span>}
         </label>
-        
-        <div 
+
+        <div
           onClick={() => !disabled && setIsOpen(!isOpen)}
-          className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium flex items-center justify-between cursor-pointer transition-all ${
-            isDark 
-              ? 'bg-[#0F172A] border-[#334155] text-white hover:border-cyan-500' 
+          className={`w-full px-4 py-2.5 rounded-xl border text-sm font-medium flex items-center justify-between cursor-pointer transition-all ${isDark
+              ? 'bg-[#0F172A] border-[#334155] text-white hover:border-cyan-500'
               : 'bg-white border-gray-300 text-gray-900 hover:border-cyan-500'
-          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+            } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
           <span className={`truncate pr-2 ${!selectedOption ? 'text-gray-500' : ''}`}>{displayValue}</span>
           <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
         </div>
 
         {isOpen && (
-          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100 ${
-            isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'
-          }`}>
+          <div className={`absolute z-50 w-full mt-1 rounded-xl border shadow-xl max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-100 ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'
+            }`}>
             {options.length > 0 ? (
               options.map((opt: any, idx: number) => {
                 const optValue = opt.name || opt;
@@ -131,11 +136,10 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
                       onChange(optValue);
                       setIsOpen(false);
                     }}
-                    className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${
-                      isSelected 
+                    className={`px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between transition-colors ${isSelected
                         ? (isDark ? 'bg-cyan-900/30 text-cyan-400' : 'bg-cyan-50 text-cyan-700')
                         : (isDark ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-50')
-                    }`}
+                      }`}
                   >
                     <span className="truncate">{optLabel}</span>
                     {isSelected && <Check className="w-4 h-4 flex-shrink-0" />}
@@ -153,9 +157,8 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
     );
   };
 
-  const textInputClass = `w-full px-4 py-2.5 rounded-xl border text-sm font-medium outline-none focus:ring-1 focus:ring-cyan-500 transition-all ${
-    isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-gray-300 text-gray-900'
-  }`;
+  const textInputClass = `w-full px-4 py-2.5 rounded-xl border text-sm font-medium outline-none focus:ring-1 focus:ring-cyan-500 transition-all ${isDark ? 'bg-[#0F172A] border-[#334155] text-white' : 'bg-white border-gray-300 text-gray-900'
+    }`;
 
   const labelClasses = `block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`;
 
@@ -171,29 +174,29 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
 
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className={`w-full max-w-6xl rounded-2xl border max-h-[90vh] flex flex-col ${isDark ? 'bg-[#1e293b] border-[#334155]' : 'bg-white border-gray-200'} shadow-2xl`}>
-          
+
           {/* Header */}
           <div className={`flex items-center justify-between p-6 border-b ${isDark ? 'border-[#334155]' : 'border-gray-200'}`}>
             <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{mode === 'add' ? 'New Customer Registration' : 'Edit Customer Details'}</h2>
             <button onClick={onClose} className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
-                <X className={`w-6 h-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
+              <X className={`w-6 h-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
             </button>
           </div>
 
           {/* Form Content */}
           <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
             <form id="customerForm" onSubmit={handleSubmit} className="space-y-8">
-              
+
               {/* 1. Personal Information */}
               <div>
                 <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-cyan-400 border-cyan-500/20' : 'text-cyan-700 border-cyan-200'}`}>Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div><label className={labelClasses}>Customer Name *</label><input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={textInputClass} placeholder="Enter name" /></div>
-                  <div><label className={labelClasses}>Mobile No *</label><input type="tel" required value={formData.mobileNo} onChange={e => setFormData({...formData, mobileNo: e.target.value})} className={textInputClass} placeholder="10-digit number" /></div>
-                  <div><label className={labelClasses}>Alt. Mobile</label><input type="tel" value={formData.altMobileNo} onChange={e => setFormData({...formData, altMobileNo: e.target.value})} className={textInputClass} placeholder="Optional" /></div>
-                  <div><label className={labelClasses}>Landline (Unique ID) *</label><input type="text" required value={formData.landline} onChange={e => setFormData({...formData, landline: e.target.value})} className={textInputClass} placeholder="04562-xxxxxx" /></div>
-                  <div><label className={labelClasses}>Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={textInputClass} placeholder="email@example.com" /></div>
-                  <div><label className={labelClasses}>Install Date</label><input type="date" value={formData.installationDate} onChange={e => setFormData({...formData, installationDate: e.target.value})} className={textInputClass} /></div>
+                  <div><label className={labelClasses}>Customer Name *</label><input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className={textInputClass} placeholder="Enter name" /></div>
+                  <div><label className={labelClasses}>Mobile No *</label><input type="tel" required value={formData.mobileNo} onChange={e => setFormData({ ...formData, mobileNo: e.target.value })} className={textInputClass} placeholder="10-digit number" /></div>
+                  <div><label className={labelClasses}>Alt. Mobile</label><input type="tel" value={formData.altMobileNo} onChange={e => setFormData({ ...formData, altMobileNo: e.target.value })} className={textInputClass} placeholder="Optional" /></div>
+                  <div><label className={labelClasses}>Landline (Unique ID) *</label><input type="text" required value={formData.landline} onChange={e => setFormData({ ...formData, landline: e.target.value })} className={textInputClass} placeholder="04562-xxxxxx" /></div>
+                  <div><label className={labelClasses}>Email</label><input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className={textInputClass} placeholder="email@example.com" /></div>
+                  <div><label className={labelClasses}>Install Date</label><input type="date" value={formData.installationDate} onChange={e => setFormData({ ...formData, installationDate: e.target.value })} className={textInputClass} /></div>
                 </div>
               </div>
 
@@ -201,36 +204,36 @@ export function CustomerModal({ mode, customer, theme, defaultSource, onClose, o
               <div>
                 <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-purple-400 border-purple-500/20' : 'text-purple-700 border-purple-200'}`}>Service Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <CustomSelect label="Source" value={formData.source} onChange={(val: any) => setFormData({...formData, source: val})} options={['BSNL', 'RMAX', 'Private']} disabled={!!defaultSource && defaultSource !== 'All'} />
-                  <CustomSelect label="Plan" value={formData.plan} onChange={(val: any) => setFormData({...formData, plan: val})} options={plans} required={true} placeholder="Select Plan" />
-                  <CustomSelect label="OLT IP" value={formData.oltIp} onChange={(val: any) => setFormData({...formData, oltIp: val})} options={oltIps} placeholder="Select OLT IP" />
-                  
-                  <div><label className={labelClasses}>BB ID / User ID</label><input type="text" value={formData.bbId} onChange={e => setFormData({...formData, bbId: e.target.value})} className={textInputClass} placeholder="Broadband ID" /></div>
-                  <div><label className={labelClasses}>VLAN ID</label><input type="text" value={formData.vlanId} onChange={e => setFormData({...formData, vlanId: e.target.value})} className={textInputClass} placeholder="VLAN ID" /></div>
-                  
-                  <CustomSelect label="OTT Subscription" value={formData.ottSubscription} onChange={(val: any) => setFormData({...formData, ottSubscription: val})} options={otts} placeholder="Select OTT" />
-                  <CustomSelect label="Status" value={formData.status} onChange={(val: any) => setFormData({...formData, status: val})} options={['Active', 'Inactive', 'Suspended', 'Expired']} />
+                  <CustomSelect label="Source" value={formData.source} onChange={(val: any) => setFormData({ ...formData, source: val })} options={['BSNL', 'RMAX', 'Private']} disabled={!!defaultSource && defaultSource !== 'All'} />
+                  <CustomSelect label="Plan" value={formData.plan} onChange={(val: any) => setFormData({ ...formData, plan: val })} options={plans} required={true} placeholder="Select Plan" />
+                  <CustomSelect label="OLT IP" value={formData.oltIp} onChange={(val: any) => setFormData({ ...formData, oltIp: val })} options={oltIps} placeholder="Select OLT IP" />
+
+                  <div><label className={labelClasses}>BB ID / User ID</label><input type="text" value={formData.bbId} onChange={e => setFormData({ ...formData, bbId: e.target.value })} className={textInputClass} placeholder="Broadband ID" /></div>
+                  <div><label className={labelClasses}>VLAN ID</label><input type="text" value={formData.vlanId} onChange={e => setFormData({ ...formData, vlanId: e.target.value })} className={textInputClass} placeholder="VLAN ID" /></div>
+
+                  <CustomSelect label="OTT Subscription" value={formData.ottSubscription} onChange={(val: any) => setFormData({ ...formData, ottSubscription: val })} options={otts} placeholder="Select OTT" />
+                  <CustomSelect label="Status" value={formData.status} onChange={(val: any) => setFormData({ ...formData, status: val })} options={['Active', 'Inactive', 'Suspended', 'Expired']} />
                 </div>
               </div>
-              
+
               {/* 3. Device Information */}
               <div>
                 <h3 className={`text-sm font-black tracking-widest uppercase mb-4 pb-2 border-b ${isDark ? 'text-green-400 border-green-500/20' : 'text-green-700 border-green-200'}`}>Device Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <CustomSelect label="ONT Make" value={formData.ontMake} onChange={(val: any) => setFormData({...formData, ontMake: val})} options={ontMakes} placeholder="Select Make" />
-                  <CustomSelect label="ONT Type" value={formData.ontType} onChange={(val: any) => setFormData({...formData, ontType: val})} options={ontTypes} placeholder="Select Type" />
-                  <CustomSelect label="ONT Mac" value={formData.ontMacAddress} onChange={(val: any) => setFormData({...formData, ontMacAddress: val})} options={ontMacs} placeholder="Select MAC" />
-                  
-                  <div><label className={labelClasses}>Bill No</label><input type="text" value={formData.ontBillNo} onChange={e => setFormData({...formData, ontBillNo: e.target.value})} className={textInputClass} placeholder="Bill #" /></div>
-                  
-                  <CustomSelect label="ONT Status" value={formData.ont} onChange={(val: any) => setFormData({...formData, ont: val})} options={['Paid ONT', 'Free ONT', 'Offer Price', 'Rented ONT']} />
-                  
+                  <CustomSelect label="ONT Make" value={formData.ontMake} onChange={(val: any) => setFormData({ ...formData, ontMake: val })} options={ontMakes} placeholder="Select Make" />
+                  <CustomSelect label="ONT Type" value={formData.ontType} onChange={(val: any) => setFormData({ ...formData, ontType: val })} options={ontTypes} placeholder="Select Type" />
+                  <CustomSelect label="ONT Mac" value={formData.ontMacAddress} onChange={(val: any) => setFormData({ ...formData, ontMacAddress: val })} options={ontMacs} placeholder="Select MAC" />
+
+                  <div><label className={labelClasses}>Bill No</label><input type="text" value={formData.ontBillNo} onChange={e => setFormData({ ...formData, ontBillNo: e.target.value })} className={textInputClass} placeholder="Bill #" /></div>
+
+                  <CustomSelect label="ONT Status" value={formData.ont} onChange={(val: any) => setFormData({ ...formData, ont: val })} options={['Paid ONT', 'Free ONT', 'Offer Price', 'Rented ONT']} />
+
                   {formData.ont === 'Offer Price' && (
-                        <div><label className={labelClasses}>Offer Price (₹)</label><input type="number" value={formData.offerPrize} onChange={e => setFormData({...formData, offerPrize: e.target.value})} className={textInputClass} /></div>
+                    <div><label className={labelClasses}>Offer Price (₹)</label><input type="number" value={formData.offerPrize} onChange={e => setFormData({ ...formData, offerPrize: e.target.value })} className={textInputClass} /></div>
                   )}
 
-                  <CustomSelect label="Router Make" value={formData.routerMake} onChange={(val: any) => setFormData({...formData, routerMake: val})} options={routerMakes} placeholder="Select Router" />
-                  <CustomSelect label="Router Mac" value={formData.routerMacId} onChange={(val: any) => setFormData({...formData, routerMacId: val})} options={routerMacs} placeholder="Select MAC" />
+                  <CustomSelect label="Router Make" value={formData.routerMake} onChange={(val: any) => setFormData({ ...formData, routerMake: val })} options={routerMakes} placeholder="Select Router" />
+                  <CustomSelect label="Router Mac" value={formData.routerMacId} onChange={(val: any) => setFormData({ ...formData, routerMacId: val })} options={routerMacs} placeholder="Select MAC" />
                 </div>
               </div>
 

@@ -59,7 +59,35 @@ export const NotificationService = {
   },
 
   // Subscribe with polling
-  subscribeToNotifications: (userId: string, callback: (notifications: Notification[]) => void): () => void => {
+  getUnreadCount: async (userId?: string): Promise<number> => {
+    try {
+      const notifications = await NotificationService.getNotifications(userId, true);
+      return notifications.length;
+    } catch (error) {
+      console.error('Error getting unread count:', error);
+      return 0;
+    }
+  },
+
+  markAllAsRead: async (userId?: string): Promise<void> => {
+    try {
+      // Assuming backend has this endpoint, else loop through unread
+      // For now, simpler to specific implementation or bulk update
+      // We will just fetch unread and mark them read one by one if no bulk endpoint, 
+      // or assume the backend supports a general PUT /notifications/read-all
+      // But to be safe with current verified API methods, let's look at controller...
+      // Wait, I didn't create a bulk read endpoint in the walkthrough summary.
+      // I will implement a client-side loop for safety for now.
+      const unread = await NotificationService.getNotifications(userId, true);
+      await Promise.all(unread.map(n => NotificationService.markAsRead(n.id)));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      throw error;
+    }
+  },
+
+  // Subscribe with polling: Callback First
+  subscribeToNotifications: (callback: (notifications: Notification[]) => void, userId?: string): () => void => {
     const fetchNotifications = async () => {
       const notifications = await NotificationService.getNotifications(userId);
       callback(notifications);
@@ -68,6 +96,16 @@ export const NotificationService = {
     fetchNotifications(); // Initial fetch
     const interval = setInterval(fetchNotifications, 10000); // Poll every 10 seconds
 
+    return () => clearInterval(interval);
+  },
+
+  subscribeToUnreadCount: (callback: (count: number) => void, userId?: string): () => void => {
+    const fetchCount = async () => {
+      const count = await NotificationService.getUnreadCount(userId);
+      callback(count);
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 10000);
     return () => clearInterval(interval);
   }
 };
