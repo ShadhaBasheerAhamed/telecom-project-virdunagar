@@ -3,12 +3,23 @@ import api from './api';
 export interface InventoryItem {
     id: string;
     name: string;
+    description: string;
     category: string;
-    quantity: number;
-    price: number;
-    supplier?: string;
-    description?: string;
-    image_url?: string;
+    buyPrice: number;
+    sellPrice: number;
+    stock: number;
+    unit: 'Nos' | 'Mtr';
+    gst: number;
+    image?: string;
+    routerMake?: string;
+    ontMake?: string;
+    ontType?: string;
+    macAddress?: string;
+    createdAt?: string;
+
+    // Legacy fields if still needed by some parts, but mostly we'll use the above
+    quantity?: number;
+    price?: number;
 }
 
 export const InventoryService = {

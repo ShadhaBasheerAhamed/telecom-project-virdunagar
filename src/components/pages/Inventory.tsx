@@ -62,7 +62,7 @@ const QuickMasterSelect = ({ label, value, onChange, collectionName, options, th
   const [newValue, setNewValue] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isDark = theme === 'dark';
-  const storage = getStorage(); // Initialize storage inside or outside component
+  // const storage = getStorage(); // Removed: getStorage is undefined and not needed here
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -84,7 +84,7 @@ const QuickMasterSelect = ({ label, value, onChange, collectionName, options, th
   const handleSaveNew = async () => {
     if (!newValue.trim()) return;
     try {
-      await MasterRecordService.createRecord(collectionName, {
+      await MasterRecordService.addRecord(collectionName, {
         name: capitalizeFirst(newValue.trim()),
         status: 'Active'
       });
@@ -180,7 +180,7 @@ export function Inventory({ theme }: InventoryProps) {
   // Fetch products from API
   const fetchProducts = async () => {
     const data = await InventoryService.getItems();
-    setProducts(data as Product[]);
+    setProducts(data as unknown as Product[]);
     setLoading(false);
   };
 
